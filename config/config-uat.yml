@@ -1,0 +1,176 @@
+# system config
+system:
+  name: "xledger" # project name | app name
+  version: "0.0.1"
+  description: "xan's ledger"
+  env: "uat" # uat(测试环境User Acceptance Test) | pat(预发环境Pre-Acceptance Test) | fat(正式环境Final Acceptance Test) | sit(集成测试环境System Integration Test) | pro(生产环境Production Environment)
+  port: 6301
+  debug: true
+  http:
+    # 读取超时时间
+    read_timeout: 10
+    # 写入超时时间
+    write_timeout: 10
+    # 空闲超时时间
+    idle_timeout: 30
+
+server:
+  http_port: 6301
+  grpc_port: 9098
+
+# log config
+log:
+  # trace | debug | info | warn | error | fatal | panic
+  level: "debug"
+  # true | false
+  save_logger_as_file: true
+  # logger_file_path = directory + project_name + logger_name + .log
+  directory: "./tmp/logs"
+  project_name: "xledger"
+  # 可省略，默认 x_logger
+  logger_name: "xledger"
+  max_size: 100 # MB
+  max_backups: 10
+
+postgres:
+  uri: admin:111111@x-postgres:5432/xledger?sslmode=disable
+  host: x-postgres
+  port: 5432
+  user: admin
+  dbname: x_ledger
+  password: 111111
+  sslmode: disable
+  dsn: host=x-postgres port=5432 user=admin dbname=xledger password=111111 sslmode=disable TimeZone=UTC
+
+minio:
+  endpoint: ""
+  bucket: ""
+  access_key: ""
+  secret_key: ""
+
+smtp:
+  host:
+  port:
+  username: 
+  password: 
+  from: 
+  to_emails:
+    - rich4xan@gmail.com
+  cc_emails:
+    - ""
+  bcc_emails:
+    - ""
+
+mysql:
+  path: "127.0.0.1:3314" # 多人协作时建议用同一个数据库 eg: 47.243.203.232:3306
+  username: "root"
+  password: "root123"
+  database: "xledger"
+  config: "charset=utf8mb4&parseTime=true&loc=Asia%2fShanghai"
+  max_idle_conns: 10
+  max_open_conns: 100
+  max_life_seconds: 60
+  is_console: true
+
+redis:
+  addresses:
+    - 127.0.0.1:6387
+  db: 0
+  password: ""
+  pool_size: 100
+  min_idle_conns: 10
+
+rabbitmq:
+  host: rabbitmq
+  port: 5680
+  username: guest
+  password: guest
+  vhost: /
+
+prometheus:
+  host: prometheus
+  port: 9098
+  metrics_path: /metrics
+  scrape_interval: 15s
+
+grafana:
+  host: grafana
+  port: 3008
+  username: admin
+  password: admin
+
+jaeger:
+  host: jaeger
+  port: 6839
+  sampler_type: const
+  sampler_param: 1
+  log_spans: true
+
+social:
+  sync:
+    interval: 6h
+    max_concurrent: 5
+    timeout: 30s
+    max_retries: 3
+    retry_interval: 1m
+    history_retention: 30
+    items:
+      avatar: true
+      nickname: true
+      profile: true
+      status: true
+
+  oauth:
+    callback_base_url: http://localhost:8088/auth
+    state_expiry: 15m
+    auto_create_user: true
+    default_role: user
+    providers:
+      github:
+        client_id: your_github_client_id
+        client_secret: your_github_client_secret
+        scopes: ["user:email"]
+        enabled: true
+      google:
+        client_id: your_google_client_id
+        client_secret: your_google_client_secret
+        scopes: 
+          - https://www.googleapis.com/auth/userinfo.email
+          - https://www.googleapis.com/auth/userinfo.profile
+        enabled: true
+      wechat:
+        client_id: your_wechat_app_id
+        client_secret: your_wechat_app_secret
+        scopes: ["snsapi_userinfo"]
+        enabled: true
+        extra:
+          qrcode_size: 200
+          lang: zh_CN
+      qq:
+        client_id: your_qq_app_id
+        client_secret: your_qq_app_key
+        scopes: ["get_user_info"]
+        enabled: true
+        extra:
+          display: mobile
+      weibo:
+        client_id: your_weibo_app_key
+        client_secret: your_weibo_app_secret
+        scopes: ["email"]
+        enabled: true
+        extra:
+          display: mobile
+          language: zh_CN
+
+  security:
+    max_bindings: 5
+    allow_unbind_last: false
+    allow_merge: true
+    merge_confirm_timeout: 24h
+    enable_ip_limit: true
+    ip_limit:
+      window: 1h
+      max_requests: 100
+      ban_duration: 24h
+      whitelist: ["127.0.0.1"]
+  

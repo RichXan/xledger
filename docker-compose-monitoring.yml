@@ -1,0 +1,94 @@
+version: '3.3'
+
+services:
+  # Prometheus 服务
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: xledger-prometheus
+    ports:
+      - "9098:9090"
+    volumes:
+      - ./deployments/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - monitoring-network
+
+  # Grafana 服务
+  grafana:
+    image: grafana/grafana:latest
+    container_name: xledger-grafana
+    ports:
+      - "3008:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployments/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./deployments/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./deployments/grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - monitoring-network
+
+  # Node Exporter
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: xledger-node-exporter
+    ports:
+      - "9108:9100"
+    networks:
+      - monitoring-network
+
+  # cAdvisor
+  cadvisor:
+    image: google/cadvisor:latest
+    container_name: xledger-cadvisor
+    ports:
+      - "8089:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - monitoring-network
+
+  # MySQL Exporter
+  mysql-exporter:
+    image: prom/mysqld-exporter:latest
+    container_name: xledger-mysql-exporter
+    ports:
+      - "9112:9104"
+    environment:
+      DATA_SOURCE_NAME: "root:root123@(mysql:3306)/"
+    networks:
+      - monitoring-network
+      - xledger-network
+
+  # Redis Exporter
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: xledger-redis-exporter
+    ports:
+      - "9129:9121"
+    environment:
+      REDIS_ADDR: "redis:6379"
+    networks:
+      - monitoring-network
+      - xledger-network
+
+networks:
+  monitoring-network:
+    driver: bridge
+  xledger-network:
+    external: true
+
+volumes:
+  prometheus_data:
+  grafana_data: 
