@@ -1,0 +1,605 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "xledger",
+    "description": "",
+    "version": "1.0.0"
+  },
+  "tags": [
+    {
+      "name": "user"
+    }
+  ],
+  "paths": {
+    "/api/v1/user": {
+      "post": {
+        "summary": "创建用户",
+        "deprecated": false,
+        "description": "创建新用户",
+        "tags": [
+          "user"
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "用户名称"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "密码"
+                  },
+                  "email": {
+                    "type": "string",
+                    "description": "邮箱"
+                  }
+                },
+                "required": [
+                  "username",
+                  "email",
+                  "password"
+                ]
+              },
+              "example": {
+                "name": "xan",
+                "password": "123456",
+                "email": "123456@qq.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功响应",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse"
+                },
+                "examples": {
+                  "1": {
+                    "summary": "成功示例",
+                    "value": {
+                      "code": 0,
+                      "status": true,
+                      "message": "success",
+                      "data": 123,
+                      "trace_id": "550e8400-e29b-41d4-a716-446655440000"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "未授权",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "1": {
+                    "summary": "成功示例",
+                    "value": {
+                      "code": 10001,
+                      "message": "unauthorized",
+                      "trace_id": "550e8400-e29b-41d4-a716-446655440000"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      },
+      "get": {
+        "summary": "获取用户列表",
+        "deprecated": false,
+        "description": "分页获取用户列表",
+        "tags": [
+          "user"
+        ],
+        "parameters": [
+          {
+            "name": "current",
+            "in": "query",
+            "description": "当前页码",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "每页数量",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 10
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "排序字段",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "description": "用户名称(模糊查询)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功响应",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponse"
+                },
+                "examples": {
+                  "1": {
+                    "summary": "成功示例",
+                    "value": {
+                      "code": 0,
+                      "status": true,
+                      "message": "success",
+                      "current": 1,
+                      "size": 10,
+                      "total": 100,
+                      "order": "id desc",
+                      "data": [
+                        {
+                          "id": 1,
+                          "name": "用户1",
+                          "createBy": "admin",
+                          "updateBy": "admin",
+                          "createTime": "2024-03-20T10:00:00Z",
+                          "updateTime": "2024-03-20T10:00:00Z"
+                        }
+                      ],
+                      "trace_id": "550e8400-e29b-41d4-a716-446655440000"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "未授权",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/user/{id}": {
+      "put": {
+        "summary": "更新用户",
+        "deprecated": false,
+        "description": "根据ID更新用户信息",
+        "tags": [
+          "user"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "用户ID",
+            "required": true,
+            "example": 0,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "用户名称"
+                  },
+                  "email": {
+                    "type": "string",
+                    "description": "邮箱"
+                  }
+                },
+                "required": [
+                  "username"
+                ]
+              },
+              "example": {
+                "username": "xan",
+                "email": "123456@qq.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功响应",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse"
+                },
+                "examples": {
+                  "1": {
+                    "summary": "成功示例",
+                    "value": {
+                      "code": 0,
+                      "status": true,
+                      "message": "success",
+                      "data": 1,
+                      "trace_id": "550e8400-e29b-41d4-a716-446655440000"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未授权",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "1": {
+                    "summary": "未授权示例",
+                    "value": {
+                      "code": 10001,
+                      "message": "unauthorized",
+                      "trace_id": "550e8400-e29b-41d4-a716-446655440000"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      },
+      "delete": {
+        "summary": "删除用户",
+        "deprecated": false,
+        "description": "根据ID删除用户",
+        "tags": [
+          "user"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "用户ID",
+            "required": true,
+            "example": 0,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功响应",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse"
+                },
+                "examples": {
+                  "1": {
+                    "summary": "成功示例",
+                    "value": {
+                      "code": 0,
+                      "status": true,
+                      "message": "success",
+                      "data": 1,
+                      "trace_id": "550e8400-e29b-41d4-a716-446655440000"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未授权",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "1": {
+                    "summary": "未授权示例",
+                    "value": {
+                      "code": 10001,
+                      "message": "unauthorized",
+                      "trace_id": "550e8400-e29b-41d4-a716-446655440000"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "响应码"
+          },
+          "status": {
+            "type": "boolean",
+            "description": "请求是否成功"
+          },
+          "message": {
+            "type": "string",
+            "description": "响应消息"
+          },
+          "data": {
+            "type": "integer",
+            "description": "影响的记录数"
+          },
+          "trace_id": {
+            "type": "string",
+            "description": "追踪ID"
+          }
+        }
+      },
+      "UnauthorizedError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "APIResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "业务编码",
+            "examples": [
+              0
+            ]
+          },
+          "status": {
+            "type": "boolean",
+            "description": "请求是否成功",
+            "examples": [
+              true
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "响应消息",
+            "examples": [
+              "success"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "description": "响应数据",
+            "examples": [
+              {
+                "id": 1,
+                "name": "用户1"
+              }
+            ],
+            "properties": {}
+          },
+          "trace_id": {
+            "type": "string",
+            "description": "追踪ID",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ]
+          }
+        }
+      },
+      "PageResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/APIResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "current": {
+                "type": "integer",
+                "description": "当前页码",
+                "examples": [
+                  1
+                ]
+              },
+              "size": {
+                "type": "integer",
+                "description": "每页数量",
+                "examples": [
+                  10
+                ]
+              },
+              "total": {
+                "type": "integer",
+                "format": "int64",
+                "description": "总记录数",
+                "examples": [
+                  100
+                ]
+              },
+              "order": {
+                "type": "string",
+                "description": "排序字段",
+                "examples": [
+                  "id desc"
+                ]
+              },
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/UserInfo"
+                },
+                "examples": [
+                  [
+                    {
+                      "id": 1,
+                      "name": "用户1",
+                      "createBy": "admin",
+                      "updateBy": "admin",
+                      "createTime": "2024-03-20T10:00:00Z",
+                      "updateTime": "2024-03-20T10:00:00Z"
+                    }
+                  ]
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "UserInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "用户ID",
+            "examples": [
+              1
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "用户名称",
+            "examples": [
+              "用户1"
+            ]
+          },
+          "createBy": {
+            "type": "string",
+            "description": "创建人",
+            "examples": [
+              "admin"
+            ]
+          },
+          "updateBy": {
+            "type": "string",
+            "description": "更新人",
+            "examples": [
+              "admin"
+            ]
+          },
+          "createTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "创建时间",
+            "examples": [
+              "2024-03-20T10:00:00Z"
+            ]
+          },
+          "updateTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "更新时间",
+            "examples": [
+              "2024-03-20T10:00:00Z"
+            ]
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "错误码",
+            "examples": [
+              10001
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "错误信息",
+            "examples": [
+              "parameter error"
+            ]
+          },
+          "trace_id": {
+            "type": "string",
+            "description": "追踪ID",
+            "examples": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ]
+          }
+        }
+      }
+    },
+    "securitySchemes": {}
+  },
+  "servers": []
+}

@@ -5,7 +5,7 @@ go 1.22
 toolchain go1.22.10
 
 require (
-	github.com/RichXan/xcommon v0.0.0-20241230011351-6756516a0d45
+	github.com/RichXan/xcommon v0.0.0-20250110081910-3912b753bada
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang/protobuf v1.5.4
 	github.com/opentracing/opentracing-go v1.2.0
@@ -102,6 +102,7 @@ require (
 	github.com/go-acme/lego/v4 v4.4.0 // indirect
 	github.com/go-redsync/redsync/v4 v4.13.0 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
+	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
@@ -121,3 +122,5 @@ require (
 	gorm.io/driver/mysql v1.5.7 // indirect
 	gorm.io/driver/postgres v1.5.11 // indirect
 )
+
+replace github.com/RichXan/xcommon => ../xcommon

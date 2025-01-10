@@ -2,8 +2,8 @@ package router
 
 import (
 	"net/http"
+	"xledger/database/repo"
 	"xledger/global"
-	"xledger/internal/access/repo"
 	"xledger/internal/http/handler"
 	"xledger/internal/http/middleware"
 	"xledger/internal/http/service"
@@ -50,7 +50,9 @@ func Setup(
 	r.Use(xmiddleware.Logger(logger, global.Config.System.Debug))
 	r.Use(xmiddleware.TracingMiddleware(tracer))
 	r.Use(middleware.MetricsMiddleware())
+	r.Use(xmiddleware.TimeFormat)
 
+	// 健康检查
 	// 健康检查
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

@@ -1,7 +1,7 @@
 package repo
 
 import (
-	"xledger/internal/access/model"
+	"xledger/database/model"
 )
 
 // UserRepository 用户仓库接口

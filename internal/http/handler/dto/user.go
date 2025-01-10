@@ -1,5 +1,22 @@
 package dto
 
+type UserCreate struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+}
+
+type UserUpdate struct {
+	ID       uint64 `json:"id" binding:"required"`
+	Nickname string `json:"nickname"`
+	Avatar   string `json:"avatar"`
+	Bio      string `json:"bio"`
+}
+
+type UserList struct {
+	Page
+}
+
 type UserRegister struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
@@ -9,12 +26,6 @@ type UserRegister struct {
 type UserLogin struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
-}
-
-type UserUpdateProfile struct {
-	Nickname string `json:"nickname"`
-	Avatar   string `json:"avatar"`
-	Bio      string `json:"bio"`
 }
 
 type UserChangePassword struct {

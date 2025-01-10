@@ -17,48 +17,15 @@ services:
       - xledger-network
 
   # Redis 服务
-  # redis:
-  #   image: redis:6.2
-  #   container_name: xledger-redis
-  #   ports:
-  #     - "6387:6379"
-  #   volumes:
-  #     - redis_data:/data
-  #   networks:
-  #     - xledger-network
-
-  # # RabbitMQ 服务
-  # rabbitmq:
-  #   image: rabbitmq:3.9-management
-  #   container_name: xledger-rabbitmq
-  #   ports:
-  #     - "5680:5672"
-  #     - "15680:15672"
-  #     - "15700:15692"
-  #   environment:
-  #     RABBITMQ_DEFAULT_USER: guest
-  #     RABBITMQ_DEFAULT_PASS: guest
-  #   volumes:
-  #     - rabbitmq_data:/var/lib/rabbitmq
-  #   networks:
-  #     - xledger-network
-
-  # # Jaeger
-  # jaeger:
-  #   image: jaegertracing/all-in-one:latest
-  #   container_name: xledger-jaeger
-  #   ports:
-  #     - "5783:5775/udp"    # 接收 compact thrift 协议的 UDP 包
-  #     - "6839:6831/udp"    # 接收 jaeger.thrift compact 协议的 UDP 包
-  #     - "6840:6832/udp"    # 接收 jaeger.thrift binary 协议的 UDP 包
-  #     - "5786:5778"        # 服务配置端口
-  #     - "16694:16686"      # Web UI 端口，用于查看追踪数据
-  #     - "14258:14250"      # 接收 model.proto 协议数据
-  #     - "14276:14268"      # 接收 jaeger.thrift 协议的 HTTP 请求
-  #     - "14277:14269"      # 管理端口
-  #     - "9419:9411"        # Zipkin 兼容 API 端口
-  #   networks:
-  #     - xledger-network
+  redis:
+    image: redis:6.2
+    container_name: xledger-redis
+    ports:
+      - "6388:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - xledger-network
 
   # Swagger UI 服务
   swagger-ui:
@@ -83,7 +50,4 @@ networks:
 
 volumes:
   mysql_data:
-  # redis_data:
-  # rabbitmq_data:
-  # prometheus_data:
-  # grafana_data: 
+  redis_data:

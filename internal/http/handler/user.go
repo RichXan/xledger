@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"strconv"
 	"xledger/internal/http/handler/dto"
 	"xledger/internal/micro/service"
 
@@ -19,16 +20,17 @@ func NewUserHandler(logger *xlog.Logger, userService service.UserService) *UserH
 	return &UserHandler{logger: logger, userService: userService}
 }
 
-// HandleRegister 用户注册
-func (h *UserHandler) HandleRegister(c *gin.Context) {
-	var req dto.UserRegister
+func (h *UserHandler) Create(c *gin.Context) {
+	var req dto.UserCreate
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error().Err(err).Msg("参数错误")
 		xhttp.Error(c, xerror.ParamError)
 		return
 	}
 
-	user, err := h.userService.Register(c.Request.Context(), req.Username, req.Password, req.Email)
+	user, err := h.userService.Create(c.Request.Context(), &req)
 	if err != nil {
+		h.logger.Error().Err(err).Msg("创建用户失败")
 		xhttp.Error(c, err)
 		return
 	}
@@ -36,55 +38,91 @@ func (h *UserHandler) HandleRegister(c *gin.Context) {
 	xhttp.Success(c, user)
 }
 
-// HandleLogin 用户登录
-func (h *UserHandler) HandleLogin(c *gin.Context) {
-	var req dto.UserLogin
-	if err := c.ShouldBindJSON(&req); err != nil {
+func (h *UserHandler) Delete(c *gin.Context) {
+	id := c.Param("id")
+	userID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		h.logger.Error().Err(err).Msg("参数错误")
 		xhttp.Error(c, xerror.ParamError)
 		return
 	}
 
-	token, err := h.userService.Login(c.Request.Context(), req.Username, req.Password)
+	err = h.userService.Delete(c.Request.Context(), userID)
 	if err != nil {
+		h.logger.Error().Err(err).Msg("删除用户失败")
 		xhttp.Error(c, err)
 		return
 	}
 
-	xhttp.Success(c, gin.H{"token": token})
+	xhttp.Success(c, nil)
 }
 
-// // HandleGetProfile 获取用户信息
-// func (h *UserHandler) HandleGetProfile(c *gin.Context) {
-// 	userID := c.GetInt64("user_id")
-// 	if userID == 0 {
-// 		xhttp.Error(c, xerror.Unauthorized)
-// 		return
-// 	}
+// HandleUpdate 更新用户信息
+func (h *UserHandler) Update(c *gin.Context) {
+	var req dto.UserUpdate
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error().Err(err).Msg("参数错误")
+		xhttp.Error(c, xerror.ParamError)
+		return
+	}
 
-// 	user, err := h.userService.GetUser(c.Request.Context(), userID)
-// 	if err != nil {
-// 		xhttp.Error(c, err)
-// 		return
-// 	}
+	user, err := h.userService.Update(c.Request.Context(), &req)
+	if err != nil {
+		h.logger.Error().Err(err).Msg("更新用户失败")
+		xhttp.Error(c, err)
+		return
+	}
 
-// 	xhttp.Success(c, user)
-// }
+	xhttp.Success(c, user)
+}
 
-// // HandleUpdateProfile 更新用户信息
-// func (h *UserHandler) HandleUpdateProfile(c *gin.Context) {
-// 	userID := c.GetInt64("user_id")
-// 	if userID == 0 {
-// 		xhttp.Error(c, xerror.Unauthorized)
-// 		return
-// 	}
+// HandleGet 获取用户信息
+func (h *UserHandler) Get(c *gin.Context) {
+	id := c.Param("id")
+	userID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		h.logger.Error().Err(err).Msg("参数错误")
+		xhttp.Error(c, xerror.ParamError)
+		return
+	}
 
-// 	var req dto.UserUpdateProfile
+	user, err := h.userService.Get(c.Request.Context(), userID)
+	if err != nil {
+		h.logger.Error().Err(err).Msg("获取用户失败")
+		xhttp.Error(c, err)
+		return
+	}
+
+	xhttp.Success(c, user)
+}
+
+func (h *UserHandler) List(c *gin.Context) {
+	var req dto.UserList
+	if err := c.ShouldBindQuery(&req); err != nil {
+		h.logger.Error().Err(err).Msg("参数错误")
+		xhttp.Error(c, xerror.ParamError)
+		return
+	}
+
+	users, total, err := h.userService.List(c.Request.Context(), &req)
+	if err != nil {
+		h.logger.Error().Err(err).Msg("获取用户列表失败")
+		xhttp.Error(c, err)
+		return
+	}
+
+	xhttp.Success(c, xhttp.NewResponseData(xerror.Success, users).WithTotal(total))
+}
+
+// // HandleRegister 用户注册
+// func (h *UserHandler) Create(c *gin.Context) {
+// 	var req dto.UserCreate
 // 	if err := c.ShouldBindJSON(&req); err != nil {
 // 		xhttp.Error(c, xerror.ParamError)
 // 		return
 // 	}
 
-// 	user, err := h.userService.UpdateUser(c.Request.Context(), userID, req.Nickname, req.Avatar, req.Bio)
+// 	user, err := h.userService.Create(c.Request.Context(), &req)
 // 	if err != nil {
 // 		xhttp.Error(c, err)
 // 		return
@@ -93,139 +131,19 @@ func (h *UserHandler) HandleLogin(c *gin.Context) {
 // 	xhttp.Success(c, user)
 // }
 
-// // HandleChangePassword 修改密码
-// func (h *UserHandler) HandleChangePassword(c *gin.Context) {
-// 	userID := c.GetInt64("user_id")
-// 	if userID == 0 {
-// 		xhttp.Error(c, xerror.Unauthorized)
-// 		return
-// 	}
-
-// 	var req dto.UserChangePassword
+// // HandleLogin 用户登录
+// func (h *UserHandler) Login(c *gin.Context) {
+// 	var req dto.UserLogin
 // 	if err := c.ShouldBindJSON(&req); err != nil {
 // 		xhttp.Error(c, xerror.ParamError)
 // 		return
 // 	}
 
-// 	if err := h.userService.ChangePassword(c.Request.Context(), userID, req.OldPassword, req.NewPassword); err != nil {
-// 		xhttp.Error(c, err)
-// 		return
-// 	}
-
-// 	xhttp.Success(c, nil)
-// }
-
-// // HandleGetUser 获取指定用户信息
-// func (h *UserHandler) HandleGetUser(c *gin.Context) {
-// 	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-// 	if err != nil {
-// 		xhttp.Error(c, xerror.ParamError)
-// 		return
-// 	}
-
-// 	user, err := h.userService.GetUser(c.Request.Context(), userID)
+// 	token, err := h.userService.Login(c.Request.Context(), req.Username, req.Password)
 // 	if err != nil {
 // 		xhttp.Error(c, err)
 // 		return
 // 	}
 
-// 	xhttp.Success(c, user)
-// }
-
-// // HandleListUsers 获取用户列表
-// func (h *UserHandler) HandleListUsers(c *gin.Context) {
-// 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-// 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-
-// 	users, total, err := h.userService.ListUsers(c.Request.Context(), page, pageSize)
-// 	if err != nil {
-// 		xhttp.Error(c, err)
-// 		return
-// 	}
-
-// 	xhttp.Success(c, xhttp.NewPage(page, pageSize, total, users))
-// }
-
-// // HandleFollowUser 关注用户
-// func (h *UserHandler) HandleFollowUser(c *gin.Context) {
-// 	targetID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-// 	if err != nil {
-// 		xhttp.Error(c, xerror.ParamError)
-// 		return
-// 	}
-
-// 	userID := c.GetInt64("user_id")
-// 	if userID == 0 {
-// 		xhttp.Error(c, xerror.Unauthorized)
-// 		return
-// 	}
-
-// 	if err := h.userService.FollowUser(c.Request.Context(), userID, targetID); err != nil {
-// 		xhttp.Error(c, err)
-// 		return
-// 	}
-
-// 	xhttp.Success(c, nil)
-// }
-
-// // HandleUnfollowUser 取消关注
-// func (h *UserHandler) HandleUnfollowUser(c *gin.Context) {
-// 	targetID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-// 	if err != nil {
-// 		xhttp.Error(c, xerror.ParamError)
-// 		return
-// 	}
-
-// 	userID := c.GetInt64("user_id")
-// 	if userID == 0 {
-// 		xhttp.Error(c, xerror.Unauthorized)
-// 		return
-// 	}
-
-// 	if err := h.userService.UnfollowUser(c.Request.Context(), userID, targetID); err != nil {
-// 		xhttp.Error(c, err)
-// 		return
-// 	}
-
-// 	xhttp.Success(c, nil)
-// }
-
-// // HandleListFollowers 获取粉丝列表
-// func (h *UserHandler) HandleListFollowers(c *gin.Context) {
-// 	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-// 	if err != nil {
-// 		xhttp.Error(c, xerror.ParamError)
-// 		return
-// 	}
-
-// 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-// 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-
-// 	users, total, err := h.userService.ListFollowers(c.Request.Context(), userID, page, pageSize)
-// 	if err != nil {
-// 		xhttp.Error(c, err)
-// 		return
-// 	}
-
-// 	xhttp.Success(c, xhttp.NewPage(page, pageSize, total, users))
-// }
-
-// // HandleListFollowing 获取关注列表
-// func (h *UserHandler) HandleListFollowing(c *gin.Context) {
-// 	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-// 	if err != nil {
-// 		xhttp.Error(c, xerror.ParamError)
-// 		return
-// 	}
-
-// 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-// 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-
-// 	users, total, err := h.userService.ListFollowing(c.Request.Context(), userID, page, pageSize)
-// 	if err != nil {
-// 		xhttp.Error(c, err)
-// 		return
-// 	}
-
-// 	xhttp.Success(c, xhttp.NewPage(page, pageSize, total, users))
+// 	xhttp.Success(c, gin.H{"token": token})
 // }

@@ -10,47 +10,59 @@
 ### 目录结构
 ```
 .
-├── cmd/                    # 各个服务的入口点
-│   └── api-service/       # API服务入口
+├── cmd/                        # 各个服务的入口点
+│   └── api-service/            # API服务入口
 │       └── main.go
-│
-├── internal/              # 内部实现代码
-│   ├── access/           # 数据访问层
-│   │   ├── model/        # 数据模型定义
-│   │   │   └── bill.go   # 账单相关模型
-│   │   └── repo/   # 数据仓储接口和实现
-│   │       ├── bill.go   # 账单仓储接口
-│   │       └── bill_impl.go  # 账单仓储实现
+|
+├── database/                   # 数据库相关
+│   │ 
+│   ├── migrations/                 # 数据库迁移
+│   │   └── 000000_user.down.sql    # 数据库表删除迁移
+│   │   └── 000000_user.up.sql      # 数据库表创建迁移
 │   │
-│   ├── http/             # HTTP服务层
-│   │   ├── handler/      # HTTP处理器
-│   │   │   └── bill.go   # 账单相关处理器
-│   │   ├── service/      # 业务服务层
-│   │   │   ├── bill.go   # 账单服务接口
-│   │   │   └── bill_impl.go  # 账单服务实现
-│   │   └── server.go     # HTTP服务器配置
+│   ├── model/                  # 数据模型
+│   │   └── user.go             # 用户模型
 │   │
-│   └── micro/              # 微服务相关
-│       ├── proto/          # grpc 协议定义
-│       └── service/        # 服务实现
+│   └── repo/                   # 数据仓储
+│       ├── user.go             # 用户仓储接口
+│       └── user_impl.go        # 用户仓储实现
 │
-├── pkg/                  # 可重用的公共包
-│   └── common/           # 通用功能
-│
-├── config/             # 配置文件
-│   ├── config.yml
-│   └── config-uat.yml
-│
-├── scripts/            # 部署和维护脚本
-│   ├── deploy.sh
-│   └── migrate.sh
-│
-├── deployments/        # 部署相关配置
+├── deployments/                # 部署相关配置
 │   ├── docker/
 │   └── kubernetes/
 │
-├── document/          # API 文档
+├── document/                   # API 文档
 │   └── swagger/
+│
+├── internal/                   # 内部实现代码
+│   │
+│   ├── http/                   # HTTP服务层
+│   │   ├── handler/            # HTTP处理器
+│   │   │   ├── dto/            # 数据传输对象
+│   │   │   │   ├── public.go   # 公共数据传输对象
+│   │   │   │   └── user.go     # 用户相关数据传输对象
+│   │   │   └── user.go         # 用户相关处理器
+│   │   │
+│   │   ├── service/            # 业务服务层
+│   │   │   ├── dto/            # 数据传输对象
+│   │   │   └── user.go         # 用户服务接口
+│   │   │
+│   │   └── server.go           # HTTP服务器配置
+│   │
+│   └── micro/                  # 微服务相关
+│       ├── proto/              # grpc 协议定义
+│       └── service/            # 服务实现
+│
+├── pkg/                        # 可重用的公共包
+│   └── common/                 # 通用功能
+│
+├── config/                     # 配置文件
+│   ├── config.yml
+│   └── config-uat.yml
+│
+├── scripts/                    # 部署和维护脚本
+│   ├── deploy.sh
+│   └── migrate.sh
 │
 ├── bin/              # 编译后的二进制文件
 ├── Dockerfile       # Docker构建文件

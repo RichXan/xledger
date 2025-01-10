@@ -6,9 +6,12 @@ import (
 
 // setupUserRoutes 设置用户相关路由
 func setupUserRoutes(r *gin.RouterGroup) {
-	public := r.Group("")
+	user := r.Group("user")
 	{
-		public.POST("/register", userHandler.HandleRegister)
-		public.POST("/login", userHandler.HandleLogin)
+		user.POST("", userHandler.Create)
+		user.DELETE("/:id", userHandler.Delete)
+		user.PUT("/:id", userHandler.Update)
+		user.GET("/:id", userHandler.Get)
+		user.GET("", userHandler.List)
 	}
 }
