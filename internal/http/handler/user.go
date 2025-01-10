@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"xLedger/internal/http/handler/dto"
-	"xLedger/internal/micro/service"
+	"xledger/internal/http/handler/dto"
+	"xledger/internal/micro/service"
 
 	"github.com/RichXan/xcommon/xerror"
 	"github.com/RichXan/xcommon/xhttp"

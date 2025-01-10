@@ -2,11 +2,11 @@ package router
 
 import (
 	"net/http"
-	"xLedger/global"
-	"xLedger/internal/access/repo"
-	"xLedger/internal/http/handler"
-	"xLedger/internal/http/middleware"
-	"xLedger/internal/http/service"
+	"xledger/global"
+	"xledger/internal/access/repo"
+	"xledger/internal/http/handler"
+	"xledger/internal/http/middleware"
+	"xledger/internal/http/service"
 
 	"github.com/RichXan/xcommon/xlog"
 	"github.com/RichXan/xcommon/xmiddleware"

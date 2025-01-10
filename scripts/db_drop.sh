@@ -10,7 +10,7 @@ docker stop xledger-mysql || true
 
 # 删除 Docker 数据卷
 echo "Removing Docker volume..."
-docker volume rm xLedger_mysql_data || true
+docker volume rm xledger_mysql_data || true
 
 # 重新启动 MySQL 容器
 echo "Starting MySQL container..."

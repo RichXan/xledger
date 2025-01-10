@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"xLedger/global"
-	"xLedger/internal/http/router"
+	"xledger/global"
+	"xledger/internal/http/router"
 
 	"github.com/RichXan/xcommon/xlog"
 	"github.com/RichXan/xcommon/xutil"

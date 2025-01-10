@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	pb "xLedger/internal/micro/proto/user"
+	pb "xledger/internal/micro/proto/user"
 
 	"github.com/RichXan/xcommon/xlog"
 

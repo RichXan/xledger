@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"xLedger/internal/access/model"
+	"xledger/internal/access/model"
 )
 
 // UserService 用户服务接口

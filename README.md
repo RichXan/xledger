@@ -1,40 +1,68 @@
-# xLedger
+# xledger
 
-一个基于 go-micro 框架的微服务博客系统。
+一个基于 go-micro 框架的微服务记账系统。
 
 ## 系统架构
 
 ### 核心服务
 - `api-service`: API 网关，处理外部请求
-- `user-service`: 用户服务，处理用户认证和管理
-- `post-service`: 帖子服务，处理博客内容管理
 
 ### 目录结构
 ```
 .
-├── cmd/              # 各个服务的入口点
-├── internal/         # 内部实现代码
-├── pkg/             # 可重用的公共包
-├── proto/           # gRPC 协议定义
-├── config/          # 配置文件
-├── scripts/         # 部署和维护脚本
-├── deployments/     # 部署相关配置
-├── document/        # API 文档
-└── bin/             # 编译后的二进制文件
+├── cmd/                    # 各个服务的入口点
+│   └── api-service/       # API服务入口
+│       └── main.go
+│
+├── internal/              # 内部实现代码
+│   ├── access/           # 数据访问层
+│   │   ├── model/        # 数据模型定义
+│   │   │   └── bill.go   # 账单相关模型
+│   │   └── repo/   # 数据仓储接口和实现
+│   │       ├── bill.go   # 账单仓储接口
+│   │       └── bill_impl.go  # 账单仓储实现
+│   │
+│   ├── http/             # HTTP服务层
+│   │   ├── handler/      # HTTP处理器
+│   │   │   └── bill.go   # 账单相关处理器
+│   │   ├── service/      # 业务服务层
+│   │   │   ├── bill.go   # 账单服务接口
+│   │   │   └── bill_impl.go  # 账单服务实现
+│   │   └── server.go     # HTTP服务器配置
+│   │
+│   └── micro/              # 微服务相关
+│       ├── proto/          # grpc 协议定义
+│       └── service/        # 服务实现
+│
+├── pkg/                  # 可重用的公共包
+│   └── common/           # 通用功能
+│
+├── config/             # 配置文件
+│   ├── config.yml
+│   └── config-uat.yml
+│
+├── scripts/            # 部署和维护脚本
+│   ├── deploy.sh
+│   └── migrate.sh
+│
+├── deployments/        # 部署相关配置
+│   ├── docker/
+│   └── kubernetes/
+│
+├── document/          # API 文档
+│   └── swagger/
+│
+├── bin/              # 编译后的二进制文件
+├── Dockerfile       # Docker构建文件
+├── docker-compose.yml  # Docker编排文件
+├── go.mod           # Go模块定义
+└── README.md        # 项目说明文档
 ```
 
 ### 基础设施组件
 - MySQL (端口 3314): 主数据库
 - Redis (端口 6387): 缓存和会话管理
-- RabbitMQ (端口 5680): 消息队列
-- Prometheus (端口 9098): 监控系统
-- Grafana (端口 3008): 监控可视化
-- Jaeger (端口 16694): 分布式追踪
-- Node Exporter: 系统指标收集
-- cAdvisor: 容器监控
-- MySQL Exporter: MySQL 指标收集
-- Redis Exporter: Redis 指标收集
-- Swagger UI (端口 9000): API 文档
+- Swagger UI (端口 19901): API 文档
 
 ## API 文档
 
@@ -95,8 +123,6 @@ make run
 
 # 或者分别运行
 make run-api    # API 网关
-make run-user   # 用户服务
-make run-post   # 帖子服务
 ```
 
 ### 4. 监控和管理

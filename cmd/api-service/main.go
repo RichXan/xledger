@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"xLedger/cmd"
-	"xLedger/global"
-	"xLedger/internal/http"
+	"xledger/cmd"
+	"xledger/global"
+	"xledger/internal/http"
 
 	"github.com/RichXan/xcommon/xdatabase"
 	"github.com/RichXan/xcommon/xlog"
@@ -18,8 +18,8 @@ import (
 func main() {
 	cmd.Welcome()
 	app := &cli.App{
-		Name:    "xLedger",
-		Usage:   "xLedger service",
+		Name:    "xledger",
+		Usage:   "xledger service",
 		Version: cmd.VERSION,
 		Authors: cmd.Authors,
 		Flags:   cmd.Flags,
