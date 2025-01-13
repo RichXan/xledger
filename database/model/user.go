@@ -10,19 +10,20 @@ import (
 type UserStatus int8
 
 const (
-	UserStatusDisable UserStatus = 0 // 禁用
-	UserStatusNormal  UserStatus = 1 // 正常状态
+	UserStatusNormal  UserStatus = 0 // 正常状态
+	UserStatusDisable UserStatus = 1 // 禁用
 )
 
 // User 用户模型
 type User struct {
-	gorm.Model
-	Username string     `gorm:"uniqueIndex;size:50;not null" json:"username"`
-	Password string     `gorm:"size:100;not null" json:"-"`
-	Email    string     `gorm:"uniqueIndex;size:100;not null" json:"email"`
-	Nickname string     `gorm:"size:50;not null" json:"nickname"`
+	UUIDModel
+	Username string     `gorm:"size:255;not null" json:"username"`
+	Password string     `gorm:"size:255;not null" json:"-"`
+	Email    string     `gorm:"size:255;not null" json:"email"`
+	Nickname string     `gorm:"size:255;not null" json:"nickname"`
+	Gender   string     `gorm:"size:50;not null" json:"gender"`
 	Avatar   string     `gorm:"size:255;default:''" json:"avatar"`
-	Status   UserStatus `gorm:"default:1;not null" json:"status"` // 0-禁用，1-正常
+	Status   UserStatus `gorm:"default:0;not null" json:"status"` // 0-正常，1-禁用
 }
 
 func (User) TableName() string {

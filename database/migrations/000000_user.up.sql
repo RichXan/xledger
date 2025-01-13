@@ -1,14 +1,33 @@
+-- 添加 uuid-ossp 扩展
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- 用户表
-CREATE TABLE `user` (
-    `id` int NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `username` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '用户名',
-    `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '密码',
-    `email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '邮箱',
-    `nickname` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '昵称',
-    `avatar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '头像',
-    `status` int NOT NULL COMMENT '状态',
-    `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
-    `deleted_at` datetime NULL COMMENT '删除时间',
-    PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='用户表';
+-- postgres
+CREATE TABLE "user" (
+  "id" uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  "username" varchar(255) NULL DEFAULT NULL,
+  "password" varchar(255) NULL DEFAULT NULL,
+  "email" VARCHAR(255) NULL DEFAULT NULL,
+  "nickname" varchar(255) NULL DEFAULT NULL,
+  "gender" VARCHAR(50) NULL DEFAULT NULL,
+  "avatar" varchar(255) NULL DEFAULT NULL,
+  "status" INT DEFAULT 0,
+  "created_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  "deleted_at" TIMESTAMP NULL
+);
+
+
+COMMENT ON TABLE "user" IS '用户表';
+COMMENT ON COLUMN "user"."id" IS '主键ID';
+COMMENT ON COLUMN "user"."username" IS '用户名';
+COMMENT ON COLUMN "user"."password" IS '密码';
+COMMENT ON COLUMN "user"."email" IS '邮箱';
+COMMENT ON COLUMN "user"."nickname" IS '昵称';
+COMMENT ON COLUMN "user"."gender" IS '性别';
+COMMENT ON COLUMN "user"."avatar" IS '头像';
+COMMENT ON COLUMN "user"."status" IS '状态, 0: 正常, 1: 禁用';
+COMMENT ON COLUMN "user"."created_at" IS '创建时间';
+COMMENT ON COLUMN "user"."updated_at" IS '修改时间';
+COMMENT ON COLUMN "user"."deleted_at" IS '删除时间';

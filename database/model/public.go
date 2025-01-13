@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,24 +17,31 @@ type Tmodel any
 type Gorm func(db *gorm.DB) *gorm.DB
 
 type UUIDModel struct {
-	ID        string `gorm:"column:id;primarykey;type:varchar(255);comment:主键" json:"id"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
+	ID        uuid.UUID      `gorm:"primarykey;type:uuid;comment:主键;default:uuid_generate_v4()" json:"id"`
+	CreatedAt time.Time      `gorm:"autoCreateTime;comment:创建时间" json:"created_at"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime;comment:更新时间" json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"` // 软删除
 
 	db *gorm.DB `gorm:"-"`
 }
 
-func (my *UUIDModel) BeforeCreate(tx *gorm.DB) (err error) {
-	if my.ID == "" {
-		uuid, err := uuid.NewV4()
+func (m *UUIDModel) BeforeCreate(tx *gorm.DB) (err error) {
+	if m.ID == uuid.Nil {
+		m.ID, err = uuid.NewV4()
 		if err != nil {
-			return err
+			return fmt.Errorf("uuid create with ID failed, %w", err)
 		}
-		my.ID = strings.ReplaceAll(uuid.String(), "-", "")
 	}
 
-	return
+	// 将 uuid 转换为 32 位字符串
+	uuidString := m.ID.String()
+	uuidString = strings.ReplaceAll(uuidString, "-", "")
+	m.ID, err = uuid.FromString(uuidString)
+	if err != nil {
+		return fmt.Errorf("uuid create with ID failed, %w", err)
+	}
+
+	return nil
 }
 
 func (m *UUIDModel) Gorm(fn ...Gorm) *gorm.DB {

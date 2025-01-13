@@ -77,7 +77,9 @@ func Start(l *xlog.Logger, db *gorm.DB) {
 	}()
 
 	logger.Info().Int("port", global.Config.Server.HTTPPort).Msg("Server started")
-	sendEmail(logger)
+	if !global.Config.System.Debug {
+		sendEmail(logger)
+	}
 
 	// 等待中断信号
 	quit := make(chan os.Signal, 1)

@@ -63,7 +63,7 @@ func startHttpServer(c *cli.Context) error {
 	logger := xlog.NewLogger(global.Config.Log)
 
 	// 初始化数据库
-	db, err := xdatabase.NewMySQLGormDb(&global.Config.MySQL)
+	db, err := xdatabase.NewPostgresGormDb(&global.Config.Postgres)
 	if err != nil {
 		panic(fmt.Errorf("init database error: %v", err))
 	}

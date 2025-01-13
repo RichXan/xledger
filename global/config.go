@@ -15,17 +15,18 @@ var Config *Configuration
 
 // Configuration 配置结构
 type Configuration struct {
-	System     SystemConfig          `yaml:"system"`
-	Log        xlog.LoggerConfig     `yaml:"log"`
-	Minio      xdatabase.MinioConfig `yaml:"minio"`
-	SMTP       xutil.SMTPConfig      `yaml:"smtp"`
-	Social     SocialConfig          `yaml:"social"`
-	Server     ServerConfig          `yaml:"server"`
-	MySQL      xdatabase.MySQLConfig `yaml:"mysql"`
-	Redis      xcache.RedisConfig    `yaml:"redis"`
-	Prometheus PrometheusConfig      `yaml:"prometheus"`
-	Grafana    GrafanaConfig         `yaml:"grafana"`
-	Jaeger     JaegerConfig          `yaml:"jaeger"`
+	System     SystemConfig             `yaml:"system"`
+	Log        xlog.LoggerConfig        `yaml:"log"`
+	Minio      xdatabase.MinioConfig    `yaml:"minio"`
+	SMTP       xutil.SMTPConfig         `yaml:"smtp"`
+	Social     SocialConfig             `yaml:"social"`
+	Server     ServerConfig             `yaml:"server"`
+	MySQL      xdatabase.MySQLConfig    `yaml:"mysql"`
+	Postgres   xdatabase.PostgresConfig `yaml:"postgres"`
+	Redis      xcache.RedisConfig       `yaml:"redis"`
+	Prometheus PrometheusConfig         `yaml:"prometheus"`
+	Grafana    GrafanaConfig            `yaml:"grafana"`
+	Jaeger     JaegerConfig             `yaml:"jaeger"`
 }
 
 type SystemConfig struct {

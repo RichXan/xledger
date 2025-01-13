@@ -1,2 +1,2 @@
 -- 用户表
-DROP TABLE IF EXISTS `user`;
+DROP TABLE IF EXISTS "user";
