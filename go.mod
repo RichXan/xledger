@@ -5,7 +5,7 @@ go 1.22
 toolchain go1.22.10
 
 require (
-	github.com/RichXan/xcommon v0.0.0-20250110081910-3912b753bada
+	github.com/RichXan/xcommon v0.0.0-20250110102335-d3ec670eee22
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang/protobuf v1.5.4
 	github.com/opentracing/opentracing-go v1.2.0
@@ -123,4 +123,4 @@ require (
 	gorm.io/driver/postgres v1.5.11 // indirect
 )
 
-replace github.com/RichXan/xcommon => ../xcommon
+// replace github.com/RichXan/xcommon => ../xcommon

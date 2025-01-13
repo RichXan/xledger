@@ -52,8 +52,8 @@ github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAE
 github.com/OpenDNS/vegadns2client v0.0.0-20180418235048-a3fa4a771d87/go.mod h1:iGLljf5n9GjT6kc0HBvyI1nOKnGQbNB66VzSNbK5iks=
 github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7 h1:YoJbenK9C67SkzkDfmQuVln04ygHj3vjZfd9FL+GmQQ=
 github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7/go.mod h1:z4/9nQmJSSwwds7ejkxaJwO37dru3geImFUdJlaLzQo=
-github.com/RichXan/xcommon v0.0.0-20250110081910-3912b753bada h1:Bg67BDbRnVAzY+u+2t6eibkoCiVmJiBnTyNvtk5OBn0=
-github.com/RichXan/xcommon v0.0.0-20250110081910-3912b753bada/go.mod h1:and8pQTdvyCTAnHX+4H8R4XkKbXvKBWZ6NWV3YcRQjI=
+github.com/RichXan/xcommon v0.0.0-20250110102335-d3ec670eee22 h1:mEabt06O2LAtu6MY6kA163W+Ck7YFNGJgBPjgj89x3s=
+github.com/RichXan/xcommon v0.0.0-20250110102335-d3ec670eee22/go.mod h1:and8pQTdvyCTAnHX+4H8R4XkKbXvKBWZ6NWV3YcRQjI=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=
 github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMxUHB2q5Ap20/P/eIdh4G0pI=
 github.com/acomagu/bufpipe v1.0.3 h1:fxAGrHZTgQ9w5QqVItgzwj235/uYZYgbXitB+dLupOk=
