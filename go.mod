@@ -5,8 +5,9 @@ go 1.22
 toolchain go1.22.10
 
 require (
-	github.com/RichXan/xcommon v0.0.0-20250110102335-d3ec670eee22
+	github.com/RichXan/xcommon v0.0.0-20250113050425-01ea57c2bd50
 	github.com/gin-gonic/gin v1.10.0
+	github.com/go-playground/validator/v10 v10.20.0
 	github.com/golang/protobuf v1.5.4
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/prometheus/client_golang v1.16.0
@@ -31,7 +32,6 @@ require (
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.20.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.0.4 // indirect
