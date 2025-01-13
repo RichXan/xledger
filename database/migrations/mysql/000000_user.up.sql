@@ -7,7 +7,7 @@ CREATE TABLE `user` (
     `email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '邮箱',
     `nickname` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '昵称',
     `avatar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '头像',
-    `status` int NOT NULL COMMENT '状态',
+    `status` int NOT NULL COMMENT '状态 1: 正常, 2: 禁用',
     `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
     `deleted_at` datetime NULL COMMENT '删除时间',

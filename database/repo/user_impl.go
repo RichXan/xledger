@@ -18,43 +18,23 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 
 // Create 创建用户
 func (r *userRepository) Create(user *model.User) error {
-	return r.db.Create(user).Error
+	return r.db.Model(user).Create(user).Error
 }
 
 // Update 更新用户
 func (r *userRepository) Update(user *model.User) error {
-	return r.db.Save(user).Error
+	return r.db.Model(user).Updates(user).Error
 }
 
 // Delete 删除用户
-func (r *userRepository) Delete(id uint64) error {
-	return r.db.Delete(&model.User{}, id).Error
+func (r *userRepository) Delete(id string) error {
+	return r.db.Where("id = ?", id).Delete(&model.User{}).Error
 }
 
-// FindByID 根据ID查找用户
-func (r *userRepository) FindByID(id uint64) (*model.User, error) {
+// GetByID 根据ID查找用户
+func (r *userRepository) GetByID(id string) (*model.User, error) {
 	var user model.User
-	err := r.db.First(&user, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
-// FindByUsername 根据用户名查找用户
-func (r *userRepository) FindByUsername(username string) (*model.User, error) {
-	var user model.User
-	err := r.db.Where("username = ?", username).First(&user).Error
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
-// FindByEmail 根据邮箱查找用户
-func (r *userRepository) FindByEmail(email string) (*model.User, error) {
-	var user model.User
-	err := r.db.Where("email = ?", email).First(&user).Error
+	err := r.db.Where("id = ?", id).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +42,7 @@ func (r *userRepository) FindByEmail(email string) (*model.User, error) {
 }
 
 // List 获取用户列表
-func (r *userRepository) List(offset, limit int) ([]*model.User, int64, error) {
+func (r *userRepository) List(offset, limit int, order string) ([]*model.User, int64, error) {
 	var users []*model.User
 	var total int64
 
@@ -71,7 +51,7 @@ func (r *userRepository) List(offset, limit int) ([]*model.User, int64, error) {
 		return nil, 0, err
 	}
 
-	err = r.db.Offset(offset).Limit(limit).Find(&users).Error
+	err = r.db.Offset(offset).Limit(limit).Order(order).Find(&users).Error
 	if err != nil {
 		return nil, 0, err
 	}

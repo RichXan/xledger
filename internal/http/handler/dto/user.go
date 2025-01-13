@@ -1,20 +1,23 @@
 package dto
 
+import "github.com/RichXan/xcommon/xhttp"
+
 type UserCreate struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
+	Email    string `json:"email" binding:"required,email" validate:"required,email"`
 }
 
 type UserUpdate struct {
-	ID       uint64 `json:"id" binding:"required"`
+	ID       string `json:"id"`
+	Status   int    `json:"status" validate:"omitempty,oneof=1 2"`
 	Nickname string `json:"nickname"`
+	Gender   string `json:"gender"`
 	Avatar   string `json:"avatar"`
-	Bio      string `json:"bio"`
 }
 
 type UserList struct {
-	Page
+	xhttp.PageReq
 }
 
 type UserRegister struct {

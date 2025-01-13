@@ -57,7 +57,7 @@
                 ]
               },
               "example": {
-                "name": "xan",
+                "username": "xan",
                 "password": "123456",
                 "email": "123456@qq.com"
               }
@@ -237,9 +237,19 @@
             "in": "path",
             "description": "用户ID",
             "required": true,
-            "example": 0,
+            "example": "",
             "schema": {
               "type": "integer"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -249,22 +259,22 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "username": {
+                  "nickname": {
                     "type": "string",
                     "description": "用户名称"
                   },
-                  "email": {
+                  "avatar": {
                     "type": "string",
-                    "description": "邮箱"
+                    "description": "头像"
                   }
                 },
                 "required": [
-                  "username"
+                  "nickname"
                 ]
               },
               "example": {
-                "username": "xan",
-                "email": "123456@qq.com"
+                "nickname": "xan",
+                "avatar": "123456@qq.com"
               }
             }
           }
@@ -290,7 +300,8 @@
                   }
                 }
               }
-            }
+            },
+            "headers": {}
           },
           "401": {
             "description": "未授权",
@@ -310,7 +321,8 @@
                   }
                 }
               }
-            }
+            },
+            "headers": {}
           }
         },
         "security": []
@@ -328,7 +340,7 @@
             "in": "path",
             "description": "用户ID",
             "required": true,
-            "example": 0,
+            "example": "",
             "schema": {
               "type": "integer"
             }
@@ -355,7 +367,8 @@
                   }
                 }
               }
-            }
+            },
+            "headers": {}
           },
           "401": {
             "description": "未授权",
@@ -375,7 +388,8 @@
                   }
                 }
               }
-            }
+            },
+            "headers": {}
           }
         },
         "security": []
@@ -384,42 +398,6 @@
   },
   "components": {
     "schemas": {
-      "SuccessResponse": {
-        "type": "object",
-        "properties": {
-          "code": {
-            "type": "integer",
-            "description": "响应码"
-          },
-          "status": {
-            "type": "boolean",
-            "description": "请求是否成功"
-          },
-          "message": {
-            "type": "string",
-            "description": "响应消息"
-          },
-          "data": {
-            "type": "integer",
-            "description": "影响的记录数"
-          },
-          "trace_id": {
-            "type": "string",
-            "description": "追踪ID"
-          }
-        }
-      },
-      "UnauthorizedError": {
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          }
-        }
-      },
       "APIResponse": {
         "type": "object",
         "properties": {

@@ -12,7 +12,7 @@ CREATE TABLE "user" (
   "nickname" varchar(255) NULL DEFAULT NULL,
   "gender" VARCHAR(50) NULL DEFAULT NULL,
   "avatar" varchar(255) NULL DEFAULT NULL,
-  "status" INT DEFAULT 0,
+  "status" INT DEFAULT 1,
   "created_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   "deleted_at" TIMESTAMP NULL
@@ -27,7 +27,7 @@ COMMENT ON COLUMN "user"."email" IS '邮箱';
 COMMENT ON COLUMN "user"."nickname" IS '昵称';
 COMMENT ON COLUMN "user"."gender" IS '性别';
 COMMENT ON COLUMN "user"."avatar" IS '头像';
-COMMENT ON COLUMN "user"."status" IS '状态, 0: 正常, 1: 禁用';
+COMMENT ON COLUMN "user"."status" IS '状态, 1: 正常, 2: 禁用';
 COMMENT ON COLUMN "user"."created_at" IS '创建时间';
 COMMENT ON COLUMN "user"."updated_at" IS '修改时间';
 COMMENT ON COLUMN "user"."deleted_at" IS '删除时间';
