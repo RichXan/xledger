@@ -11,4 +11,5 @@ type UserRepository interface {
 	Delete(id string) error
 	GetByID(id string) (*model.User, error)
 	List(offset, limit int, order string) ([]*model.User, int64, error)
+	GetByQuery(query *model.User) (*model.User, error)
 }

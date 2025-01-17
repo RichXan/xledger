@@ -23,7 +23,7 @@ run: build run-api
 # 运行api服务
 run-api: 
 	@echo "Running API service..."
-	go run cmd/api-service/main.go -c config/config.yml start
+	go run cmd/api-service/main.go -c config/config.yaml start
 
 # 运行测试
 test:

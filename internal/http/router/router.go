@@ -10,6 +10,7 @@ import (
 
 	"github.com/RichXan/xcommon/xlog"
 	"github.com/RichXan/xcommon/xmiddleware"
+	"github.com/RichXan/xcommon/xoauth"
 	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
@@ -34,10 +35,11 @@ func Setup(
 	tracer opentracing.Tracer,
 	logger *xlog.Logger,
 	db *gorm.DB,
+	jwtClaims xoauth.Claim,
 ) *gin.Engine {
 	// 初始化服务依赖
 	initRepo(db)
-	initService(logger)
+	initService(logger, jwtClaims)
 	initHandler(logger)
 
 	r := gin.New()
@@ -51,6 +53,8 @@ func Setup(
 	r.Use(xmiddleware.TracingMiddleware(tracer))
 	r.Use(middleware.MetricsMiddleware())
 	r.Use(xmiddleware.TimeFormat)
+	// TODO: 需要根据配置决定是否启用认证。有token就进行校验
+	r.Use(xmiddleware.OptionalAuth(jwtClaims))
 
 	// 健康检查
 	// 健康检查
@@ -76,8 +80,8 @@ func initRepo(db *gorm.DB) {
 	userRepo = repo.NewUserRepository(db)
 }
 
-func initService(logger *xlog.Logger) {
-	userService = service.NewUserService(logger, userRepo)
+func initService(logger *xlog.Logger, jwtClaims xoauth.Claim) {
+	userService = service.NewUserService(logger, jwtClaims, userRepo)
 }
 
 func initHandler(logger *xlog.Logger) {

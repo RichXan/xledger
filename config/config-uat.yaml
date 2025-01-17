@@ -32,6 +32,19 @@ log:
   max_size: 100 # MB
   max_backups: 10
 
+oauth:
+  token_expiry_hours: 2 
+  refresh_token_expiry_hours: 72 
+  public_key: |
+    -----BEGIN PUBLIC KEY-----
+    Du2jNIoqcpe5hrKq7l8LG0RUntzD9QCmRUvnnvx4JL0=
+    -----END PUBLIC KEY-----
+  private_key: |
+    -----BEGIN PRIVATE KEY-----
+    +eYE4KyseqLxUBZbP87KKJJpaaBy5NqUvDNl/wvOIkUO7aM0iipyl7mGsqruXwsb
+    RFSe3MP1AKZFS+ee/HgkvQ==
+    -----END PRIVATE KEY-----
+
 minio:
   endpoint: ""
   bucket: ""

@@ -13,6 +13,7 @@ import (
 	"xledger/internal/http/router"
 
 	"github.com/RichXan/xcommon/xlog"
+	"github.com/RichXan/xcommon/xoauth"
 	"github.com/RichXan/xcommon/xutil"
 	"gorm.io/gorm"
 
@@ -52,7 +53,7 @@ func initJaeger() (opentracing.Tracer, error) {
 }
 
 // Start 启动HTTP服务
-func Start(l *xlog.Logger, db *gorm.DB) {
+func Start(l *xlog.Logger, db *gorm.DB, jwtClaims xoauth.Claim) {
 	logger = l
 
 	// 初始化Jaeger
@@ -62,7 +63,7 @@ func Start(l *xlog.Logger, db *gorm.DB) {
 		os.Exit(1)
 	}
 
-	r := router.Setup(tracer, logger, db)
+	r := router.Setup(tracer, logger, db, jwtClaims)
 	srv = &http.Server{
 		Addr:    fmt.Sprintf(":%d", global.Config.Server.HTTPPort),
 		Handler: r,

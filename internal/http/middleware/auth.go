@@ -4,15 +4,22 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/RichXan/xcommon/xauth"
+	"github.com/RichXan/xcommon/xoauth"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+)
+
+const (
+	AuthHeaderKey   = "Authorization"
+	AuthUserIdKey   = "user_id"
+	AuthUsernameKey = "username"
 )
 
 // Auth 认证中间件
-func Auth() gin.HandlerFunc {
+func Auth(claim xoauth.Claim) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 从请求头中获取token
-		authHeader := c.GetHeader("Authorization")
+		authHeader := c.GetHeader(AuthHeaderKey)
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
 			c.Abort()
@@ -28,9 +35,9 @@ func Auth() gin.HandlerFunc {
 		}
 
 		// 解析token
-		claims, err := xauth.ParseAccessToken(parts[1])
+		claims, err := claim.ParseAccessToken(parts[1])
 		if err != nil {
-			if err == xauth.ErrExpiredToken {
+			if err == jwt.ErrTokenExpired {
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"error": "Token has expired",
 					"code":  "token_expired",
@@ -43,24 +50,23 @@ func Auth() gin.HandlerFunc {
 		}
 
 		// 将用户信息存储到上下文中
-		c.Set("user_id", claims.UserID)
-		c.Set("username", claims.Username)
+		c.Set(AuthUserIdKey, claims.UserID)
 
 		c.Next()
 	}
 }
 
 // GetCurrentUser 从上下文中获取当前用户信息
-func GetCurrentUser(c *gin.Context) (uint64, string, bool) {
-	userID, exists := c.Get("user_id")
+func GetCurrentUser(c *gin.Context) (string, string, bool) {
+	userID, exists := c.Get(AuthUserIdKey)
 	if !exists {
-		return 0, "", false
+		return "", "", false
 	}
 
-	username, exists := c.Get("username")
+	username, exists := c.Get(AuthUsernameKey)
 	if !exists {
-		return 0, "", false
+		return "", "", false
 	}
 
-	return userID.(uint64), username.(string), true
+	return userID.(string), username.(string), true
 }
