@@ -24,6 +24,7 @@ type UserService interface {
 	Update(ctx context.Context, updateDto *dto.UserUpdate) (*model.User, error)
 	Get(ctx context.Context, id string) (*model.User, error)
 	Login(ctx context.Context, loginDto *dto.UserLogin) (*xoauth.TokenPair, error)
+	RefreshToken(ctx context.Context, refreshTokenDto *dto.UserRefreshToken) (*xoauth.TokenPair, error)
 	List(ctx context.Context, listDto *dto.UserList) ([]*model.User, int64, error)
 	Register(ctx context.Context, registerDto *dto.UserRegister) error
 }
@@ -184,4 +185,8 @@ func (s *userService) Register(ctx context.Context, registerDto *dto.UserRegiste
 	}
 
 	return nil
+}
+
+func (s *userService) RefreshToken(ctx context.Context, refreshTokenDto *dto.UserRefreshToken) (*xoauth.TokenPair, error) {
+	return s.jwtClaims.RefreshTokenPair(refreshTokenDto.RefreshToken)
 }

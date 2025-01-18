@@ -13,9 +13,7 @@ func setupUserRoutes(r *gin.RouterGroup) {
 		user.PUT("/:id", userHandler.Update)
 		user.GET("/:id", userHandler.Get)
 		user.GET("", userHandler.List)
+		user.POST("/login", userHandler.Login)     // 登录
+		user.POST("/refresh", userHandler.Refresh) // 刷新token
 	}
-	// 登录
-	user.POST("/login", userHandler.Login)
-	// 刷新token
-	// user.POST("/refresh", userHandler.Refresh)
 }
