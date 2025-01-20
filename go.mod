@@ -5,7 +5,7 @@ go 1.22
 toolchain go1.22.10
 
 require (
-	github.com/RichXan/xcommon v0.0.0-20250117084803-bba89ce402bb
+	github.com/RichXan/xcommon v0.0.0-20250120030914-663b367c9f77
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-playground/validator/v10 v10.20.0
 	github.com/golang/protobuf v1.5.4

@@ -31,10 +31,10 @@ func (r *userRepository) Delete(id string) error {
 	return r.db.Where("id = ?", id).Delete(&model.User{}).Error
 }
 
-// GetByID 根据ID查找用户
-func (r *userRepository) GetByID(id string) (*model.User, error) {
+// GetByQuery 根据查询条件查找用户
+func (r *userRepository) GetByQuery(query *model.User) (*model.User, error) {
 	var user model.User
-	err := r.db.Where("id = ?", id).First(&user).Error
+	err := r.db.Where(query).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -57,14 +57,4 @@ func (r *userRepository) List(offset, limit int, order string) ([]*model.User, i
 	}
 
 	return users, total, nil
-}
-
-// GetByQuery 根据查询条件查找用户
-func (r *userRepository) GetByQuery(query *model.User) (*model.User, error) {
-	var user model.User
-	err := r.db.Where(query).First(&user).Error
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
 }

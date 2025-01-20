@@ -19,15 +19,21 @@ import (
 )
 
 var (
-	userHandler *handler.UserHandler
+	userHandler        *handler.UserHandler
+	categoryHandler    *handler.CategoryHandler
+	subCategoryHandler *handler.SubCategoryHandler
 )
 
 var (
-	userService service.UserService
+	userService        service.UserService
+	categoryService    service.CategoryService
+	subCategoryService service.SubCategoryService
 )
 
 var (
-	userRepo repo.UserRepository
+	userRepo        repo.UserRepository
+	categoryRepo    repo.CategoryRepository
+	subCategoryRepo repo.SubCategoryRepository
 )
 
 // Setup 设置路由

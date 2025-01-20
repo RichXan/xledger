@@ -12,6 +12,7 @@ import (
 	"github.com/RichXan/xcommon/xerror"
 	"github.com/RichXan/xcommon/xlog"
 	"github.com/RichXan/xcommon/xoauth"
+	"github.com/gofrs/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -75,7 +76,7 @@ func (s *userService) Delete(ctx context.Context, id string) error {
 
 // Update 更新用户信息
 func (s *userService) Update(ctx context.Context, updateDto *dto.UserUpdate) (*model.User, error) {
-	user, err := s.userRepo.GetByID(updateDto.ID)
+	user, err := s.userRepo.GetByQuery(&model.User{UUIDModel: model.UUIDModel{ID: uuid.FromStringOrNil(updateDto.ID)}})
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -99,7 +100,7 @@ func (s *userService) Update(ctx context.Context, updateDto *dto.UserUpdate) (*m
 
 // Get 获取用户信息
 func (s *userService) Get(ctx context.Context, id string) (*model.User, error) {
-	user, err := s.userRepo.GetByID(id)
+	user, err := s.userRepo.GetByQuery(&model.User{UUIDModel: model.UUIDModel{ID: uuid.FromStringOrNil(id)}})
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -110,7 +111,7 @@ func (s *userService) Get(ctx context.Context, id string) (*model.User, error) {
 }
 
 func (s *userService) List(ctx context.Context, listDto *dto.UserList) ([]*model.User, int64, error) {
-	return s.userRepo.List(listDto.GetOffset(), listDto.GetLimit(), listDto.GetOrderString())
+	return s.userRepo.List(listDto.GetOffset(), listDto.GetLimit(), listDto.GetOrder())
 }
 
 // validateEmail 验证邮箱格式
