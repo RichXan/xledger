@@ -65,6 +65,7 @@ func (s *categoryService) Update(ctx context.Context, updateDto *dto.CategoryUpd
 
 	// 更新类目信息
 	category.Name = updateDto.Name
+	category.IsSystem = updateDto.IsSystem
 
 	if err := s.categoryRepo.Update(category); err != nil {
 		return nil, xerror.Wrap(err, xerror.CodeUpdateError, "failed to update category")
