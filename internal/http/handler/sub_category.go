@@ -11,6 +11,10 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+const (
+	SubCategoryID = "sub_category_id"
+)
+
 type SubCategoryHandler struct {
 	logger          *xlog.Logger
 	subCategoryService service.SubCategoryService
@@ -46,7 +50,7 @@ func (h *SubCategoryHandler) Create(c *gin.Context) {
 }
 
 func (h *SubCategoryHandler) Delete(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param(SubCategoryID)
 	if id == "" {
 		xhttp.Error(c, xerror.ParamError)
 		return
@@ -78,7 +82,7 @@ func (h *SubCategoryHandler) Update(c *gin.Context) {
 		return
 	}
 
-	id := c.Param("id")
+	id := c.Param(SubCategoryID)
 	if id == "" {
 		xhttp.Error(c, xerror.Wrap(xerror.ParamError, xerror.CodeParamError, "id is required"))
 		return
@@ -97,7 +101,7 @@ func (h *SubCategoryHandler) Update(c *gin.Context) {
 
 // HandleGet 获取子类目信息
 func (h *SubCategoryHandler) Get(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param(SubCategoryID)
 	if id == "" {
 		xhttp.Error(c, xerror.ParamError)
 		return

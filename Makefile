@@ -18,7 +18,8 @@ clean:
 # 运行所有服务
 run: build run-api
 	@echo "Running all services..."
-
+	go env -w GO111MODULE=on
+	go env -w GOPROXY=https://goproxy.cn,direct
 
 # 运行api服务
 run-api: 

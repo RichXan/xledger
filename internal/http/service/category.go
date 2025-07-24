@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"xledger/database/model"
-	"xledger/database/repo"
+	"xledger/database/repository"
 	"xledger/internal/http/handler/dto"
 
 	"github.com/RichXan/xcommon/xerror"
@@ -25,10 +25,10 @@ type CategoryService interface {
 
 type categoryService struct {
 	logger       *xlog.Logger
-	categoryRepo repo.CategoryRepository
+	categoryRepo repository.CategoryRepository
 }
 
-func NewCategoryService(logger *xlog.Logger, categoryRepo repo.CategoryRepository) *categoryService {
+func NewCategoryService(logger *xlog.Logger, categoryRepo repository.CategoryRepository) *categoryService {
 	return &categoryService{
 		logger:       logger,
 		categoryRepo: categoryRepo,
@@ -48,7 +48,9 @@ func (s *categoryService) Create(ctx context.Context, createDto *dto.CategoryCre
 }
 
 func (s *categoryService) Delete(ctx context.Context, id string) error {
-	return s.categoryRepo.Delete(id)
+	return s.categoryRepo.Deletes([]*model.Category{
+		{UUIDModel: model.UUIDModel{ID: uuid.FromStringOrNil(id)}},
+	})
 }
 
 // Update 更新类目信息
@@ -90,5 +92,5 @@ func (s *categoryService) Get(ctx context.Context, id string) (*model.Category, 
 
 func (s *categoryService) List(ctx context.Context, listDto *dto.CategoryList) ([]*model.Category, int64, error) {
 	// 获取用户创建的类目和系统默认类目
-	return s.categoryRepo.List(listDto.GetOffset(), listDto.GetLimit(), listDto.GetOrder())
+	return s.categoryRepo.List(listDto)
 }

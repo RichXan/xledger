@@ -215,3 +215,6 @@ make help       # 显示所有可用命令
 
 ## 许可证
 [MIT License](LICENSE)
+
+
+做一个记账ios软件app，包含登录，注册，创建类目，子类目，账单功能。页面都需要使用appledesign组件优化美化出更现代化的设计风格，软件的名称为xledger。参照这张图片来设计登录页面，但是软件名称为xledger。

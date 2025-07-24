@@ -1,6 +1,9 @@
 package dto
 
-import "github.com/RichXan/xcommon/xhttp"
+import (
+	"github.com/RichXan/xcommon/xhttp"
+	"gorm.io/gorm"
+)
 
 type UserCreate struct {
 	Username string `json:"username" binding:"required"`
@@ -18,6 +21,10 @@ type UserUpdate struct {
 
 type UserList struct {
 	xhttp.PageReq
+}
+
+func (dto *UserList) BuildQuery(db *gorm.DB) *gorm.DB {
+	return db
 }
 
 type UserRegister struct {

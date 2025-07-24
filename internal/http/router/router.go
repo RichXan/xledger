@@ -2,7 +2,7 @@ package router
 
 import (
 	"net/http"
-	"xledger/database/repo"
+	"xledger/database/repository"
 	"xledger/global"
 	"xledger/internal/http/handler"
 	"xledger/internal/http/middleware"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/RichXan/xcommon/xlog"
 	"github.com/RichXan/xcommon/xmiddleware"
-	"github.com/RichXan/xcommon/xoauth"
 	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
@@ -31,21 +30,38 @@ var (
 )
 
 var (
-	userRepo        repo.UserRepository
-	categoryRepo    repo.CategoryRepository
-	subCategoryRepo repo.SubCategoryRepository
+	userRepo        repository.UserRepository
+	categoryRepo    repository.CategoryRepository
+	subCategoryRepo repository.SubCategoryRepository
 )
+
+func initRepo(db *gorm.DB) {
+	userRepo = repository.NewUserRepository(db)
+	categoryRepo = repository.NewCategoryRepository(db)
+	subCategoryRepo = repository.NewSubCategoryRepository(db)
+}
+
+func initService(logger *xlog.Logger) {
+	userService = service.NewUserService(logger, userRepo)
+	categoryService = service.NewCategoryService(logger, categoryRepo)
+	subCategoryService = service.NewSubCategoryService(logger, subCategoryRepo)
+}
+
+func initHandler(logger *xlog.Logger) {
+	userHandler = handler.NewUserHandler(logger, userService)
+	categoryHandler = handler.NewCategoryHandler(logger, categoryService)
+	subCategoryHandler = handler.NewSubCategoryHandler(logger, subCategoryService)
+}
 
 // Setup 设置路由
 func Setup(
 	tracer opentracing.Tracer,
 	logger *xlog.Logger,
 	db *gorm.DB,
-	jwtClaims xoauth.Claim,
 ) *gin.Engine {
 	// 初始化服务依赖
 	initRepo(db)
-	initService(logger, jwtClaims)
+	initService(logger)
 	initHandler(logger)
 
 	r := gin.New()
@@ -59,8 +75,6 @@ func Setup(
 	r.Use(xmiddleware.TracingMiddleware(tracer))
 	r.Use(middleware.MetricsMiddleware())
 	r.Use(xmiddleware.TimeFormat)
-	// TODO: 需要根据配置决定是否启用认证。有token就进行校验
-	r.Use(xmiddleware.OptionalAuth(jwtClaims))
 
 	// 健康检查
 	// 健康检查
@@ -76,20 +90,9 @@ func Setup(
 	// API版本
 	v1 := r.Group("/api/v1")
 	{
-		setupUserRoutes(v1)
+		UserRouter(v1)
+		CategoryRouter(v1)
 	}
 
 	return r
-}
-
-func initRepo(db *gorm.DB) {
-	userRepo = repo.NewUserRepository(db)
-}
-
-func initService(logger *xlog.Logger, jwtClaims xoauth.Claim) {
-	userService = service.NewUserService(logger, jwtClaims, userRepo)
-}
-
-func initHandler(logger *xlog.Logger) {
-	userHandler = handler.NewUserHandler(logger, userService)
 }

@@ -11,6 +11,10 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+const (
+	CategoryID = "category_id"
+)
+
 type CategoryHandler struct {
 	logger          *xlog.Logger
 	categoryService service.CategoryService
@@ -35,7 +39,7 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 		return
 	}
 
-	userID := c.MustGet("user_id").(string)
+	userID := c.MustGet(UserID).(string)
 	req.UserID = userID
 	category, err := h.categoryService.Create(c.Request.Context(), &req)
 	if err != nil {
@@ -48,7 +52,7 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 }
 
 func (h *CategoryHandler) Delete(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param(CategoryID)
 	if id == "" {
 		xhttp.Error(c, xerror.ParamError)
 		return
@@ -80,7 +84,7 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 		return
 	}
 
-	id := c.Param("id")
+	id := c.Param(CategoryID)
 	if id == "" {
 		xhttp.Error(c, xerror.Wrap(xerror.ParamError, xerror.CodeParamError, "id is required"))
 		return
@@ -101,7 +105,7 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 
 // HandleGet 获取类目信息
 func (h *CategoryHandler) Get(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param(CategoryID)
 	if id == "" {
 		xhttp.Error(c, xerror.ParamError)
 		return
@@ -125,7 +129,7 @@ func (h *CategoryHandler) List(c *gin.Context) {
 		return
 	}
 
-	userID := c.MustGet("user_id").(string)
+	userID := c.MustGet(UserID).(string)
 	req.UserID = userID
 
 	categorys, total, err := h.categoryService.List(c.Request.Context(), &req)

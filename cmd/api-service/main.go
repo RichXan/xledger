@@ -11,7 +11,6 @@ import (
 
 	"github.com/RichXan/xcommon/xdatabase"
 	"github.com/RichXan/xcommon/xlog"
-	"github.com/RichXan/xcommon/xoauth"
 
 	"github.com/urfave/cli/v2"
 )
@@ -69,11 +68,6 @@ func startHttpServer(c *cli.Context) error {
 		panic(fmt.Errorf("init database error: %v", err))
 	}
 
-	logger.Info().Msgf("global.Config.OAuth: %+v", global.Config.OAuth)
-	claims, err := xoauth.NewClaimsWithKeyPairFromPEM(&global.Config.OAuth)
-	if err != nil {
-		panic(fmt.Errorf("init OAuth error: %v", err))
-	}
 	// 初始化Redis
 	// redisClient, err := xcache.NewRedisClient(global.Config.Redis.MasterName, global.Config.Redis.Addresses, global.Config.Redis.Password, logger)
 	// if err != nil {
@@ -92,6 +86,6 @@ func startHttpServer(c *cli.Context) error {
 		Msg("Starting service...")
 
 	// 启动HTTP服务
-	http.Start(logger, db, claims)
+	http.Start(logger, db)
 	return nil
 }

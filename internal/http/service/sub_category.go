@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"xledger/database/model"
-	"xledger/database/repo"
+	"xledger/database/repository"
 	"xledger/internal/http/handler/dto"
 
 	"github.com/RichXan/xcommon/xerror"
@@ -25,10 +25,10 @@ type SubCategoryService interface {
 
 type subCategoryService struct {
 	logger          *xlog.Logger
-	subCategoryRepo repo.SubCategoryRepository
+	subCategoryRepo repository.SubCategoryRepository
 }
 
-func NewSubCategoryService(logger *xlog.Logger, subCategoryRepo repo.SubCategoryRepository) *subCategoryService {
+func NewSubCategoryService(logger *xlog.Logger, subCategoryRepo repository.SubCategoryRepository) *subCategoryService {
 	return &subCategoryService{
 		logger:          logger,
 		subCategoryRepo: subCategoryRepo,
@@ -48,7 +48,9 @@ func (s *subCategoryService) Create(ctx context.Context, createDto *dto.SubCateg
 }
 
 func (s *subCategoryService) Delete(ctx context.Context, id string) error {
-	return s.subCategoryRepo.Delete(id)
+	return s.subCategoryRepo.Deletes([]*model.SubCategory{
+		{UUIDModel: model.UUIDModel{ID: uuid.FromStringOrNil(id)}},
+	})
 }
 
 // Update 更新子类目信息
@@ -84,5 +86,5 @@ func (s *subCategoryService) Get(ctx context.Context, id string) (*model.SubCate
 }
 
 func (s *subCategoryService) List(ctx context.Context, listDto *dto.SubCategoryList) ([]*model.SubCategory, int64, error) {
-	return s.subCategoryRepo.List(listDto.GetOffset(), listDto.GetLimit(), listDto.GetOrder())
+	return s.subCategoryRepo.List(listDto)
 }

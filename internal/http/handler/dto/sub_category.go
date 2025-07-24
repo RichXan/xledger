@@ -1,6 +1,9 @@
 package dto
 
-import "github.com/RichXan/xcommon/xhttp"
+import (
+	"github.com/RichXan/xcommon/xhttp"
+	"gorm.io/gorm"
+)
 
 type SubCategoryCreate struct {
 	Name string `json:"name" binding:"required"`
@@ -15,4 +18,8 @@ type SubCategoryUpdate struct {
 
 type SubCategoryList struct {
 	xhttp.PageReq
+}
+
+func (dto *SubCategoryList) BuildQuery(db *gorm.DB) *gorm.DB {
+	return db
 }

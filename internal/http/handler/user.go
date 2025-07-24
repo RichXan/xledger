@@ -11,6 +11,10 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+const (
+	UserID = "user_id"
+)
+
 type UserHandler struct {
 	logger      *xlog.Logger
 	userService service.UserService
@@ -46,7 +50,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 }
 
 func (h *UserHandler) Delete(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param(UserID)
 	if id == "" {
 		xhttp.Error(c, xerror.ParamError)
 		return
@@ -78,7 +82,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 
-	id := c.Param("id")
+	id := c.Param(UserID)
 	if id == "" {
 		xhttp.Error(c, xerror.Wrap(xerror.ParamError, xerror.CodeParamError, "id is required"))
 		return
@@ -97,7 +101,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 // HandleGet 获取用户信息
 func (h *UserHandler) Get(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param(UserID)
 	if id == "" {
 		xhttp.Error(c, xerror.ParamError)
 		return
@@ -129,40 +133,4 @@ func (h *UserHandler) List(c *gin.Context) {
 	}
 
 	xhttp.Success(c, xhttp.NewResponseData(xerror.Success, users).WithTotal(total))
-}
-
-func (h *UserHandler) Login(c *gin.Context) {
-	var req dto.UserLogin
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error().Err(err).Msg("参数错误")
-		xhttp.Error(c, xerror.ParamError)
-		return
-	}
-
-	token, err := h.userService.Login(c.Request.Context(), &req)
-	if err != nil {
-		h.logger.Error().Err(err).Msg("登录失败")
-		xhttp.Error(c, err)
-		return
-	}
-
-	xhttp.Success(c, token)
-}
-
-func (h *UserHandler) Refresh(c *gin.Context) {
-	var req dto.UserRefreshToken
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error().Err(err).Msg("参数错误")
-		xhttp.Error(c, xerror.ParamError)
-		return
-	}
-
-	tokenPair, err := h.userService.RefreshToken(c.Request.Context(), &req)
-	if err != nil {
-		h.logger.Error().Err(err).Msg("刷新token失败")
-		xhttp.Error(c, err)
-		return
-	}
-
-	xhttp.Success(c, tokenPair)
 }
