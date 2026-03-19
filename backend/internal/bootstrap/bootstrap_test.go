@@ -34,3 +34,17 @@ func TestConfig_RequiresSMTPEnv(t *testing.T) {
 		t.Fatalf("expected error to mention SMTP_HOST, got %q", err.Error())
 	}
 }
+
+func TestConfig_DefaultsAPIAddr(t *testing.T) {
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("API_ADDR", "")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("expected config to load, got error: %v", err)
+	}
+
+	if cfg.APIAddr != ":8080" {
+		t.Fatalf("expected default APIAddr %q, got %q", ":8080", cfg.APIAddr)
+	}
+}

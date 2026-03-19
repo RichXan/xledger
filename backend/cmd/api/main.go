@@ -2,26 +2,30 @@ package main
 
 import (
 	"log"
-	"os"
+	"net/http"
+	"time"
 
 	"xledger/backend/internal/bootstrap/config"
 	bootstraphttp "xledger/backend/internal/bootstrap/http"
 )
 
 func main() {
-	_, err := config.Load()
+	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config error: %v", err)
 	}
 
 	router := bootstraphttp.NewRouter()
-
-	addr := os.Getenv("API_ADDR")
-	if addr == "" {
-		addr = ":8080"
+	server := &http.Server{
+		Addr:              cfg.APIAddr,
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       30 * time.Second,
 	}
 
-	if err := router.Run(addr); err != nil {
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server stopped: %v", err)
 	}
 }
