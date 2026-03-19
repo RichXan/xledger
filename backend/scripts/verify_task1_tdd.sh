@@ -14,8 +14,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
-printf '== Task 1 RED check on parent commit ==\n'
-git -C "$WORKTREE_DIR" worktree add --detach "$tmp_worktree" HEAD~1 >/dev/null
+bootstrap_test_commit="$(git -C "$WORKTREE_DIR" rev-list --reverse HEAD -- backend/internal/bootstrap/bootstrap_test.go | head -n 1)"
+if [[ -z "$bootstrap_test_commit" ]]; then
+  printf 'ERROR: unable to locate commit introducing backend/internal/bootstrap/bootstrap_test.go\n' >&2
+  exit 1
+fi
+
+if ! baseline_commit="$(git -C "$WORKTREE_DIR" rev-parse "${bootstrap_test_commit}^" 2>/dev/null)"; then
+  printf 'ERROR: commit introducing bootstrap tests has no parent to use as RED baseline\n' >&2
+  exit 1
+fi
+
+printf '== Task 1 RED check on pre-test baseline %s ==\n' "$baseline_commit"
+git -C "$WORKTREE_DIR" worktree add --detach "$tmp_worktree" "$baseline_commit" >/dev/null
 
 set +e
 (
@@ -28,7 +39,7 @@ if [[ $red_exit -eq 0 ]]; then
   printf 'ERROR: expected parent commit bootstrap tests to fail, but they passed\n' >&2
   exit 1
 fi
-printf 'RED verified: parent commit bootstrap tests failed (exit=%d)\n' "$red_exit"
+printf 'RED verified: pre-test baseline bootstrap tests failed (exit=%d)\n' "$red_exit"
 
 printf '\n== Task 1 GREEN check on current commit ==\n'
 (
