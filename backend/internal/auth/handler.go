@@ -42,6 +42,14 @@ func NewHandlerWithServices(codeService *CodeService, oauthService *OAuthService
 	}
 }
 
+func (h *Handler) HasOAuthService() bool {
+	return h != nil && h.oauthService != nil
+}
+
+func (h *Handler) HasSessionService() bool {
+	return h != nil && h.sessionService != nil
+}
+
 func (h *Handler) SendCode(c *gin.Context) {
 	var req sendCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -101,7 +109,6 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 	tokens, err := h.oauthService.GoogleCallback(c.Request.Context(), GoogleCallbackInput{
 		State: c.Query("state"),
 		Nonce: c.Query("nonce"),
-		Email: c.Query("email"),
 	})
 	if err != nil {
 		switch ErrorCode(err) {

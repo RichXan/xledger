@@ -38,25 +38,34 @@ func (s *OAuthService) SeedStateNonce(ctx context.Context, state string, nonce s
 	return s.repo.SaveOAuthStateNonce(ctx, strings.TrimSpace(state), strings.TrimSpace(nonce), s.ttl)
 }
 
+func (s *OAuthService) SeedStateNonceForEmail(ctx context.Context, state string, nonce string, email string) error {
+	return s.repo.SaveOAuthStateNonceForEmail(
+		ctx,
+		strings.TrimSpace(state),
+		strings.TrimSpace(nonce),
+		strings.TrimSpace(strings.ToLower(email)),
+		s.ttl,
+	)
+}
+
 func (s *OAuthService) GoogleCallback(ctx context.Context, input GoogleCallbackInput) (TokenPair, error) {
 	state := strings.TrimSpace(input.State)
 	nonce := strings.TrimSpace(input.Nonce)
-	email := strings.TrimSpace(strings.ToLower(input.Email))
 
-	if state == "" || nonce == "" || email == "" {
+	if state == "" || nonce == "" {
 		return TokenPair{}, &authError{code: AUTH_OAUTH_FAILED, err: errors.New("invalid oauth callback input")}
 	}
 
-	valid, err := s.repo.ConsumeOAuthStateNonce(ctx, state, nonce)
+	email, valid, err := s.repo.ConsumeOAuthStateNonceForEmail(ctx, state, nonce)
 	if err != nil {
 		return TokenPair{}, err
 	}
-	if !valid {
+	if !valid || strings.TrimSpace(email) == "" {
 		return TokenPair{}, &authError{code: AUTH_OAUTH_FAILED, err: errors.New("invalid state or nonce")}
 	}
 
 	if s.sessions == nil {
 		return TokenPair{}, errors.New("session service not configured")
 	}
-	return s.sessions.IssueSession(ctx, email)
+	return s.sessions.IssueSession(ctx, strings.TrimSpace(strings.ToLower(email)))
 }

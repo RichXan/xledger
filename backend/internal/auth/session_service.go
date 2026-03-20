@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -35,8 +36,9 @@ type SessionService struct {
 	accessTTL           time.Duration
 	blacklistStrictMode bool
 	blacklistSLA        time.Duration
-	counter             int64
 }
+
+var globalSessionTokenCounter int64
 
 func NewSessionService(repo CodeRepository, opts *SessionServiceOptions, now func() time.Time) *SessionService {
 	if now == nil {
@@ -179,7 +181,7 @@ func ParseSessionToken(raw string) (SessionToken, error) {
 }
 
 func (s *SessionService) nextToken(tokenType string, email string, expiresAt time.Time) string {
-	s.counter++
-	id := strconv.FormatInt(s.now().UnixNano(), 10) + "-" + strconv.FormatInt(s.counter, 10)
+	next := atomic.AddInt64(&globalSessionTokenCounter, 1)
+	id := strconv.FormatInt(s.now().UnixNano(), 10) + "-" + strconv.FormatInt(next, 10)
 	return tokenType + ":" + email + ":" + strconv.FormatInt(expiresAt.UTC().Unix(), 10) + ":" + id
 }

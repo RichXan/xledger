@@ -13,11 +13,10 @@ import (
 func TestGoogleCallback_ValidatesStateNonce(t *testing.T) {
 	now := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
 	repo := NewInMemoryRepository(func() time.Time { return now })
-	if err := repo.SaveOAuthStateNonce(context.Background(), "state-a", "nonce-a", 10*time.Minute); err != nil {
+	svc := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
+	if err := svc.SeedStateNonceForEmail(context.Background(), "state-a", "nonce-a", "oauth@example.com"); err != nil {
 		t.Fatalf("seed oauth state nonce: %v", err)
 	}
-
-	svc := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
 
 	_, err := svc.GoogleCallback(context.Background(), GoogleCallbackInput{State: "wrong-state", Nonce: "nonce-a", Email: "oauth@example.com"})
 	if ErrorCode(err) != AUTH_OAUTH_FAILED {
@@ -33,11 +32,10 @@ func TestGoogleCallback_ValidatesStateNonce(t *testing.T) {
 func TestGoogleCallback_ReplayedNonceRejected(t *testing.T) {
 	now := time.Date(2026, 3, 20, 12, 5, 0, 0, time.UTC)
 	repo := NewInMemoryRepository(func() time.Time { return now })
-	if err := repo.SaveOAuthStateNonce(context.Background(), "state-replay", "nonce-replay", 10*time.Minute); err != nil {
+	svc := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
+	if err := svc.SeedStateNonceForEmail(context.Background(), "state-replay", "nonce-replay", "oauth@example.com"); err != nil {
 		t.Fatalf("seed oauth state nonce: %v", err)
 	}
-
-	svc := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
 
 	if _, err := svc.GoogleCallback(context.Background(), GoogleCallbackInput{State: "state-replay", Nonce: "nonce-replay", Email: "oauth@example.com"}); err != nil {
 		t.Fatalf("first callback should succeed, got %v", err)
@@ -53,13 +51,14 @@ func TestGoogleCallback_HTTPContract_IsGET_api_auth_google_callback(t *testing.T
 	gin.SetMode(gin.TestMode)
 	now := time.Date(2026, 3, 20, 12, 10, 0, 0, time.UTC)
 	repo := NewInMemoryRepository(func() time.Time { return now })
-	if err := repo.SaveOAuthStateNonce(context.Background(), "state-http", "nonce-http", 10*time.Minute); err != nil {
+	oauthSvc := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
+	if err := oauthSvc.SeedStateNonceForEmail(context.Background(), "state-http", "nonce-http", "oauth@example.com"); err != nil {
 		t.Fatalf("seed oauth state nonce: %v", err)
 	}
 
 	h := NewHandlerWithServices(
 		NewCodeService(repo, &oauthSessionSender{}, nil, func() time.Time { return now }, func() string { return "123456" }),
-		NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now }),
+		oauthSvc,
 		NewSessionService(repo, nil, func() time.Time { return now }),
 	)
 	r := gin.New()
@@ -91,6 +90,60 @@ func TestGoogleCallback_InvalidProviderResponse_ReturnsAUTH_OAUTH_FAILED(t *test
 	_, err := svc.GoogleCallback(context.Background(), GoogleCallbackInput{State: "state-invalid", Nonce: "nonce-invalid"})
 	if ErrorCode(err) != AUTH_OAUTH_FAILED {
 		t.Fatalf("expected %s for invalid provider response, got %q", AUTH_OAUTH_FAILED, ErrorCode(err))
+	}
+}
+
+func TestGoogleCallback_DoesNotTrustQueryEmail(t *testing.T) {
+	now := time.Date(2026, 3, 20, 12, 16, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	svc := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
+	if err := svc.SeedStateNonceForEmail(context.Background(), "state-bound", "nonce-bound", "bound@example.com"); err != nil {
+		t.Fatalf("seed oauth state nonce: %v", err)
+	}
+
+	tokens, err := svc.GoogleCallback(context.Background(), GoogleCallbackInput{State: "state-bound", Nonce: "nonce-bound", Email: "attacker@example.com"})
+	if err != nil {
+		t.Fatalf("expected callback to succeed for bound identity, got %v", err)
+	}
+	parsed, err := ParseSessionToken(tokens.RefreshToken)
+	if err != nil {
+		t.Fatalf("parse refresh token: %v", err)
+	}
+	if parsed.Email != "bound@example.com" {
+		t.Fatalf("expected callback identity to come from bound state, got %q", parsed.Email)
+	}
+}
+
+func TestGoogleCallback_RequiresBoundIdentity(t *testing.T) {
+	now := time.Date(2026, 3, 20, 12, 17, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	if err := repo.SaveOAuthStateNonce(context.Background(), "state-no-email", "nonce-no-email", 10*time.Minute); err != nil {
+		t.Fatalf("seed oauth state nonce: %v", err)
+	}
+	svc := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
+
+	_, err := svc.GoogleCallback(context.Background(), GoogleCallbackInput{State: "state-no-email", Nonce: "nonce-no-email", Email: "query@example.com"})
+	if ErrorCode(err) != AUTH_OAUTH_FAILED {
+		t.Fatalf("expected %s when no server-bound identity exists, got %q", AUTH_OAUTH_FAILED, ErrorCode(err))
+	}
+}
+
+func TestVerifyCode_IssuedRefreshTokenCompatibleWithSessionFlow(t *testing.T) {
+	now := time.Date(2026, 3, 20, 12, 18, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	if err := repo.SaveVerificationCode(context.Background(), "verify-session@example.com", "111111", 10*time.Minute); err != nil {
+		t.Fatalf("seed code: %v", err)
+	}
+
+	codeSvc := NewCodeService(repo, &oauthSessionSender{}, nil, func() time.Time { return now }, nil)
+	pair, err := codeSvc.VerifyCode(context.Background(), "verify-session@example.com", "111111")
+	if err != nil {
+		t.Fatalf("verify code should succeed, got %v", err)
+	}
+
+	sessionSvc := NewSessionService(repo, nil, func() time.Time { return now })
+	if _, err := sessionSvc.Refresh(context.Background(), pair.RefreshToken); err != nil {
+		t.Fatalf("expected verify-issued refresh token to work with refresh flow, got %v", err)
 	}
 }
 
@@ -287,11 +340,11 @@ func TestRefresh_BlacklistStrictMode_EmitsAlertEvent(t *testing.T) {
 func TestFirstLogin_CreatesDefaultLedger(t *testing.T) {
 	now := time.Date(2026, 3, 20, 13, 10, 0, 0, time.UTC)
 	repo := NewInMemoryRepository(func() time.Time { return now })
-	if err := repo.SaveOAuthStateNonce(context.Background(), "state-ledger", "nonce-ledger", 10*time.Minute); err != nil {
+	oauth := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
+	if err := oauth.SeedStateNonceForEmail(context.Background(), "state-ledger", "nonce-ledger", "first-login@example.com"); err != nil {
 		t.Fatalf("seed oauth state nonce: %v", err)
 	}
 
-	oauth := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
 	if _, err := oauth.GoogleCallback(context.Background(), GoogleCallbackInput{State: "state-ledger", Nonce: "nonce-ledger", Email: "first-login@example.com"}); err != nil {
 		t.Fatalf("oauth callback should succeed, got %v", err)
 	}
@@ -299,7 +352,7 @@ func TestFirstLogin_CreatesDefaultLedger(t *testing.T) {
 		t.Fatalf("expected default ledger to be created once on first login")
 	}
 
-	if err := repo.SaveOAuthStateNonce(context.Background(), "state-ledger-2", "nonce-ledger-2", 10*time.Minute); err != nil {
+	if err := oauth.SeedStateNonceForEmail(context.Background(), "state-ledger-2", "nonce-ledger-2", "first-login@example.com"); err != nil {
 		t.Fatalf("seed oauth state nonce: %v", err)
 	}
 	if _, err := oauth.GoogleCallback(context.Background(), GoogleCallbackInput{State: "state-ledger-2", Nonce: "nonce-ledger-2", Email: "first-login@example.com"}); err != nil {

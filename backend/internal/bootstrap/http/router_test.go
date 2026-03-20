@@ -41,6 +41,26 @@ func TestNewRouterWithDependencies_UsesInjectedAuthHandler(t *testing.T) {
 	}
 }
 
+func TestNewRouterWithDependencies_DoesNotMountSessionRoutesForCodeOnlyHandler(t *testing.T) {
+	now := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
+	repo := auth.NewInMemoryRepository(func() time.Time { return now })
+	handler := auth.NewHandler(auth.NewCodeService(repo, &countingSender{}, nil, func() time.Time { return now }, func() string { return "123456" }))
+
+	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{AuthHandler: handler})
+	if err != nil {
+		t.Fatalf("expected NewRouterWithDependencies to succeed, got: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", strings.NewReader(`{"refresh_token":"x"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected refresh route to be absent for code-only handler, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 type countingSender struct {
 	calls int
 }

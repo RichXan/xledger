@@ -29,12 +29,12 @@ type TokenPair struct {
 }
 
 type TokenIssuer interface {
-	Issue(email string) (TokenPair, error)
+	Issue(ctx context.Context, email string) (TokenPair, error)
 }
 
 type staticTokenIssuer struct{}
 
-func (staticTokenIssuer) Issue(email string) (TokenPair, error) {
+func (staticTokenIssuer) Issue(_ context.Context, email string) (TokenPair, error) {
 	normalized := strings.TrimSpace(strings.ToLower(email))
 	if normalized == "" {
 		return TokenPair{}, errors.New("email is required")
@@ -44,6 +44,21 @@ func (staticTokenIssuer) Issue(email string) (TokenPair, error) {
 		AccessToken:  "access-" + normalized,
 		RefreshToken: "refresh-" + normalized,
 	}, nil
+}
+
+type sessionTokenIssuer struct {
+	sessionService *SessionService
+}
+
+func NewSessionTokenIssuer(sessionService *SessionService) TokenIssuer {
+	return sessionTokenIssuer{sessionService: sessionService}
+}
+
+func (s sessionTokenIssuer) Issue(ctx context.Context, email string) (TokenPair, error) {
+	if s.sessionService == nil {
+		return TokenPair{}, errors.New("session service is required")
+	}
+	return s.sessionService.IssueSession(ctx, email)
 }
 
 type authError struct {
@@ -94,7 +109,7 @@ func NewCodeService(repo CodeRepository, sender SMTPSender, issuer TokenIssuer, 
 		now = time.Now
 	}
 	if issuer == nil {
-		issuer = staticTokenIssuer{}
+		issuer = sessionTokenIssuer{sessionService: NewSessionService(repo, nil, now)}
 	}
 	if codeGenerator == nil {
 		codeGenerator = generateCode
@@ -186,13 +201,9 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 		return TokenPair{}, fmt.Errorf("unsupported consume result: %s", consumeResult)
 	}
 
-	tokens, err := s.issuer.Issue(normalizedEmail)
+	tokens, err := s.issuer.Issue(ctx, normalizedEmail)
 	if err != nil {
 		return TokenPair{}, fmt.Errorf("issue tokens: %w", err)
-	}
-
-	if err := s.repo.CreateSession(ctx, normalizedEmail); err != nil {
-		return TokenPair{}, fmt.Errorf("create session: %w", err)
 	}
 
 	return tokens, nil

@@ -35,9 +35,13 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	authGroup := r.Group("/api/auth")
 	authGroup.POST("/send-code", handler.SendCode)
 	authGroup.POST("/verify-code", handler.VerifyCode)
-	authGroup.GET("/google/callback", handler.GoogleCallback)
-	authGroup.POST("/refresh", handler.Refresh)
-	authGroup.POST("/logout", handler.Logout)
+	if handler.HasOAuthService() {
+		authGroup.GET("/google/callback", handler.GoogleCallback)
+	}
+	if handler.HasSessionService() {
+		authGroup.POST("/refresh", handler.Refresh)
+		authGroup.POST("/logout", handler.Logout)
+	}
 
 	return r, nil
 }

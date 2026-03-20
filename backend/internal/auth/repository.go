@@ -23,7 +23,9 @@ type CodeRepository interface {
 	ReleaseSendLock(ctx context.Context, email string) error
 	CreateSession(ctx context.Context, email string) error
 	SaveOAuthStateNonce(ctx context.Context, state string, nonce string, ttl time.Duration) error
+	SaveOAuthStateNonceForEmail(ctx context.Context, state string, nonce string, email string, ttl time.Duration) error
 	ConsumeOAuthStateNonce(ctx context.Context, state string, nonce string) (bool, error)
+	ConsumeOAuthStateNonceForEmail(ctx context.Context, state string, nonce string) (string, bool, error)
 	StoreRefreshToken(ctx context.Context, tokenID string, email string, expiresAt time.Time) error
 	ConsumeRefreshToken(ctx context.Context, tokenID string) (RefreshSession, bool, error)
 	BlacklistRefreshToken(ctx context.Context, tokenID string, at time.Time) error
@@ -68,6 +70,7 @@ type inMemoryIPCounter struct {
 
 type inMemoryOAuthState struct {
 	nonce     string
+	email     string
 	expiresAt time.Time
 }
 
@@ -257,28 +260,37 @@ func (r *InMemoryRepository) CreateSession(_ context.Context, _ string) error {
 }
 
 func (r *InMemoryRepository) SaveOAuthStateNonce(_ context.Context, state string, nonce string, ttl time.Duration) error {
+	return r.SaveOAuthStateNonceForEmail(context.Background(), state, nonce, "", ttl)
+}
+
+func (r *InMemoryRepository) SaveOAuthStateNonceForEmail(_ context.Context, state string, nonce string, email string, ttl time.Duration) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.cleanupExpiredLocked(r.now())
 
-	r.oauthState[state] = inMemoryOAuthState{nonce: nonce, expiresAt: r.now().Add(ttl)}
+	r.oauthState[state] = inMemoryOAuthState{nonce: nonce, email: email, expiresAt: r.now().Add(ttl)}
 	return nil
 }
 
 func (r *InMemoryRepository) ConsumeOAuthStateNonce(_ context.Context, state string, nonce string) (bool, error) {
+	_, ok, err := r.ConsumeOAuthStateNonceForEmail(context.Background(), state, nonce)
+	return ok, err
+}
+
+func (r *InMemoryRepository) ConsumeOAuthStateNonceForEmail(_ context.Context, state string, nonce string) (string, bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.cleanupExpiredLocked(r.now())
 
 	record, ok := r.oauthState[state]
 	if !ok {
-		return false, nil
+		return "", false, nil
 	}
 	delete(r.oauthState, state)
 	if !secureCodeEqual(record.nonce, nonce) {
-		return false, nil
+		return "", false, nil
 	}
-	return true, nil
+	return record.email, true, nil
 }
 
 func (r *InMemoryRepository) StoreRefreshToken(_ context.Context, tokenID string, email string, expiresAt time.Time) error {
