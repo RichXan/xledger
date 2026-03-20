@@ -16,8 +16,8 @@ type CodeRepository interface {
 	SaveVerificationCode(ctx context.Context, email string, code string, ttl time.Duration) error
 	GetVerificationCode(ctx context.Context, email string) (string, error)
 	DeleteVerificationCode(ctx context.Context, email string) error
-	GetLastCodeSentAt(ctx context.Context, email string) (time.Time, bool, error)
-	SetLastCodeSentAt(ctx context.Context, email string, at time.Time, ttl time.Duration) error
+	AcquireSendLock(ctx context.Context, email string, at time.Time, ttl time.Duration) (bool, error)
+	ReleaseSendLock(ctx context.Context, email string) error
 	CreateSession(ctx context.Context, email string) error
 }
 
@@ -84,28 +84,24 @@ func (r *InMemoryRepository) DeleteVerificationCode(_ context.Context, email str
 	return nil
 }
 
-func (r *InMemoryRepository) GetLastCodeSentAt(_ context.Context, email string) (time.Time, bool, error) {
+func (r *InMemoryRepository) AcquireSendLock(_ context.Context, email string, at time.Time, ttl time.Duration) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	record, ok := r.lastSent[email]
-	if !ok {
-		return time.Time{}, false, nil
+	if ok && r.now().Before(record.expiresAt) {
+		return false, nil
 	}
 
-	if !r.now().Before(record.expiresAt) {
-		delete(r.lastSent, email)
-		return time.Time{}, false, nil
-	}
-
-	return record.value, true, nil
+	r.lastSent[email] = inMemoryTimestamp{value: at, expiresAt: at.Add(ttl)}
+	return true, nil
 }
 
-func (r *InMemoryRepository) SetLastCodeSentAt(_ context.Context, email string, at time.Time, ttl time.Duration) error {
+func (r *InMemoryRepository) ReleaseSendLock(_ context.Context, email string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.lastSent[email] = inMemoryTimestamp{value: at, expiresAt: at.Add(ttl)}
+	delete(r.lastSent, email)
 	return nil
 }
 

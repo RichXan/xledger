@@ -109,11 +109,11 @@ func (s *CodeService) SendCode(ctx context.Context, email string) error {
 		return &authError{code: AUTH_CODE_INVALID, err: errors.New("email is required")}
 	}
 
-	lastSentAt, exists, err := s.repo.GetLastCodeSentAt(ctx, normalizedEmail)
+	allowed, err := s.repo.AcquireSendLock(ctx, normalizedEmail, s.now(), s.resendInterval)
 	if err != nil {
 		return fmt.Errorf("check resend limit: %w", err)
 	}
-	if exists && s.now().Sub(lastSentAt) < s.resendInterval {
+	if !allowed {
 		return &authError{code: AUTH_CODE_RATE_LIMIT}
 	}
 
@@ -121,18 +121,23 @@ func (s *CodeService) SendCode(ctx context.Context, email string) error {
 	if !isSixDigitNumeric(code) {
 		code = generateCode()
 	}
+	rollback := true
+	defer func() {
+		if rollback {
+			_ = s.repo.DeleteVerificationCode(ctx, normalizedEmail)
+			_ = s.repo.ReleaseSendLock(ctx, normalizedEmail)
+		}
+	}()
+
+	if err := s.repo.SaveVerificationCode(ctx, normalizedEmail, code, s.codeTTL); err != nil {
+		return fmt.Errorf("save verification code: %w", err)
+	}
 
 	if err := s.sender.Send(normalizedEmail, "Your verification code", "Your XLedger verification code is: "+code); err != nil {
 		return &authError{code: AUTH_CODE_SEND_FAILED, err: err}
 	}
 
-	if err := s.repo.SaveVerificationCode(ctx, normalizedEmail, code, s.codeTTL); err != nil {
-		return fmt.Errorf("save verification code: %w", err)
-	}
-	if err := s.repo.SetLastCodeSentAt(ctx, normalizedEmail, s.now(), s.resendInterval); err != nil {
-		return fmt.Errorf("save resend lock: %w", err)
-	}
-
+	rollback = false
 	return nil
 }
 
@@ -155,10 +160,6 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 		return TokenPair{}, &authError{code: AUTH_CODE_INVALID, err: errors.New("code mismatch")}
 	}
 
-	if err := s.repo.DeleteVerificationCode(ctx, normalizedEmail); err != nil {
-		return TokenPair{}, fmt.Errorf("delete verification code: %w", err)
-	}
-
 	tokens, err := s.issuer.Issue(normalizedEmail)
 	if err != nil {
 		return TokenPair{}, fmt.Errorf("issue tokens: %w", err)
@@ -166,6 +167,9 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 
 	if err := s.repo.CreateSession(ctx, normalizedEmail); err != nil {
 		return TokenPair{}, fmt.Errorf("create session: %w", err)
+	}
+	if err := s.repo.DeleteVerificationCode(ctx, normalizedEmail); err != nil {
+		return TokenPair{}, fmt.Errorf("delete verification code: %w", err)
 	}
 
 	return tokens, nil

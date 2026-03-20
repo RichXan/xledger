@@ -1,21 +1,10 @@
 package auth
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
-
-type codeService interface {
-	SendCode(ctx gin.Context, email string) error
-	VerifyCode(ctx gin.Context, email string, code string) (TokenPair, error)
-}
-
-type CodeServiceAPI interface {
-	SendCode(ctx interface{ Done() <-chan struct{} }, email string) error
-	VerifyCode(ctx interface{ Done() <-chan struct{} }, email string, code string) (TokenPair, error)
-}
 
 type Handler struct {
 	service *CodeService
@@ -76,10 +65,6 @@ func (h *Handler) VerifyCode(c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error_code": AUTH_CODE_EXPIRED})
 			return
 		default:
-			if errors.Is(err, ErrCodeNotFound) {
-				c.JSON(http.StatusUnauthorized, gin.H{"error_code": AUTH_CODE_INVALID})
-				return
-			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
 			return
 		}
