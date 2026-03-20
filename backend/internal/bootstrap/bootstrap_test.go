@@ -11,7 +11,10 @@ import (
 )
 
 func TestRouter_Healthz(t *testing.T) {
-	router := bootstraphttp.NewRouter([]string{"127.0.0.1", "::1"})
+	router, err := bootstraphttp.NewRouter([]string{"127.0.0.1", "::1"})
+	if err != nil {
+		t.Fatalf("expected router creation to succeed, got error: %v", err)
+	}
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
