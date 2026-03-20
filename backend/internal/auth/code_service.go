@@ -3,6 +3,9 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -155,7 +158,7 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
 	providedCode := strings.TrimSpace(code)
 
-	storedCode, err := s.repo.GetVerificationCode(ctx, normalizedEmail)
+	storedCodeDigest, err := s.repo.GetVerificationCode(ctx, normalizedEmail)
 	if err != nil {
 		if errors.Is(err, ErrCodeExpired) {
 			return TokenPair{}, &authError{code: AUTH_CODE_EXPIRED, err: err}
@@ -166,7 +169,8 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 		return TokenPair{}, fmt.Errorf("get verification code: %w", err)
 	}
 
-	if providedCode != storedCode {
+	providedCodeDigest := hashVerificationCode(providedCode)
+	if !secureCodeEqual(storedCodeDigest, providedCodeDigest) {
 		attempts, attemptErr := s.repo.RecordFailedVerificationAttempt(ctx, normalizedEmail)
 		if attemptErr != nil {
 			return TokenPair{}, fmt.Errorf("record verification attempt: %w", attemptErr)
@@ -190,6 +194,18 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 	}
 
 	return tokens, nil
+}
+
+func hashVerificationCode(code string) string {
+	sum := sha256.Sum256([]byte(code))
+	return hex.EncodeToString(sum[:])
+}
+
+func secureCodeEqual(left string, right string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
 }
 
 func generateCode() string {

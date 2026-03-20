@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -105,6 +106,13 @@ func (smtpTransport) Send(ctx context.Context, config SMTPConfig, to string, sub
 	defer func() {
 		_ = client.Close()
 	}()
+
+	if ok, _ := client.Extension("STARTTLS"); !ok {
+		return fmt.Errorf("starttls not supported by server")
+	}
+	if err := client.StartTLS(&tls.Config{ServerName: config.Host, MinVersion: tls.VersionTLS12}); err != nil {
+		return fmt.Errorf("starttls failed: %w", err)
+	}
 
 	if config.Username != "" {
 		auth := smtp.PlainAuth("", config.Username, config.Password, config.Host)

@@ -73,7 +73,7 @@ func (r *InMemoryRepository) SaveVerificationCode(_ context.Context, email strin
 	r.cleanupExpiredLocked(r.now())
 
 	expiresAt := r.now().Add(ttl)
-	r.codes[email] = inMemoryCode{value: code, expiresAt: expiresAt}
+	r.codes[email] = inMemoryCode{value: hashVerificationCode(code), expiresAt: expiresAt}
 	r.verifyFail[email] = inMemoryCounter{value: 0, expiresAt: expiresAt}
 	return nil
 }

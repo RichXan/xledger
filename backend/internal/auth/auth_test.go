@@ -24,8 +24,11 @@ func TestSendCode_UsesSMTPAndRedis(t *testing.T) {
 		t.Fatalf("expected SMTP sender to be called once, got %d", sender.calls)
 	}
 
-	if repo.StoredCode("user@example.com") != "123456" {
-		t.Fatalf("expected code to be stored in repository")
+	if repo.StoredCode("user@example.com") == "123456" {
+		t.Fatalf("expected code not to be stored in plaintext")
+	}
+	if repo.StoredCode("user@example.com") != hashVerificationCode("123456") {
+		t.Fatalf("expected hashed code to be stored in repository")
 	}
 }
 
@@ -40,9 +43,37 @@ func TestSendCode_GeneratesSixDigitCode(t *testing.T) {
 		t.Fatalf("expected send code to succeed, got error: %v", err)
 	}
 
+	codeMatch := regexp.MustCompile(`\b\d{6}\b`).FindString(sender.lastBody)
+	if codeMatch == "" {
+		t.Fatalf("expected email body to include six digit code, got %q", sender.lastBody)
+	}
 	stored := repo.StoredCode("digits@example.com")
-	if !regexp.MustCompile(`^\d{6}$`).MatchString(stored) {
-		t.Fatalf("expected six digit numeric code, got %q", stored)
+	if stored != hashVerificationCode(codeMatch) {
+		t.Fatalf("expected repository to store code hash, got %q", stored)
+	}
+}
+
+func TestVerifyCode_HashedStorage_SupportsSuccessAndFailure(t *testing.T) {
+	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	if err := repo.SaveVerificationCode(context.Background(), "hashflow@example.com", "676767", 10*time.Minute); err != nil {
+		t.Fatalf("seed code: %v", err)
+	}
+	if repo.StoredCode("hashflow@example.com") == "676767" {
+		t.Fatal("expected stored code to be hashed")
+	}
+
+	badSvc := NewCodeService(repo, &stubSender{}, nil, func() time.Time { return now }, nil)
+	if _, err := badSvc.VerifyCode(context.Background(), "hashflow@example.com", "000000"); ErrorCode(err) != AUTH_CODE_INVALID {
+		t.Fatalf("expected wrong code to fail with %s, got %q", AUTH_CODE_INVALID, ErrorCode(err))
+	}
+
+	if err := repo.SaveVerificationCode(context.Background(), "hashflow@example.com", "676767", 10*time.Minute); err != nil {
+		t.Fatalf("reseed code: %v", err)
+	}
+	goodSvc := NewCodeService(repo, &stubSender{}, nil, func() time.Time { return now }, nil)
+	if _, err := goodSvc.VerifyCode(context.Background(), "hashflow@example.com", "676767"); err != nil {
+		t.Fatalf("expected correct code to verify from hashed storage, got: %v", err)
 	}
 }
 
@@ -283,8 +314,9 @@ func TestInMemoryRepository_OpportunisticCleanup_RemovesExpiredStaleEntries(t *t
 }
 
 type stubSender struct {
-	err   error
-	calls int
+	err      error
+	calls    int
+	lastBody string
 }
 
 type deleteFailRepository struct {
@@ -297,6 +329,7 @@ func (r *deleteFailRepository) DeleteVerificationCode(ctx context.Context, email
 
 func (s *stubSender) Send(to, subject, body string) error {
 	s.calls++
+	s.lastBody = body
 	if s.err != nil {
 		return s.err
 	}
