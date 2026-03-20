@@ -157,20 +157,16 @@ func (s *CodeService) SendCode(ctx context.Context, email string, clientIP strin
 func (s *CodeService) VerifyCode(ctx context.Context, email string, code string) (TokenPair, error) {
 	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
 	providedCode := strings.TrimSpace(code)
-
-	storedCodeDigest, err := s.repo.GetVerificationCode(ctx, normalizedEmail)
+	providedCodeDigest := hashVerificationCode(providedCode)
+	consumeResult, err := s.repo.VerifyAndConsumeCode(ctx, normalizedEmail, providedCodeDigest)
 	if err != nil {
-		if errors.Is(err, ErrCodeExpired) {
-			return TokenPair{}, &authError{code: AUTH_CODE_EXPIRED, err: err}
-		}
-		if errors.Is(err, ErrCodeNotFound) {
-			return TokenPair{}, &authError{code: AUTH_CODE_INVALID, err: err}
-		}
-		return TokenPair{}, fmt.Errorf("get verification code: %w", err)
+		return TokenPair{}, fmt.Errorf("verify and consume code: %w", err)
 	}
 
-	providedCodeDigest := hashVerificationCode(providedCode)
-	if !secureCodeEqual(storedCodeDigest, providedCodeDigest) {
+	switch consumeResult {
+	case VerifyConsumeExpired:
+		return TokenPair{}, &authError{code: AUTH_CODE_EXPIRED, err: ErrCodeExpired}
+	case VerifyConsumeMismatch:
 		attempts, attemptErr := s.repo.RecordFailedVerificationAttempt(ctx, normalizedEmail)
 		if attemptErr != nil {
 			return TokenPair{}, fmt.Errorf("record verification attempt: %w", attemptErr)
@@ -179,9 +175,11 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 			_ = s.repo.DeleteVerificationCode(ctx, normalizedEmail)
 		}
 		return TokenPair{}, &authError{code: AUTH_CODE_INVALID, err: errors.New("code mismatch")}
-	}
-	if err := s.repo.DeleteVerificationCode(ctx, normalizedEmail); err != nil {
-		return TokenPair{}, fmt.Errorf("delete verification code: %w", err)
+	case VerifyConsumeNone:
+		return TokenPair{}, &authError{code: AUTH_CODE_INVALID, err: ErrCodeNotFound}
+	case VerifyConsumeMatch:
+	default:
+		return TokenPair{}, fmt.Errorf("unsupported consume result: %s", consumeResult)
 	}
 
 	tokens, err := s.issuer.Issue(normalizedEmail)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sync"
 	"testing"
 	"time"
 )
@@ -124,21 +125,77 @@ func TestVerifyCode_Expired_ReturnsAUTH_CODE_EXPIRED(t *testing.T) {
 	}
 }
 
-func TestVerifyCode_DeleteFailure_DoesNotCreateSession(t *testing.T) {
+func TestVerifyCode_ConsumeFailure_DoesNotCreateSession(t *testing.T) {
 	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
 	baseRepo := NewInMemoryRepository(func() time.Time { return now })
 	if err := baseRepo.SaveVerificationCode(context.Background(), "deletefail@example.com", "444444", 10*time.Minute); err != nil {
 		t.Fatalf("seed code: %v", err)
 	}
-	repo := &deleteFailRepository{InMemoryRepository: baseRepo}
+	repo := &consumeFailRepository{InMemoryRepository: baseRepo}
 	svc := NewCodeService(repo, &stubSender{}, nil, func() time.Time { return now }, nil)
 
 	_, err := svc.VerifyCode(context.Background(), "deletefail@example.com", "444444")
 	if err == nil {
-		t.Fatal("expected verify to fail when code deletion fails")
+		t.Fatal("expected verify to fail when consume operation fails")
 	}
 	if repo.SessionCount() != 0 {
 		t.Fatalf("expected no session side effect when verify fails, got %d", repo.SessionCount())
+	}
+}
+
+func TestInMemoryRepository_VerifyAndConsumeCode_AllowsSingleSuccess(t *testing.T) {
+	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	if err := repo.SaveVerificationCode(context.Background(), "single-use@example.com", "818181", 10*time.Minute); err != nil {
+		t.Fatalf("seed code: %v", err)
+	}
+
+	result1, err := repo.VerifyAndConsumeCode(context.Background(), "single-use@example.com", hashVerificationCode("818181"))
+	if err != nil {
+		t.Fatalf("first consume error: %v", err)
+	}
+	if result1 != VerifyConsumeMatch {
+		t.Fatalf("expected first consume to match, got %v", result1)
+	}
+
+	result2, err := repo.VerifyAndConsumeCode(context.Background(), "single-use@example.com", hashVerificationCode("818181"))
+	if err != nil {
+		t.Fatalf("second consume error: %v", err)
+	}
+	if result2 == VerifyConsumeMatch {
+		t.Fatalf("expected second consume not to match, got %v", result2)
+	}
+}
+
+func TestVerifyCode_ConcurrentRequests_AtMostOneSuccess(t *testing.T) {
+	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	if err := repo.SaveVerificationCode(context.Background(), "concurrent@example.com", "919191", 10*time.Minute); err != nil {
+		t.Fatalf("seed code: %v", err)
+	}
+	svc := NewCodeService(repo, &stubSender{}, nil, func() time.Time { return now }, nil)
+
+	var wg sync.WaitGroup
+	results := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := svc.VerifyCode(context.Background(), "concurrent@example.com", "919191")
+			results <- err
+		}()
+	}
+	wg.Wait()
+	close(results)
+
+	successCount := 0
+	for err := range results {
+		if err == nil {
+			successCount++
+		}
+	}
+	if successCount != 1 {
+		t.Fatalf("expected exactly one successful verification, got %d", successCount)
 	}
 }
 
@@ -319,12 +376,12 @@ type stubSender struct {
 	lastBody string
 }
 
-type deleteFailRepository struct {
+type consumeFailRepository struct {
 	*InMemoryRepository
 }
 
-func (r *deleteFailRepository) DeleteVerificationCode(ctx context.Context, email string) error {
-	return errors.New("delete failed")
+func (r *consumeFailRepository) VerifyAndConsumeCode(ctx context.Context, email string, codeDigest string) (VerifyConsumeResult, error) {
+	return VerifyConsumeNone, errors.New("consume failed")
 }
 
 func (s *stubSender) Send(to, subject, body string) error {

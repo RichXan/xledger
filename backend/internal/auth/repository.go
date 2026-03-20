@@ -15,6 +15,7 @@ var (
 type CodeRepository interface {
 	SaveVerificationCode(ctx context.Context, email string, code string, ttl time.Duration) error
 	GetVerificationCode(ctx context.Context, email string) (string, error)
+	VerifyAndConsumeCode(ctx context.Context, email string, codeDigest string) (VerifyConsumeResult, error)
 	DeleteVerificationCode(ctx context.Context, email string) error
 	RecordFailedVerificationAttempt(ctx context.Context, email string) (int, error)
 	AcquireIPHourlySlot(ctx context.Context, ip string, at time.Time, ttl time.Duration, cap int) (bool, error)
@@ -22,6 +23,15 @@ type CodeRepository interface {
 	ReleaseSendLock(ctx context.Context, email string) error
 	CreateSession(ctx context.Context, email string) error
 }
+
+type VerifyConsumeResult string
+
+const (
+	VerifyConsumeNone     VerifyConsumeResult = "none"
+	VerifyConsumeMatch    VerifyConsumeResult = "match"
+	VerifyConsumeMismatch VerifyConsumeResult = "mismatch"
+	VerifyConsumeExpired  VerifyConsumeResult = "expired"
+)
 
 type inMemoryCode struct {
 	value     string
@@ -94,6 +104,28 @@ func (r *InMemoryRepository) GetVerificationCode(_ context.Context, email string
 	}
 
 	return record.value, nil
+}
+
+func (r *InMemoryRepository) VerifyAndConsumeCode(_ context.Context, email string, codeDigest string) (VerifyConsumeResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	record, ok := r.codes[email]
+	if !ok {
+		return VerifyConsumeNone, nil
+	}
+	if !r.now().Before(record.expiresAt) {
+		delete(r.codes, email)
+		delete(r.verifyFail, email)
+		return VerifyConsumeExpired, nil
+	}
+	if !secureCodeEqual(record.value, codeDigest) {
+		return VerifyConsumeMismatch, nil
+	}
+
+	delete(r.codes, email)
+	delete(r.verifyFail, email)
+	return VerifyConsumeMatch, nil
 }
 
 func (r *InMemoryRepository) DeleteVerificationCode(_ context.Context, email string) error {
