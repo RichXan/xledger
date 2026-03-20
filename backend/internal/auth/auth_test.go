@@ -179,7 +179,7 @@ func TestInMemoryRepository_VerifyAndConsumeCode_AllowsSingleSuccess(t *testing.
 		t.Fatalf("seed code: %v", err)
 	}
 
-	result1, err := repo.VerifyAndConsumeCode(context.Background(), "single-use@example.com", hashVerificationCode("818181"))
+	result1, err := repo.VerifyAndConsumeCode(context.Background(), "single-use@example.com", hashVerificationCode("818181"), 5)
 	if err != nil {
 		t.Fatalf("first consume error: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestInMemoryRepository_VerifyAndConsumeCode_AllowsSingleSuccess(t *testing.
 		t.Fatalf("expected first consume to match, got %v", result1)
 	}
 
-	result2, err := repo.VerifyAndConsumeCode(context.Background(), "single-use@example.com", hashVerificationCode("818181"))
+	result2, err := repo.VerifyAndConsumeCode(context.Background(), "single-use@example.com", hashVerificationCode("818181"), 5)
 	if err != nil {
 		t.Fatalf("second consume error: %v", err)
 	}
@@ -249,6 +249,36 @@ func TestVerifyCode_RepeatedWrongAttempts_InvalidateCode(t *testing.T) {
 	}
 	if repo.SessionCount() != 0 {
 		t.Fatalf("expected no session created after brute-force invalidation, got %d", repo.SessionCount())
+	}
+}
+
+func TestVerifyCode_LockoutDeleteFailure_DoesNotFailOpen(t *testing.T) {
+	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	baseRepo := NewInMemoryRepository(func() time.Time { return now })
+	if err := baseRepo.SaveVerificationCode(context.Background(), "lockout-delete-fail@example.com", "121212", 10*time.Minute); err != nil {
+		t.Fatalf("seed code: %v", err)
+	}
+	repo := &deleteFailOnLockoutRepository{InMemoryRepository: baseRepo}
+	svc := NewCodeService(repo, &stubSender{}, nil, func() time.Time { return now }, nil)
+
+	for i := 0; i < 4; i++ {
+		_, err := svc.VerifyCode(context.Background(), "lockout-delete-fail@example.com", "000000")
+		if ErrorCode(err) != AUTH_CODE_INVALID {
+			t.Fatalf("attempt %d expected %s, got %q", i+1, AUTH_CODE_INVALID, ErrorCode(err))
+		}
+	}
+
+	_, err := svc.VerifyCode(context.Background(), "lockout-delete-fail@example.com", "000000")
+	if err == nil {
+		t.Fatal("expected lockout delete failure to return error")
+	}
+	if ErrorCode(err) != "" {
+		t.Fatalf("expected internal error without auth code, got %q", ErrorCode(err))
+	}
+
+	_, err = svc.VerifyCode(context.Background(), "lockout-delete-fail@example.com", "121212")
+	if err == nil {
+		t.Fatal("expected code to stay unusable after lockout delete failure")
 	}
 }
 
@@ -409,8 +439,16 @@ type consumeFailRepository struct {
 	*InMemoryRepository
 }
 
-func (r *consumeFailRepository) VerifyAndConsumeCode(ctx context.Context, email string, codeDigest string) (VerifyConsumeResult, error) {
+func (r *consumeFailRepository) VerifyAndConsumeCode(ctx context.Context, email string, codeDigest string, maxAttempts int) (VerifyConsumeResult, error) {
 	return VerifyConsumeNone, errors.New("consume failed")
+}
+
+type deleteFailOnLockoutRepository struct {
+	*InMemoryRepository
+}
+
+func (r *deleteFailOnLockoutRepository) DeleteVerificationCode(ctx context.Context, email string) error {
+	return errors.New("delete failed")
 }
 
 func (s *stubSender) Send(to, subject, body string) error {

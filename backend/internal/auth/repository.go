@@ -15,7 +15,7 @@ var (
 type CodeRepository interface {
 	SaveVerificationCode(ctx context.Context, email string, code string, ttl time.Duration) error
 	GetVerificationCode(ctx context.Context, email string) (string, error)
-	VerifyAndConsumeCode(ctx context.Context, email string, codeDigest string) (VerifyConsumeResult, error)
+	VerifyAndConsumeCode(ctx context.Context, email string, codeDigest string, maxAttempts int) (VerifyConsumeResult, error)
 	DeleteVerificationCode(ctx context.Context, email string) error
 	RecordFailedVerificationAttempt(ctx context.Context, email string) (int, error)
 	AcquireIPHourlySlot(ctx context.Context, ip string, at time.Time, ttl time.Duration, cap int) (bool, error)
@@ -106,9 +106,15 @@ func (r *InMemoryRepository) GetVerificationCode(_ context.Context, email string
 	return record.value, nil
 }
 
-func (r *InMemoryRepository) VerifyAndConsumeCode(_ context.Context, email string, codeDigest string) (VerifyConsumeResult, error) {
+func (r *InMemoryRepository) VerifyAndConsumeCode(_ context.Context, email string, codeDigest string, maxAttempts int) (VerifyConsumeResult, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	if failRecord, ok := r.verifyFail[email]; ok {
+		if r.now().Before(failRecord.expiresAt) && failRecord.value >= maxAttempts {
+			return VerifyConsumeMismatch, nil
+		}
+	}
 
 	record, ok := r.codes[email]
 	if !ok {

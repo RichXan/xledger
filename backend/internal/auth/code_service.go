@@ -160,7 +160,7 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
 	providedCode := strings.TrimSpace(code)
 	providedCodeDigest := hashVerificationCode(providedCode)
-	consumeResult, err := s.repo.VerifyAndConsumeCode(ctx, normalizedEmail, providedCodeDigest)
+	consumeResult, err := s.repo.VerifyAndConsumeCode(ctx, normalizedEmail, providedCodeDigest, s.maxVerifyTries)
 	if err != nil {
 		return TokenPair{}, fmt.Errorf("verify and consume code: %w", err)
 	}
@@ -174,7 +174,9 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 			return TokenPair{}, fmt.Errorf("record verification attempt: %w", attemptErr)
 		}
 		if attempts >= s.maxVerifyTries {
-			_ = s.repo.DeleteVerificationCode(ctx, normalizedEmail)
+			if deleteErr := s.repo.DeleteVerificationCode(ctx, normalizedEmail); deleteErr != nil {
+				return TokenPair{}, fmt.Errorf("delete verification code after lockout: %w", deleteErr)
+			}
 		}
 		return TokenPair{}, &authError{code: AUTH_CODE_INVALID, err: errors.New("code mismatch")}
 	case VerifyConsumeNone:
