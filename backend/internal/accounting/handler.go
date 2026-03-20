@@ -2,6 +2,7 @@ package accounting
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,8 @@ type updateLedgerRequest struct {
 
 type createTransactionRequest struct {
 	LedgerID      string     `json:"ledger_id"`
+	FromLedgerID  *string    `json:"from_ledger_id"`
+	ToLedgerID    *string    `json:"to_ledger_id"`
 	AccountID     *string    `json:"account_id"`
 	FromAccountID *string    `json:"from_account_id"`
 	ToAccountID   *string    `json:"to_account_id"`
@@ -45,7 +48,8 @@ type createTransactionRequest struct {
 }
 
 type updateTransactionRequest struct {
-	Amount float64 `json:"amount"`
+	Amount  float64 `json:"amount"`
+	Version *int    `json:"version"`
 }
 
 func NewHandler(ledgerService *LedgerService, accountService *AccountService, transactionService ...*TransactionService) *Handler {
@@ -82,6 +86,8 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 	if req.Type == TransactionTypeTransfer {
 		txn, err := h.transactionService.CreateTransfer(c.Request.Context(), userID, TransactionTransferInput{
 			LedgerID:      req.LedgerID,
+			FromLedgerID:  req.FromLedgerID,
+			ToLedgerID:    req.ToLedgerID,
 			FromAccountID: req.FromAccountID,
 			ToAccountID:   req.ToAccountID,
 			Amount:        req.Amount,
@@ -129,7 +135,8 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 	}
 
 	txn, err := h.transactionService.EditTransaction(c.Request.Context(), userID, c.Param("id"), TransactionEditInput{
-		Amount: req.Amount,
+		Amount:  req.Amount,
+		Version: req.Version,
 	})
 	if err != nil {
 		h.writeError(c, err)
@@ -151,7 +158,17 @@ func (h *Handler) DeleteTransaction(c *gin.Context) {
 		return
 	}
 
-	err := h.transactionService.DeleteTransaction(c.Request.Context(), userID, c.Param("id"))
+	var version *int
+	if rawVersion := c.Query("version"); rawVersion != "" {
+		parsed, parseErr := strconv.Atoi(rawVersion)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+			return
+		}
+		version = &parsed
+	}
+
+	err := h.transactionService.DeleteTransaction(c.Request.Context(), userID, c.Param("id"), version)
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -404,6 +421,8 @@ func (h *Handler) writeError(c *gin.Context, err error) {
 		c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
 	case TXN_NOT_FOUND:
 		c.JSON(http.StatusNotFound, gin.H{"error_code": TXN_NOT_FOUND})
+	case TXN_CONFLICT:
+		c.JSON(http.StatusConflict, gin.H{"error_code": TXN_CONFLICT})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
 	}

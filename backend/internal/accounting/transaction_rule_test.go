@@ -214,7 +214,7 @@ func TestDeleteTxn_RecalculatesBalances(t *testing.T) {
 		t.Fatalf("seed txn: %v", err)
 	}
 
-	err = service.DeleteTransaction(context.Background(), "user-1", txn.ID)
+	err = service.DeleteTransaction(context.Background(), "user-1", txn.ID, nil)
 	if err != nil {
 		t.Fatalf("delete txn: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestEditDeleteTxn_RecalculatesStatsInput(t *testing.T) {
 		t.Fatalf("expected stats-input recalculation count 1 after edit, got %d", repo.StatsInputRecalculationCount())
 	}
 
-	err = service.DeleteTransaction(context.Background(), "user-1", txn.ID)
+	err = service.DeleteTransaction(context.Background(), "user-1", txn.ID, nil)
 	if err != nil {
 		t.Fatalf("delete txn: %v", err)
 	}

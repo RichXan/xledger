@@ -2,6 +2,7 @@ package accounting
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 )
@@ -9,16 +10,23 @@ import (
 const (
 	TXN_VALIDATION_FAILED = "TXN_VALIDATION_FAILED"
 	TXN_NOT_FOUND         = "TXN_NOT_FOUND"
+	TXN_CONFLICT          = "TXN_CONFLICT"
 )
 
 type TransactionService struct {
 	repo        TransactionRepository
 	ledgerRepo  LedgerRepository
 	accountRepo AccountRepository
+	transferSvc *TransferService
 }
 
 func NewTransactionService(repo TransactionRepository, ledgerRepo LedgerRepository, accountRepo AccountRepository) *TransactionService {
-	return &TransactionService{repo: repo, ledgerRepo: ledgerRepo, accountRepo: accountRepo}
+	return &TransactionService{
+		repo:        repo,
+		ledgerRepo:  ledgerRepo,
+		accountRepo: accountRepo,
+		transferSvc: NewTransferService(repo),
+	}
 }
 
 func (s *TransactionService) CreateTransaction(_ context.Context, userID string, input TransactionCreateInput) (Transaction, error) {
@@ -78,18 +86,91 @@ func (s *TransactionService) CreateTransaction(_ context.Context, userID string,
 }
 
 func (s *TransactionService) CreateTransfer(ctx context.Context, userID string, input TransactionTransferInput) (Transaction, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return Transaction{}, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+
+	input.LedgerID = strings.TrimSpace(input.LedgerID)
+	input.FromLedgerID = normalizeOptionalID(input.FromLedgerID)
+	input.ToLedgerID = normalizeOptionalID(input.ToLedgerID)
+	input.FromAccountID = normalizeOptionalID(input.FromAccountID)
+	input.ToAccountID = normalizeOptionalID(input.ToAccountID)
+
 	if strings.TrimSpace(ptrString(input.FromAccountID)) == "" || strings.TrimSpace(ptrString(input.ToAccountID)) == "" {
 		return Transaction{}, &contractError{code: TXN_VALIDATION_FAILED}
 	}
 
-	return s.CreateTransaction(ctx, userID, TransactionCreateInput{
-		LedgerID:      input.LedgerID,
-		Type:          TransactionTypeTransfer,
-		FromAccountID: input.FromAccountID,
-		ToAccountID:   input.ToAccountID,
-		Amount:        input.Amount,
-		OccurredAt:    input.OccurredAt,
-	})
+	fromLedgerID := strings.TrimSpace(ptrString(input.FromLedgerID))
+	if fromLedgerID == "" {
+		fromLedgerID = input.LedgerID
+	}
+	toLedgerID := strings.TrimSpace(ptrString(input.ToLedgerID))
+	if toLedgerID == "" {
+		toLedgerID = input.LedgerID
+	}
+	if fromLedgerID == "" || toLedgerID == "" {
+		return Transaction{}, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+
+	fromLedgerExists, fromLedgerErr := s.ledgerExists(userID, fromLedgerID)
+	if fromLedgerErr != nil {
+		return Transaction{}, fromLedgerErr
+	}
+	toLedgerExists, toLedgerErr := s.ledgerExists(userID, toLedgerID)
+	if toLedgerErr != nil {
+		return Transaction{}, toLedgerErr
+	}
+	if !fromLedgerExists || !toLedgerExists {
+		return Transaction{}, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+
+	fromExists, fromErr := s.accountRequiredExists(userID, input.FromAccountID)
+	if fromErr != nil {
+		return Transaction{}, fromErr
+	}
+	toExists, toErr := s.accountRequiredExists(userID, input.ToAccountID)
+	if toErr != nil {
+		return Transaction{}, toErr
+	}
+	if !fromExists || !toExists {
+		return Transaction{}, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+
+	if input.Amount <= 0 {
+		return Transaction{}, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	if input.OccurredAt.IsZero() {
+		input.OccurredAt = time.Now().UTC()
+	}
+
+	created, ledgers, err := s.transferSvc.Create(userID,
+		TransactionCreateInput{
+			LedgerID:      fromLedgerID,
+			Type:          TransactionTypeTransfer,
+			FromAccountID: input.FromAccountID,
+			ToAccountID:   input.ToAccountID,
+			Amount:        input.Amount,
+			OccurredAt:    input.OccurredAt,
+		},
+		TransactionCreateInput{
+			LedgerID:      toLedgerID,
+			Type:          TransactionTypeTransfer,
+			FromAccountID: input.FromAccountID,
+			ToAccountID:   input.ToAccountID,
+			Amount:        input.Amount,
+			OccurredAt:    input.OccurredAt,
+		},
+	)
+	if err != nil {
+		return Transaction{}, s.mapTransferError(err)
+	}
+
+	if recalcErr := s.recalculateForLedgers(userID, ledgers); recalcErr != nil {
+		return Transaction{}, recalcErr
+	}
+
+	return created, nil
 }
 
 func (s *TransactionService) EditTransaction(_ context.Context, userID string, txnID string, input TransactionEditInput) (Transaction, error) {
@@ -107,7 +188,22 @@ func (s *TransactionService) EditTransaction(_ context.Context, userID string, t
 		return Transaction{}, &contractError{code: TXN_NOT_FOUND}
 	}
 
+	if txn.Type == TransactionTypeTransfer {
+		edited, ledgers, transferErr := s.transferSvc.Edit(userID, txnID, input.Amount, input.Version)
+		if transferErr != nil {
+			return Transaction{}, s.mapTransferError(transferErr)
+		}
+		if recalcErr := s.recalculateForLedgers(userID, ledgers); recalcErr != nil {
+			return Transaction{}, recalcErr
+		}
+		return edited, nil
+	}
+
 	txn.Amount = input.Amount
+	if input.Version != nil && txn.Version != *input.Version {
+		return Transaction{}, &contractError{code: TXN_CONFLICT}
+	}
+	txn.Version++
 	updated, saved, saveErr := s.repo.SaveByIDForUser(userID, txnID, txn)
 	if saveErr != nil {
 		return Transaction{}, saveErr
@@ -123,7 +219,7 @@ func (s *TransactionService) EditTransaction(_ context.Context, userID string, t
 	return updated, nil
 }
 
-func (s *TransactionService) DeleteTransaction(_ context.Context, userID string, txnID string) error {
+func (s *TransactionService) DeleteTransaction(_ context.Context, userID string, txnID string, expectedVersion *int) error {
 	userID = strings.TrimSpace(userID)
 	txnID = strings.TrimSpace(txnID)
 	if userID == "" || txnID == "" {
@@ -136,6 +232,18 @@ func (s *TransactionService) DeleteTransaction(_ context.Context, userID string,
 	}
 	if !found {
 		return &contractError{code: TXN_NOT_FOUND}
+	}
+
+	if txn.Type == TransactionTypeTransfer {
+		ledgers, transferErr := s.transferSvc.Delete(userID, txnID, expectedVersion)
+		if transferErr != nil {
+			return s.mapTransferError(transferErr)
+		}
+		return s.recalculateForLedgers(userID, ledgers)
+	}
+
+	if expectedVersion != nil && txn.Version != *expectedVersion {
+		return &contractError{code: TXN_CONFLICT}
 	}
 
 	deleted, deleteErr := s.repo.DeleteByIDForUser(userID, txnID)
@@ -165,6 +273,34 @@ func (s *TransactionService) recalculateForLedger(userID string, ledgerID string
 		return err
 	}
 	return nil
+}
+
+func (s *TransactionService) recalculateForLedgers(userID string, ledgerIDs []string) error {
+	unique := make([]string, 0, len(ledgerIDs))
+	for _, ledgerID := range ledgerIDs {
+		trimmed := strings.TrimSpace(ledgerID)
+		if trimmed == "" {
+			continue
+		}
+		unique = appendUnique(unique, trimmed)
+	}
+	for _, ledgerID := range unique {
+		if err := s.recalculateForLedger(userID, ledgerID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *TransactionService) mapTransferError(err error) error {
+	switch {
+	case errors.Is(err, errTransferConflict), errors.Is(err, errTransferVersionConflict), errors.Is(err, errTransferBilateralMismatch):
+		return &contractError{code: TXN_CONFLICT}
+	case errors.Is(err, errTransferNotFound):
+		return &contractError{code: TXN_NOT_FOUND}
+	default:
+		return err
+	}
 }
 
 func ptrString(value *string) string {
