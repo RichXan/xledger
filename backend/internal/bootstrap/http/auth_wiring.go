@@ -16,7 +16,9 @@ func newDefaultAuthHandlerFromEnv() *auth.Handler {
 		Password: os.Getenv("SMTP_PASS"),
 		From:     os.Getenv("SMTP_FROM"),
 	})
-	service := auth.NewCodeService(repo, sender, nil, time.Now, nil)
+	codeService := auth.NewCodeService(repo, sender, nil, time.Now, nil)
+	sessionService := auth.NewSessionService(repo, nil, time.Now)
+	oauthService := auth.NewOAuthService(repo, sessionService, time.Now)
 
-	return auth.NewHandler(service)
+	return auth.NewHandlerWithServices(codeService, oauthService, sessionService)
 }
