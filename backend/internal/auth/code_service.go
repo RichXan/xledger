@@ -121,23 +121,17 @@ func (s *CodeService) SendCode(ctx context.Context, email string) error {
 	if !isSixDigitNumeric(code) {
 		code = generateCode()
 	}
-	rollback := true
-	defer func() {
-		if rollback {
-			_ = s.repo.DeleteVerificationCode(ctx, normalizedEmail)
-			_ = s.repo.ReleaseSendLock(ctx, normalizedEmail)
-		}
-	}()
 
 	if err := s.repo.SaveVerificationCode(ctx, normalizedEmail, code, s.codeTTL); err != nil {
+		_ = s.repo.ReleaseSendLock(ctx, normalizedEmail)
 		return fmt.Errorf("save verification code: %w", err)
 	}
 
 	if err := s.sender.Send(normalizedEmail, "Your verification code", "Your XLedger verification code is: "+code); err != nil {
+		_ = s.repo.DeleteVerificationCode(ctx, normalizedEmail)
 		return &authError{code: AUTH_CODE_SEND_FAILED, err: err}
 	}
 
-	rollback = false
 	return nil
 }
 

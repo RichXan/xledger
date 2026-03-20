@@ -127,6 +127,28 @@ func TestSendCode_SMTPFailure_CreatesNoSession(t *testing.T) {
 	}
 }
 
+func TestSendCode_SMTPFailure_DoesNotBypassResendLimit(t *testing.T) {
+	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	sender := &stubSender{err: errors.New("smtp down")}
+	svc := NewCodeService(repo, sender, nil, func() time.Time { return now }, func() string { return "123456" })
+
+	err := svc.SendCode(context.Background(), "ratelimit-after-fail@example.com")
+	if ErrorCode(err) != AUTH_CODE_SEND_FAILED {
+		t.Fatalf("expected first attempt %s, got %q", AUTH_CODE_SEND_FAILED, ErrorCode(err))
+	}
+
+	now = now.Add(30 * time.Second)
+	err = svc.SendCode(context.Background(), "ratelimit-after-fail@example.com")
+	if ErrorCode(err) != AUTH_CODE_RATE_LIMIT {
+		t.Fatalf("expected retry within 60s to return %s, got %q", AUTH_CODE_RATE_LIMIT, ErrorCode(err))
+	}
+
+	if sender.calls != 1 {
+		t.Fatalf("expected SMTP sender not called on rate-limited retry, got %d calls", sender.calls)
+	}
+}
+
 func TestSendCode_TooFrequent_ReturnsAUTH_CODE_RATE_LIMIT(t *testing.T) {
 	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
 	repo := NewInMemoryRepository(func() time.Time { return now })
