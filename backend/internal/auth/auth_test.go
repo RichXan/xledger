@@ -110,6 +110,30 @@ func TestVerifyCode_DeleteFailure_DoesNotCreateSession(t *testing.T) {
 	}
 }
 
+func TestVerifyCode_RepeatedWrongAttempts_InvalidateCode(t *testing.T) {
+	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	if err := repo.SaveVerificationCode(context.Background(), "bruteforce@example.com", "555555", 10*time.Minute); err != nil {
+		t.Fatalf("seed code: %v", err)
+	}
+	svc := NewCodeService(repo, &stubSender{}, nil, func() time.Time { return now }, nil)
+
+	for i := 0; i < 5; i++ {
+		_, err := svc.VerifyCode(context.Background(), "bruteforce@example.com", "000000")
+		if ErrorCode(err) != AUTH_CODE_INVALID {
+			t.Fatalf("attempt %d expected %s, got %q", i+1, AUTH_CODE_INVALID, ErrorCode(err))
+		}
+	}
+
+	_, err := svc.VerifyCode(context.Background(), "bruteforce@example.com", "555555")
+	if ErrorCode(err) != AUTH_CODE_INVALID {
+		t.Fatalf("expected code to be invalidated after repeated failures, got %q", ErrorCode(err))
+	}
+	if repo.SessionCount() != 0 {
+		t.Fatalf("expected no session created after brute-force invalidation, got %d", repo.SessionCount())
+	}
+}
+
 func TestSendCode_SMTPFailure_ReturnsAUTH_CODE_SEND_FAILED(t *testing.T) {
 	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
 	repo := NewInMemoryRepository(func() time.Time { return now })
@@ -181,6 +205,29 @@ func TestSendCode_TooFrequent_ReturnsAUTH_CODE_RATE_LIMIT(t *testing.T) {
 	err := svc.SendCode(context.Background(), "fast@example.com")
 	if ErrorCode(err) != AUTH_CODE_RATE_LIMIT {
 		t.Fatalf("expected %s, got %q", AUTH_CODE_RATE_LIMIT, ErrorCode(err))
+	}
+}
+
+func TestInMemoryRepository_OpportunisticCleanup_RemovesExpiredStaleEntries(t *testing.T) {
+	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+
+	if err := repo.SaveVerificationCode(context.Background(), "stale@example.com", "999999", time.Second); err != nil {
+		t.Fatalf("save stale code: %v", err)
+	}
+	ok, err := repo.AcquireSendLock(context.Background(), "stale@example.com", now, time.Second)
+	if err != nil || !ok {
+		t.Fatalf("acquire stale lock: ok=%v err=%v", ok, err)
+	}
+
+	now = now.Add(2 * time.Second)
+	if err := repo.SaveVerificationCode(context.Background(), "fresh@example.com", "123123", 10*time.Minute); err != nil {
+		t.Fatalf("save fresh code: %v", err)
+	}
+
+	codeCount, lockCount, failureCount := repo.stateCounts()
+	if codeCount != 1 || lockCount != 0 || failureCount != 1 {
+		t.Fatalf("unexpected state counts after cleanup: codes=%d locks=%d failures=%d", codeCount, lockCount, failureCount)
 	}
 }
 

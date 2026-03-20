@@ -16,6 +16,7 @@ type CodeRepository interface {
 	SaveVerificationCode(ctx context.Context, email string, code string, ttl time.Duration) error
 	GetVerificationCode(ctx context.Context, email string) (string, error)
 	DeleteVerificationCode(ctx context.Context, email string) error
+	RecordFailedVerificationAttempt(ctx context.Context, email string) (int, error)
 	AcquireSendLock(ctx context.Context, email string, at time.Time, ttl time.Duration) (bool, error)
 	ReleaseSendLock(ctx context.Context, email string) error
 	CreateSession(ctx context.Context, email string) error
@@ -31,11 +32,17 @@ type inMemoryTimestamp struct {
 	expiresAt time.Time
 }
 
+type inMemoryCounter struct {
+	value     int
+	expiresAt time.Time
+}
+
 type InMemoryRepository struct {
 	mu         sync.Mutex
 	now        func() time.Time
 	codes      map[string]inMemoryCode
 	lastSent   map[string]inMemoryTimestamp
+	verifyFail map[string]inMemoryCounter
 	sessionCnt int
 }
 
@@ -45,17 +52,21 @@ func NewInMemoryRepository(now func() time.Time) *InMemoryRepository {
 	}
 
 	return &InMemoryRepository{
-		now:      now,
-		codes:    make(map[string]inMemoryCode),
-		lastSent: make(map[string]inMemoryTimestamp),
+		now:        now,
+		codes:      make(map[string]inMemoryCode),
+		lastSent:   make(map[string]inMemoryTimestamp),
+		verifyFail: make(map[string]inMemoryCounter),
 	}
 }
 
 func (r *InMemoryRepository) SaveVerificationCode(_ context.Context, email string, code string, ttl time.Duration) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
 
-	r.codes[email] = inMemoryCode{value: code, expiresAt: r.now().Add(ttl)}
+	expiresAt := r.now().Add(ttl)
+	r.codes[email] = inMemoryCode{value: code, expiresAt: expiresAt}
+	r.verifyFail[email] = inMemoryCounter{value: 0, expiresAt: expiresAt}
 	return nil
 }
 
@@ -70,6 +81,7 @@ func (r *InMemoryRepository) GetVerificationCode(_ context.Context, email string
 
 	if !r.now().Before(record.expiresAt) {
 		delete(r.codes, email)
+		delete(r.verifyFail, email)
 		return "", ErrCodeExpired
 	}
 
@@ -79,14 +91,37 @@ func (r *InMemoryRepository) GetVerificationCode(_ context.Context, email string
 func (r *InMemoryRepository) DeleteVerificationCode(_ context.Context, email string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
 
 	delete(r.codes, email)
+	delete(r.verifyFail, email)
 	return nil
+}
+
+func (r *InMemoryRepository) RecordFailedVerificationAttempt(_ context.Context, email string) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
+
+	counter, ok := r.verifyFail[email]
+	if !ok {
+		expiresAt := r.now().Add(10 * time.Minute)
+		if code, codeOK := r.codes[email]; codeOK {
+			expiresAt = code.expiresAt
+		}
+		counter = inMemoryCounter{value: 0, expiresAt: expiresAt}
+	}
+
+	counter.value++
+	r.verifyFail[email] = counter
+
+	return counter.value, nil
 }
 
 func (r *InMemoryRepository) AcquireSendLock(_ context.Context, email string, at time.Time, ttl time.Duration) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
 
 	record, ok := r.lastSent[email]
 	if ok && r.now().Before(record.expiresAt) {
@@ -100,6 +135,7 @@ func (r *InMemoryRepository) AcquireSendLock(_ context.Context, email string, at
 func (r *InMemoryRepository) ReleaseSendLock(_ context.Context, email string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
 
 	delete(r.lastSent, email)
 	return nil
@@ -108,6 +144,7 @@ func (r *InMemoryRepository) ReleaseSendLock(_ context.Context, email string) er
 func (r *InMemoryRepository) CreateSession(_ context.Context, _ string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
 
 	r.sessionCnt++
 	return nil
@@ -116,6 +153,7 @@ func (r *InMemoryRepository) CreateSession(_ context.Context, _ string) error {
 func (r *InMemoryRepository) StoredCode(email string) string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
 
 	record, ok := r.codes[email]
 	if !ok {
@@ -131,6 +169,34 @@ func (r *InMemoryRepository) StoredCode(email string) string {
 func (r *InMemoryRepository) SessionCount() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
 
 	return r.sessionCnt
+}
+
+func (r *InMemoryRepository) stateCounts() (int, int, int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
+
+	return len(r.codes), len(r.lastSent), len(r.verifyFail)
+}
+
+func (r *InMemoryRepository) cleanupExpiredLocked(now time.Time) {
+	for email, code := range r.codes {
+		if !now.Before(code.expiresAt) {
+			delete(r.codes, email)
+			delete(r.verifyFail, email)
+		}
+	}
+	for email, sent := range r.lastSent {
+		if !now.Before(sent.expiresAt) {
+			delete(r.lastSent, email)
+		}
+	}
+	for email, fail := range r.verifyFail {
+		if !now.Before(fail.expiresAt) {
+			delete(r.verifyFail, email)
+		}
+	}
 }

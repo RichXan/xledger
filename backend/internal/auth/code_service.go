@@ -79,6 +79,7 @@ type CodeService struct {
 	codeGenerator  func() string
 	codeTTL        time.Duration
 	resendInterval time.Duration
+	maxVerifyTries int
 }
 
 func NewCodeService(repo CodeRepository, sender SMTPSender, issuer TokenIssuer, now func() time.Time, codeGenerator func() string) *CodeService {
@@ -100,6 +101,7 @@ func NewCodeService(repo CodeRepository, sender SMTPSender, issuer TokenIssuer, 
 		codeGenerator:  codeGenerator,
 		codeTTL:        10 * time.Minute,
 		resendInterval: 60 * time.Second,
+		maxVerifyTries: 5,
 	}
 }
 
@@ -151,6 +153,13 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 	}
 
 	if providedCode != storedCode {
+		attempts, attemptErr := s.repo.RecordFailedVerificationAttempt(ctx, normalizedEmail)
+		if attemptErr != nil {
+			return TokenPair{}, fmt.Errorf("record verification attempt: %w", attemptErr)
+		}
+		if attempts >= s.maxVerifyTries {
+			_ = s.repo.DeleteVerificationCode(ctx, normalizedEmail)
+		}
 		return TokenPair{}, &authError{code: AUTH_CODE_INVALID, err: errors.New("code mismatch")}
 	}
 	if err := s.repo.DeleteVerificationCode(ctx, normalizedEmail); err != nil {
