@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -9,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -195,8 +197,9 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 }
 
 func hashVerificationCode(code string) string {
-	sum := sha256.Sum256([]byte(code))
-	return hex.EncodeToString(sum[:])
+	mac := hmac.New(sha256.New, []byte(verificationCodePepper()))
+	_, _ = mac.Write([]byte(code))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 func secureCodeEqual(left string, right string) bool {
@@ -204,6 +207,15 @@ func secureCodeEqual(left string, right string) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
+}
+
+func verificationCodePepper() string {
+	pepper := strings.TrimSpace(os.Getenv("AUTH_CODE_PEPPER"))
+	if pepper == "" {
+		return "dev-task2-otp-pepper"
+	}
+
+	return pepper
 }
 
 func generateCode() string {

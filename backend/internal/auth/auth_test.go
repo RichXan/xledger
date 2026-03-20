@@ -78,6 +78,35 @@ func TestVerifyCode_HashedStorage_SupportsSuccessAndFailure(t *testing.T) {
 	}
 }
 
+func TestHashVerificationCode_UsesConfiguredPepperDeterministically(t *testing.T) {
+	t.Setenv("AUTH_CODE_PEPPER", "pepper-a")
+	h1 := hashVerificationCode("123456")
+	h2 := hashVerificationCode("123456")
+	if h1 != h2 {
+		t.Fatalf("expected deterministic digest for same pepper")
+	}
+
+	t.Setenv("AUTH_CODE_PEPPER", "pepper-b")
+	h3 := hashVerificationCode("123456")
+	if h1 == h3 {
+		t.Fatalf("expected digest to change when pepper changes")
+	}
+}
+
+func TestVerifyCode_WithConfiguredPepper_Succeeds(t *testing.T) {
+	t.Setenv("AUTH_CODE_PEPPER", "pepper-verify")
+	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	if err := repo.SaveVerificationCode(context.Background(), "pepper@example.com", "565656", 10*time.Minute); err != nil {
+		t.Fatalf("seed code: %v", err)
+	}
+
+	svc := NewCodeService(repo, &stubSender{}, nil, func() time.Time { return now }, nil)
+	if _, err := svc.VerifyCode(context.Background(), "pepper@example.com", "565656"); err != nil {
+		t.Fatalf("expected verify to succeed with configured pepper, got: %v", err)
+	}
+}
+
 func TestVerifyCode_Success_ReturnsAccessAndRefresh(t *testing.T) {
 	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
 	repo := NewInMemoryRepository(func() time.Time { return now })
