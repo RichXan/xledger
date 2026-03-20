@@ -62,6 +62,10 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		accountingGroup.GET("/accounts/:id", accountingHandler.GetAccount)
 		accountingGroup.PUT("/accounts/:id", accountingHandler.UpdateAccount)
 		accountingGroup.DELETE("/accounts/:id", accountingHandler.DeleteAccount)
+
+		accountingGroup.POST("/transactions", accountingHandler.CreateTransaction)
+		accountingGroup.PUT("/transactions/:id", accountingHandler.UpdateTransaction)
+		accountingGroup.DELETE("/transactions/:id", accountingHandler.DeleteTransaction)
 	}
 
 	return r, nil

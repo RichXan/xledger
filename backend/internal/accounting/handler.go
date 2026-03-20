@@ -2,13 +2,15 @@ package accounting
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	ledgerService  *LedgerService
-	accountService *AccountService
+	ledgerService      *LedgerService
+	accountService     *AccountService
+	transactionService *TransactionService
 }
 
 type createAccountRequest struct {
@@ -32,8 +34,130 @@ type updateLedgerRequest struct {
 	Name string `json:"name"`
 }
 
-func NewHandler(ledgerService *LedgerService, accountService *AccountService) *Handler {
-	return &Handler{ledgerService: ledgerService, accountService: accountService}
+type createTransactionRequest struct {
+	LedgerID      string     `json:"ledger_id"`
+	AccountID     *string    `json:"account_id"`
+	FromAccountID *string    `json:"from_account_id"`
+	ToAccountID   *string    `json:"to_account_id"`
+	Type          string     `json:"type"`
+	Amount        float64    `json:"amount"`
+	OccurredAt    *time.Time `json:"occurred_at"`
+}
+
+type updateTransactionRequest struct {
+	Amount float64 `json:"amount"`
+}
+
+func NewHandler(ledgerService *LedgerService, accountService *AccountService, transactionService ...*TransactionService) *Handler {
+	handler := &Handler{ledgerService: ledgerService, accountService: accountService}
+	if len(transactionService) > 0 {
+		handler.transactionService = transactionService[0]
+	}
+	return handler
+}
+
+func (h *Handler) CreateTransaction(c *gin.Context) {
+	if h.transactionService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		return
+	}
+
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		return
+	}
+
+	var req createTransactionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+		return
+	}
+
+	occurredAt := time.Time{}
+	if req.OccurredAt != nil {
+		occurredAt = req.OccurredAt.UTC()
+	}
+
+	if req.Type == TransactionTypeTransfer {
+		txn, err := h.transactionService.CreateTransfer(c.Request.Context(), userID, TransactionTransferInput{
+			LedgerID:      req.LedgerID,
+			FromAccountID: req.FromAccountID,
+			ToAccountID:   req.ToAccountID,
+			Amount:        req.Amount,
+			OccurredAt:    occurredAt,
+		})
+		if err != nil {
+			h.writeError(c, err)
+			return
+		}
+		c.JSON(http.StatusCreated, txn)
+		return
+	}
+
+	txn, err := h.transactionService.CreateTransaction(c.Request.Context(), userID, TransactionCreateInput{
+		LedgerID:   req.LedgerID,
+		AccountID:  req.AccountID,
+		Type:       req.Type,
+		Amount:     req.Amount,
+		OccurredAt: occurredAt,
+	})
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, txn)
+}
+
+func (h *Handler) UpdateTransaction(c *gin.Context) {
+	if h.transactionService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		return
+	}
+
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		return
+	}
+
+	var req updateTransactionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+		return
+	}
+
+	txn, err := h.transactionService.EditTransaction(c.Request.Context(), userID, c.Param("id"), TransactionEditInput{
+		Amount: req.Amount,
+	})
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, txn)
+}
+
+func (h *Handler) DeleteTransaction(c *gin.Context) {
+	if h.transactionService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		return
+	}
+
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		return
+	}
+
+	err := h.transactionService.DeleteTransaction(c.Request.Context(), userID, c.Param("id"))
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"deleted": true})
 }
 
 func (h *Handler) CreateAccount(c *gin.Context) {
@@ -276,6 +400,10 @@ func (h *Handler) writeError(c *gin.Context, err error) {
 		c.JSON(http.StatusBadRequest, gin.H{"error_code": LEDGER_INVALID})
 	case LEDGER_NOT_FOUND:
 		c.JSON(http.StatusNotFound, gin.H{"error_code": LEDGER_NOT_FOUND})
+	case TXN_VALIDATION_FAILED:
+		c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+	case TXN_NOT_FOUND:
+		c.JSON(http.StatusNotFound, gin.H{"error_code": TXN_NOT_FOUND})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
 	}
