@@ -17,6 +17,7 @@ type CodeRepository interface {
 	GetVerificationCode(ctx context.Context, email string) (string, error)
 	DeleteVerificationCode(ctx context.Context, email string) error
 	RecordFailedVerificationAttempt(ctx context.Context, email string) (int, error)
+	AcquireIPHourlySlot(ctx context.Context, ip string, at time.Time, ttl time.Duration, cap int) (bool, error)
 	AcquireSendLock(ctx context.Context, email string, at time.Time, ttl time.Duration) (bool, error)
 	ReleaseSendLock(ctx context.Context, email string) error
 	CreateSession(ctx context.Context, email string) error
@@ -37,12 +38,18 @@ type inMemoryCounter struct {
 	expiresAt time.Time
 }
 
+type inMemoryIPCounter struct {
+	value     int
+	expiresAt time.Time
+}
+
 type InMemoryRepository struct {
 	mu         sync.Mutex
 	now        func() time.Time
 	codes      map[string]inMemoryCode
 	lastSent   map[string]inMemoryTimestamp
 	verifyFail map[string]inMemoryCounter
+	ipHourly   map[string]inMemoryIPCounter
 	sessionCnt int
 }
 
@@ -56,6 +63,7 @@ func NewInMemoryRepository(now func() time.Time) *InMemoryRepository {
 		codes:      make(map[string]inMemoryCode),
 		lastSent:   make(map[string]inMemoryTimestamp),
 		verifyFail: make(map[string]inMemoryCounter),
+		ipHourly:   make(map[string]inMemoryIPCounter),
 	}
 }
 
@@ -132,6 +140,31 @@ func (r *InMemoryRepository) AcquireSendLock(_ context.Context, email string, at
 	return true, nil
 }
 
+func (r *InMemoryRepository) AcquireIPHourlySlot(_ context.Context, ip string, at time.Time, ttl time.Duration, cap int) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
+
+	key := ip
+	if key == "" {
+		key = "unknown"
+	}
+
+	record, ok := r.ipHourly[key]
+	if !ok || !r.now().Before(record.expiresAt) {
+		r.ipHourly[key] = inMemoryIPCounter{value: 1, expiresAt: at.Add(ttl)}
+		return true, nil
+	}
+
+	if record.value >= cap {
+		return false, nil
+	}
+
+	record.value++
+	r.ipHourly[key] = record
+	return true, nil
+}
+
 func (r *InMemoryRepository) ReleaseSendLock(_ context.Context, email string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -174,12 +207,12 @@ func (r *InMemoryRepository) SessionCount() int {
 	return r.sessionCnt
 }
 
-func (r *InMemoryRepository) stateCounts() (int, int, int) {
+func (r *InMemoryRepository) stateCounts() (int, int, int, int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.cleanupExpiredLocked(r.now())
 
-	return len(r.codes), len(r.lastSent), len(r.verifyFail)
+	return len(r.codes), len(r.lastSent), len(r.verifyFail), len(r.ipHourly)
 }
 
 func (r *InMemoryRepository) cleanupExpiredLocked(now time.Time) {
@@ -197,6 +230,11 @@ func (r *InMemoryRepository) cleanupExpiredLocked(now time.Time) {
 	for email, fail := range r.verifyFail {
 		if !now.Before(fail.expiresAt) {
 			delete(r.verifyFail, email)
+		}
+	}
+	for ip, slot := range r.ipHourly {
+		if !now.Before(slot.expiresAt) {
+			delete(r.ipHourly, ip)
 		}
 	}
 }

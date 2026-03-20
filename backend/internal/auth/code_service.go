@@ -79,6 +79,8 @@ type CodeService struct {
 	codeGenerator  func() string
 	codeTTL        time.Duration
 	resendInterval time.Duration
+	ipHourlyCap    int
+	ipWindow       time.Duration
 	maxVerifyTries int
 }
 
@@ -101,11 +103,13 @@ func NewCodeService(repo CodeRepository, sender SMTPSender, issuer TokenIssuer, 
 		codeGenerator:  codeGenerator,
 		codeTTL:        10 * time.Minute,
 		resendInterval: 60 * time.Second,
+		ipHourlyCap:    10,
+		ipWindow:       time.Hour,
 		maxVerifyTries: 5,
 	}
 }
 
-func (s *CodeService) SendCode(ctx context.Context, email string) error {
+func (s *CodeService) SendCode(ctx context.Context, email string, clientIP string) error {
 	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
 	if normalizedEmail == "" {
 		return &authError{code: AUTH_CODE_INVALID, err: errors.New("email is required")}
@@ -116,6 +120,14 @@ func (s *CodeService) SendCode(ctx context.Context, email string) error {
 		return fmt.Errorf("check resend limit: %w", err)
 	}
 	if !allowed {
+		return &authError{code: AUTH_CODE_RATE_LIMIT}
+	}
+
+	ipAllowed, ipErr := s.repo.AcquireIPHourlySlot(ctx, strings.TrimSpace(clientIP), s.now(), s.ipWindow, s.ipHourlyCap)
+	if ipErr != nil {
+		return fmt.Errorf("check ip hourly limit: %w", ipErr)
+	}
+	if !ipAllowed {
 		return &authError{code: AUTH_CODE_RATE_LIMIT}
 	}
 

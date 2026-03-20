@@ -30,7 +30,7 @@ func (h *Handler) SendCode(c *gin.Context) {
 		return
 	}
 
-	err := h.service.SendCode(c.Request.Context(), req.Email)
+	err := h.service.SendCode(c.Request.Context(), req.Email, c.ClientIP())
 	if err != nil {
 		switch ErrorCode(err) {
 		case AUTH_CODE_RATE_LIMIT:

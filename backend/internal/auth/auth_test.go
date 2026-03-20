@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"testing"
 	"time"
@@ -14,7 +15,7 @@ func TestSendCode_UsesSMTPAndRedis(t *testing.T) {
 	sender := &stubSender{}
 	svc := NewCodeService(repo, sender, nil, func() time.Time { return now }, func() string { return "123456" })
 
-	err := svc.SendCode(context.Background(), "user@example.com")
+	err := svc.SendCode(context.Background(), "user@example.com", "10.0.0.1")
 	if err != nil {
 		t.Fatalf("expected send code to succeed, got error: %v", err)
 	}
@@ -34,7 +35,7 @@ func TestSendCode_GeneratesSixDigitCode(t *testing.T) {
 	sender := &stubSender{}
 	svc := NewCodeService(repo, sender, nil, func() time.Time { return now }, nil)
 
-	err := svc.SendCode(context.Background(), "digits@example.com")
+	err := svc.SendCode(context.Background(), "digits@example.com", "10.0.0.2")
 	if err != nil {
 		t.Fatalf("expected send code to succeed, got error: %v", err)
 	}
@@ -145,7 +146,7 @@ func TestSendCode_SMTPFailure_ReturnsAUTH_CODE_SEND_FAILED(t *testing.T) {
 		func() string { return "123456" },
 	)
 
-	err := svc.SendCode(context.Background(), "smtpfail@example.com")
+	err := svc.SendCode(context.Background(), "smtpfail@example.com", "10.0.0.3")
 	if ErrorCode(err) != AUTH_CODE_SEND_FAILED {
 		t.Fatalf("expected %s, got %q", AUTH_CODE_SEND_FAILED, ErrorCode(err))
 	}
@@ -162,7 +163,7 @@ func TestSendCode_SMTPFailure_CreatesNoSession(t *testing.T) {
 		func() string { return "123456" },
 	)
 
-	_ = svc.SendCode(context.Background(), "smtpnosession@example.com")
+	_ = svc.SendCode(context.Background(), "smtpnosession@example.com", "10.0.0.4")
 
 	if repo.SessionCount() != 0 {
 		t.Fatalf("expected no session side effects on SMTP failure, got %d", repo.SessionCount())
@@ -175,13 +176,13 @@ func TestSendCode_SMTPFailure_DoesNotBypassResendLimit(t *testing.T) {
 	sender := &stubSender{err: errors.New("smtp down")}
 	svc := NewCodeService(repo, sender, nil, func() time.Time { return now }, func() string { return "123456" })
 
-	err := svc.SendCode(context.Background(), "ratelimit-after-fail@example.com")
+	err := svc.SendCode(context.Background(), "ratelimit-after-fail@example.com", "10.0.0.5")
 	if ErrorCode(err) != AUTH_CODE_SEND_FAILED {
 		t.Fatalf("expected first attempt %s, got %q", AUTH_CODE_SEND_FAILED, ErrorCode(err))
 	}
 
 	now = now.Add(30 * time.Second)
-	err = svc.SendCode(context.Background(), "ratelimit-after-fail@example.com")
+	err = svc.SendCode(context.Background(), "ratelimit-after-fail@example.com", "10.0.0.5")
 	if ErrorCode(err) != AUTH_CODE_RATE_LIMIT {
 		t.Fatalf("expected retry within 60s to return %s, got %q", AUTH_CODE_RATE_LIMIT, ErrorCode(err))
 	}
@@ -197,14 +198,36 @@ func TestSendCode_TooFrequent_ReturnsAUTH_CODE_RATE_LIMIT(t *testing.T) {
 	sender := &stubSender{}
 	svc := NewCodeService(repo, sender, nil, func() time.Time { return now }, func() string { return "111111" })
 
-	if err := svc.SendCode(context.Background(), "fast@example.com"); err != nil {
+	if err := svc.SendCode(context.Background(), "fast@example.com", "10.0.0.6"); err != nil {
 		t.Fatalf("first send should succeed, got: %v", err)
 	}
 
 	now = now.Add(30 * time.Second)
-	err := svc.SendCode(context.Background(), "fast@example.com")
+	err := svc.SendCode(context.Background(), "fast@example.com", "10.0.0.6")
 	if ErrorCode(err) != AUTH_CODE_RATE_LIMIT {
 		t.Fatalf("expected %s, got %q", AUTH_CODE_RATE_LIMIT, ErrorCode(err))
+	}
+}
+
+func TestSendCode_IPHourlyCap_ReturnsRateLimitAcrossDifferentEmails(t *testing.T) {
+	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	sender := &stubSender{}
+	svc := NewCodeService(repo, sender, nil, func() time.Time { return now }, func() string { return "222222" })
+
+	for i := 0; i < svc.ipHourlyCap; i++ {
+		email := fmt.Sprintf("ipcap-%d@example.com", i)
+		if err := svc.SendCode(context.Background(), email, "203.0.113.7"); err != nil {
+			t.Fatalf("attempt %d should succeed, got: %v", i+1, err)
+		}
+	}
+
+	err := svc.SendCode(context.Background(), "ipcap-over@example.com", "203.0.113.7")
+	if ErrorCode(err) != AUTH_CODE_RATE_LIMIT {
+		t.Fatalf("expected %s after hourly IP cap, got %q", AUTH_CODE_RATE_LIMIT, ErrorCode(err))
+	}
+	if sender.calls != svc.ipHourlyCap {
+		t.Fatalf("expected sender calls to stop at cap=%d, got %d", svc.ipHourlyCap, sender.calls)
 	}
 }
 
@@ -219,15 +242,19 @@ func TestInMemoryRepository_OpportunisticCleanup_RemovesExpiredStaleEntries(t *t
 	if err != nil || !ok {
 		t.Fatalf("acquire stale lock: ok=%v err=%v", ok, err)
 	}
+	ipOK, ipErr := repo.AcquireIPHourlySlot(context.Background(), "198.51.100.20", now, time.Second, 5)
+	if ipErr != nil || !ipOK {
+		t.Fatalf("acquire stale ip lock: ok=%v err=%v", ipOK, ipErr)
+	}
 
 	now = now.Add(2 * time.Second)
 	if err := repo.SaveVerificationCode(context.Background(), "fresh@example.com", "123123", 10*time.Minute); err != nil {
 		t.Fatalf("save fresh code: %v", err)
 	}
 
-	codeCount, lockCount, failureCount := repo.stateCounts()
-	if codeCount != 1 || lockCount != 0 || failureCount != 1 {
-		t.Fatalf("unexpected state counts after cleanup: codes=%d locks=%d failures=%d", codeCount, lockCount, failureCount)
+	codeCount, lockCount, failureCount, ipCount := repo.stateCounts()
+	if codeCount != 1 || lockCount != 0 || failureCount != 1 || ipCount != 0 {
+		t.Fatalf("unexpected state counts after cleanup: codes=%d locks=%d failures=%d ip=%d", codeCount, lockCount, failureCount, ipCount)
 	}
 }
 
