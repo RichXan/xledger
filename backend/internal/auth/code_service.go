@@ -210,12 +210,7 @@ func secureCodeEqual(left string, right string) bool {
 }
 
 func verificationCodePepper() string {
-	pepper := strings.TrimSpace(os.Getenv("AUTH_CODE_PEPPER"))
-	if pepper == "" {
-		return "dev-task2-otp-pepper"
-	}
-
-	return pepper
+	return strings.TrimSpace(os.Getenv("AUTH_CODE_PEPPER"))
 }
 
 func generateCode() string {

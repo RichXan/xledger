@@ -57,10 +57,6 @@ func NewSMTPMailSender(config SMTPConfig) *SMTPMailSender {
 }
 
 func (s *SMTPMailSender) Send(to string, subject string, body string) error {
-	if strings.EqualFold(strings.TrimSpace(s.config.Host), "mock") {
-		return nil
-	}
-
 	if strings.TrimSpace(s.config.Host) == "" {
 		return fmt.Errorf("smtp host is required")
 	}

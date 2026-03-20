@@ -61,6 +61,24 @@ func TestSMTPMailSender_TimeoutAndRetryPolicy(t *testing.T) {
 	}
 }
 
+func TestSMTPMailSender_MockHostDoesNotBypassTransport(t *testing.T) {
+	transport := &stubTransport{errs: []error{errors.New("network down"), errors.New("network down"), errors.New("network down")}}
+
+	sender := NewSMTPMailSender(SMTPConfig{Host: "mock", Port: "25", From: "no-reply@example.com"})
+	sender.transport = transport
+	sender.timeout = 10 * time.Millisecond
+	sender.initialBackoff = time.Millisecond
+	sender.sleep = func(time.Duration) {}
+
+	err := sender.Send("to@example.com", "subject", "body")
+	if err == nil {
+		t.Fatal("expected send to fail when transport fails")
+	}
+	if transport.calls != 3 {
+		t.Fatalf("expected retry policy to execute, got %d calls", transport.calls)
+	}
+}
+
 func TestSMTPTransport_RefusesUnencryptedTransport(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

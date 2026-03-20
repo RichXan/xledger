@@ -8,6 +8,7 @@ import (
 
 type Config struct {
 	SMTPHost       string
+	AuthCodePepper string
 	APIAddr        string
 	TrustedProxies []string
 }
@@ -16,6 +17,11 @@ func Load() (Config, error) {
 	smtpHost := os.Getenv("SMTP_HOST")
 	if smtpHost == "" {
 		return Config{}, errors.New("missing required env var: SMTP_HOST")
+	}
+
+	authCodePepper := strings.TrimSpace(os.Getenv("AUTH_CODE_PEPPER"))
+	if authCodePepper == "" {
+		return Config{}, errors.New("missing required env var: AUTH_CODE_PEPPER")
 	}
 
 	apiAddr := os.Getenv("API_ADDR")
@@ -27,6 +33,7 @@ func Load() (Config, error) {
 
 	return Config{
 		SMTPHost:       smtpHost,
+		AuthCodePepper: authCodePepper,
 		APIAddr:        apiAddr,
 		TrustedProxies: trustedProxies,
 	}, nil
