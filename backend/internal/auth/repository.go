@@ -28,7 +28,7 @@ type CodeRepository interface {
 	ConsumeOAuthStateNonceForEmail(ctx context.Context, state string, nonce string) (string, bool, error)
 	StoreRefreshToken(ctx context.Context, tokenID string, email string, expiresAt time.Time) error
 	ConsumeRefreshToken(ctx context.Context, tokenID string) (RefreshSession, bool, error)
-	BlacklistRefreshToken(ctx context.Context, tokenID string, at time.Time) error
+	BlacklistRefreshToken(ctx context.Context, tokenID string, at time.Time, expiresAt time.Time) error
 	IsRefreshTokenBlacklisted(ctx context.Context, tokenID string) (bool, time.Duration, error)
 	RecordAlertEvent(ctx context.Context, event string) error
 	EnsureDefaultLedger(ctx context.Context, email string) (bool, error)
@@ -89,7 +89,7 @@ type InMemoryRepository struct {
 	ipHourly   map[string]inMemoryIPCounter
 	oauthState map[string]inMemoryOAuthState
 	refresh    map[string]inMemoryRefreshSession
-	blacklist  map[string]time.Time
+	blacklist  map[string]inMemoryTimestamp
 	alerts     map[string]int
 	ledgers    map[string]int
 	forcedLag  time.Duration
@@ -109,7 +109,7 @@ func NewInMemoryRepository(now func() time.Time) *InMemoryRepository {
 		ipHourly:   make(map[string]inMemoryIPCounter),
 		oauthState: make(map[string]inMemoryOAuthState),
 		refresh:    make(map[string]inMemoryRefreshSession),
-		blacklist:  make(map[string]time.Time),
+		blacklist:  make(map[string]inMemoryTimestamp),
 		alerts:     make(map[string]int),
 		ledgers:    make(map[string]int),
 	}
@@ -323,12 +323,15 @@ func (r *InMemoryRepository) ConsumeRefreshToken(_ context.Context, tokenID stri
 	return RefreshSession{Email: record.email, ExpiresAt: record.expiresAt}, true, nil
 }
 
-func (r *InMemoryRepository) BlacklistRefreshToken(_ context.Context, tokenID string, at time.Time) error {
+func (r *InMemoryRepository) BlacklistRefreshToken(_ context.Context, tokenID string, at time.Time, expiresAt time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.cleanupExpiredLocked(r.now())
 
-	r.blacklist[tokenID] = at
+	if !at.Before(expiresAt) {
+		return nil
+	}
+	r.blacklist[tokenID] = inMemoryTimestamp{value: at, expiresAt: expiresAt}
 	if session, ok := r.refresh[tokenID]; ok {
 		session.consumed = true
 		r.refresh[tokenID] = session
@@ -401,7 +404,15 @@ func (r *InMemoryRepository) RefreshBlacklistTime(tokenID string) (time.Time, bo
 	r.cleanupExpiredLocked(r.now())
 
 	at, ok := r.blacklist[tokenID]
-	return at, ok
+	return at.value, ok
+}
+
+func (r *InMemoryRepository) BlacklistCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
+
+	return len(r.blacklist)
 }
 
 func (r *InMemoryRepository) SetForcedBlacklistLag(lag time.Duration) {
@@ -464,6 +475,11 @@ func (r *InMemoryRepository) cleanupExpiredLocked(now time.Time) {
 	for tokenID, session := range r.refresh {
 		if !now.Before(session.expiresAt) {
 			delete(r.refresh, tokenID)
+		}
+	}
+	for tokenID, blacklisted := range r.blacklist {
+		if !now.Before(blacklisted.expiresAt) {
+			delete(r.blacklist, tokenID)
 		}
 	}
 }

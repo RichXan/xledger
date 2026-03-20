@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -273,6 +274,63 @@ func TestLogout_BlacklistPropagationLTE5s(t *testing.T) {
 	}
 	if lag > 5*time.Second {
 		t.Fatalf("expected blacklist propagation lag <=5s, got %s", lag)
+	}
+}
+
+func TestLogout_BlacklistEntryExpiresAfterTokenLifetime(t *testing.T) {
+	now := time.Date(2026, 3, 20, 12, 46, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	svc := NewSessionService(repo, nil, func() time.Time { return now })
+
+	pair, err := svc.IssueSession(context.Background(), "blacklist-expiry@example.com")
+	if err != nil {
+		t.Fatalf("issue session: %v", err)
+	}
+	if err := svc.Logout(context.Background(), pair.RefreshToken); err != nil {
+		t.Fatalf("logout should succeed, got %v", err)
+	}
+
+	if repo.BlacklistCount() != 1 {
+		t.Fatalf("expected one blacklist entry after logout, got %d", repo.BlacklistCount())
+	}
+
+	now = now.Add(8 * 24 * time.Hour)
+	if err := repo.SaveVerificationCode(context.Background(), "cleanup-trigger@example.com", "999999", 10*time.Minute); err != nil {
+		t.Fatalf("trigger cleanup: %v", err)
+	}
+
+	if repo.BlacklistCount() != 0 {
+		t.Fatalf("expected expired blacklist entry to be cleaned up, got %d", repo.BlacklistCount())
+	}
+}
+
+func TestInMemoryRepository_BlacklistCleanupPreventsUnboundedGrowth(t *testing.T) {
+	now := time.Date(2026, 3, 20, 12, 47, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	svc := NewSessionService(repo, nil, func() time.Time { return now })
+
+	for i := 0; i < 20; i++ {
+		email := "blacklist-growth-" + strconv.Itoa(i) + "@example.com"
+		pair, err := svc.IssueSession(context.Background(), email)
+		if err != nil {
+			t.Fatalf("issue session %d: %v", i, err)
+		}
+		if err := svc.Logout(context.Background(), pair.RefreshToken); err != nil {
+			t.Fatalf("logout %d: %v", i, err)
+		}
+	}
+
+	if repo.BlacklistCount() != 20 {
+		t.Fatalf("expected 20 blacklist entries, got %d", repo.BlacklistCount())
+	}
+
+	now = now.Add(9 * 24 * time.Hour)
+	if _, err := svc.IssueSession(context.Background(), "fresh-after-expiry@example.com"); err != nil {
+		t.Fatalf("issue fresh session: %v", err)
+	}
+
+	if repo.BlacklistCount() != 0 {
+		t.Fatalf("expected expired blacklist entries to be evicted, got %d", repo.BlacklistCount())
 	}
 }
 

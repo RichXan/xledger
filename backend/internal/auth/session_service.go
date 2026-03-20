@@ -153,7 +153,7 @@ func (s *SessionService) Logout(ctx context.Context, refreshToken string) error 
 		return &authError{code: AUTH_BAD_REQUEST, err: errors.New("refresh token required")}
 	}
 
-	if blacklistErr := s.repo.BlacklistRefreshToken(ctx, token.ID, s.now()); blacklistErr != nil {
+	if blacklistErr := s.repo.BlacklistRefreshToken(ctx, token.ID, s.now(), token.ExpiresAt); blacklistErr != nil {
 		return fmt.Errorf("blacklist refresh token: %w", blacklistErr)
 	}
 	return nil
