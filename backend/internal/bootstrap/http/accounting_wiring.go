@@ -8,6 +8,6 @@ func newDefaultAccountingHandler() *accounting.Handler {
 	transactionRepo := accounting.NewInMemoryTransactionRepository()
 	ledgerService := accounting.NewLedgerService(ledgerRepo)
 	accountService := accounting.NewAccountService(accountRepo)
-	transactionService := accounting.NewTransactionService(transactionRepo)
+	transactionService := accounting.NewTransactionService(transactionRepo, ledgerRepo, accountRepo)
 	return accounting.NewHandler(ledgerService, accountService, transactionService)
 }

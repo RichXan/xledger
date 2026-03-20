@@ -12,25 +12,55 @@ const (
 )
 
 type TransactionService struct {
-	repo TransactionRepository
+	repo        TransactionRepository
+	ledgerRepo  LedgerRepository
+	accountRepo AccountRepository
 }
 
-func NewTransactionService(repo TransactionRepository) *TransactionService {
-	return &TransactionService{repo: repo}
+func NewTransactionService(repo TransactionRepository, ledgerRepo LedgerRepository, accountRepo AccountRepository) *TransactionService {
+	return &TransactionService{repo: repo, ledgerRepo: ledgerRepo, accountRepo: accountRepo}
 }
 
 func (s *TransactionService) CreateTransaction(_ context.Context, userID string, input TransactionCreateInput) (Transaction, error) {
 	userID = strings.TrimSpace(userID)
 	input.LedgerID = strings.TrimSpace(input.LedgerID)
 	input.Type = strings.TrimSpace(input.Type)
+	input.AccountID = normalizeOptionalID(input.AccountID)
+	input.FromAccountID = normalizeOptionalID(input.FromAccountID)
+	input.ToAccountID = normalizeOptionalID(input.ToAccountID)
 	if userID == "" || input.LedgerID == "" {
+		return Transaction{}, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	ledgerExists, ledgerErr := s.ledgerExists(userID, input.LedgerID)
+	if ledgerErr != nil {
+		return Transaction{}, ledgerErr
+	}
+	if !ledgerExists {
 		return Transaction{}, &contractError{code: TXN_VALIDATION_FAILED}
 	}
 
 	switch input.Type {
 	case TransactionTypeIncome, TransactionTypeExpense:
+		accountExists, accountErr := s.accountOptionalExists(userID, input.AccountID)
+		if accountErr != nil {
+			return Transaction{}, accountErr
+		}
+		if !accountExists {
+			return Transaction{}, &contractError{code: TXN_VALIDATION_FAILED}
+		}
 	case TransactionTypeTransfer:
 		if strings.TrimSpace(ptrString(input.FromAccountID)) == "" || strings.TrimSpace(ptrString(input.ToAccountID)) == "" {
+			return Transaction{}, &contractError{code: TXN_VALIDATION_FAILED}
+		}
+		fromExists, fromErr := s.accountRequiredExists(userID, input.FromAccountID)
+		if fromErr != nil {
+			return Transaction{}, fromErr
+		}
+		toExists, toErr := s.accountRequiredExists(userID, input.ToAccountID)
+		if toErr != nil {
+			return Transaction{}, toErr
+		}
+		if !fromExists || !toExists {
 			return Transaction{}, &contractError{code: TXN_VALIDATION_FAILED}
 		}
 	default:
@@ -89,6 +119,7 @@ func (s *TransactionService) EditTransaction(_ context.Context, userID string, t
 	if err := s.recalculateForLedger(userID, txn.LedgerID); err != nil {
 		return Transaction{}, err
 	}
+
 	return updated, nil
 }
 
@@ -141,4 +172,45 @@ func ptrString(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func (s *TransactionService) ledgerExists(userID string, ledgerID string) (bool, error) {
+	if s.ledgerRepo == nil {
+		return true, nil
+	}
+	_, found, err := s.ledgerRepo.GetByIDForUser(userID, ledgerID)
+	if err != nil {
+		return false, err
+	}
+	return found, nil
+}
+
+func (s *TransactionService) accountOptionalExists(userID string, accountID *string) (bool, error) {
+	if strings.TrimSpace(ptrString(accountID)) == "" {
+		return true, nil
+	}
+	return s.accountRequiredExists(userID, accountID)
+}
+
+func (s *TransactionService) accountRequiredExists(userID string, accountID *string) (bool, error) {
+	if s.accountRepo == nil {
+		return true, nil
+	}
+	account := strings.TrimSpace(ptrString(accountID))
+	if account == "" {
+		return false, nil
+	}
+	_, found, err := s.accountRepo.GetByIDForUser(userID, account)
+	if err != nil {
+		return false, err
+	}
+	return found, nil
+}
+
+func normalizeOptionalID(value *string) *string {
+	trimmed := strings.TrimSpace(ptrString(value))
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
