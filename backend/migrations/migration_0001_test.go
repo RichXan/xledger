@@ -1,10 +1,16 @@
 package migrations_test
 
 import (
+	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
+	"time"
+
+	_ "github.com/lib/pq"
 )
 
 func TestMigration0001_ContainsRequiredAuthAndLedgerDDL(t *testing.T) {
@@ -36,4 +42,102 @@ func TestMigration0001_ContainsRequiredAuthAndLedgerDDL(t *testing.T) {
 			t.Fatalf("missing required DDL pattern: %s", pattern)
 		}
 	}
+}
+
+func TestMigration0001Down_DropsTablesInDependencyOrder(t *testing.T) {
+	path := filepath.Join("0001_init_users_auth.down.sql")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read migration file: %v", err)
+	}
+
+	normalized := strings.ToLower(strings.Join(strings.Fields(string(body)), " "))
+	required := []string{
+		"drop table ledgers;",
+		"drop table refresh_tokens;",
+		"drop table users;",
+	}
+
+	lastIndex := -1
+	for _, stmt := range required {
+		idx := strings.Index(normalized, stmt)
+		if idx == -1 {
+			t.Fatalf("missing required down migration statement: %s", stmt)
+		}
+		if idx <= lastIndex {
+			t.Fatalf("down migration statement out of order: %s", stmt)
+		}
+		lastIndex = idx
+	}
+}
+
+func TestMigration0001_UpDownCycle(t *testing.T) {
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_URL not set")
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	tableNames := []string{"users", "refresh_tokens", "ledgers"}
+	schemaName := fmt.Sprintf("task1_mig_%d", time.Now().UnixNano())
+
+	if _, err := db.Exec("CREATE SCHEMA " + schemaName); err != nil {
+		t.Fatalf("create schema: %v", err)
+	}
+	t.Cleanup(func() { _, _ = db.Exec("DROP SCHEMA IF EXISTS " + schemaName + " CASCADE") })
+
+	if _, err := db.Exec("SET search_path TO " + schemaName); err != nil {
+		t.Fatalf("set search_path: %v", err)
+	}
+
+	upSQL, err := os.ReadFile(filepath.Join("0001_init_users_auth.up.sql"))
+	if err != nil {
+		t.Fatalf("read up migration: %v", err)
+	}
+
+	if _, err := db.Exec(string(upSQL)); err != nil {
+		t.Fatalf("apply up migration: %v", err)
+	}
+
+	for _, tableName := range tableNames {
+		if !tableExistsInSchema(t, db, schemaName, tableName) {
+			t.Fatalf("expected table %s to exist after up migration", tableName)
+		}
+	}
+
+	downSQL, err := os.ReadFile(filepath.Join("0001_init_users_auth.down.sql"))
+	if err != nil {
+		t.Fatalf("read down migration: %v", err)
+	}
+
+	if _, err := db.Exec(string(downSQL)); err != nil {
+		t.Fatalf("apply down migration: %v", err)
+	}
+
+	for _, tableName := range tableNames {
+		if tableExistsInSchema(t, db, schemaName, tableName) {
+			t.Fatalf("expected table %s to be removed after down migration", tableName)
+		}
+	}
+}
+
+func tableExistsInSchema(t *testing.T, db *sql.DB, schemaName string, tableName string) bool {
+	t.Helper()
+
+	var exists bool
+	err := db.QueryRow(
+		`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2)`,
+		schemaName,
+		tableName,
+	).Scan(&exists)
+	if err != nil {
+		t.Fatalf("query table existence for %s: %v", tableName, err)
+	}
+
+	return exists
 }
