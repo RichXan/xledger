@@ -37,7 +37,8 @@ Execution order is mandatory: `A -> B -> C -> D -> E -> F`.
 - Create: `backend/internal/common/timex/timezone.go`
 
 **Migrations**
-- Create: `backend/migrations/0001_init_users_auth.sql`
+- Create: `backend/migrations/0001_init_users_auth.up.sql`
+- Create: `backend/migrations/0001_init_users_auth.down.sql`
 - Create: `backend/migrations/0002_init_ledger_account_transaction.sql`
 - Create: `backend/migrations/0003_init_category_tag.sql`
 - Create: `backend/migrations/0004_init_pat_import_jobs.sql`
@@ -115,7 +116,8 @@ Execution order is mandatory: `A -> B -> C -> D -> E -> F`.
 - Create: `backend/cmd/api/main.go`
 - Create: `backend/internal/bootstrap/config/config.go`
 - Create: `backend/internal/bootstrap/http/router.go`
-- Create: `backend/migrations/0001_init_users_auth.sql`
+- Create: `backend/migrations/0001_init_users_auth.up.sql`
+- Create: `backend/migrations/0001_init_users_auth.down.sql`
 - Test: `backend/internal/bootstrap/bootstrap_test.go`
 
 - [ ] **Step 1: Write failing tests for health route + config load**
@@ -149,7 +151,7 @@ Expected: migration `0001_init_users_auth` applied successfully.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add backend/go.mod backend/cmd/api/main.go backend/internal/bootstrap backend/migrations/0001_init_users_auth.sql
+git add backend/go.mod backend/cmd/api/main.go backend/internal/bootstrap backend/migrations/0001_init_users_auth.up.sql backend/migrations/0001_init_users_auth.down.sql
 git commit -m "feat(bootstrap): initialize api skeleton and auth base schema"
 ```
 

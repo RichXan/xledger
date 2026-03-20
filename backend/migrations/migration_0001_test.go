@@ -1,6 +1,7 @@
 package migrations_test
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -53,9 +54,9 @@ func TestMigration0001Down_DropsTablesInDependencyOrder(t *testing.T) {
 
 	normalized := strings.ToLower(strings.Join(strings.Fields(string(body)), " "))
 	required := []string{
-		"drop table ledgers;",
-		"drop table refresh_tokens;",
-		"drop table users;",
+		"drop table if exists ledgers;",
+		"drop table if exists refresh_tokens;",
+		"drop table if exists users;",
 	}
 
 	lastIndex := -1
@@ -72,6 +73,7 @@ func TestMigration0001Down_DropsTablesInDependencyOrder(t *testing.T) {
 }
 
 func TestMigration0001_UpDownCycle(t *testing.T) {
+	ctx := context.Background()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_URL not set")
@@ -83,15 +85,21 @@ func TestMigration0001_UpDownCycle(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf("get dedicated connection: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
 	tableNames := []string{"users", "refresh_tokens", "ledgers"}
 	schemaName := fmt.Sprintf("task1_mig_%d", time.Now().UnixNano())
 
-	if _, err := db.Exec("CREATE SCHEMA " + schemaName); err != nil {
+	if _, err := conn.ExecContext(ctx, "CREATE SCHEMA "+schemaName); err != nil {
 		t.Fatalf("create schema: %v", err)
 	}
 	t.Cleanup(func() { _, _ = db.Exec("DROP SCHEMA IF EXISTS " + schemaName + " CASCADE") })
 
-	if _, err := db.Exec("SET search_path TO " + schemaName); err != nil {
+	if _, err := conn.ExecContext(ctx, "SET search_path TO "+schemaName); err != nil {
 		t.Fatalf("set search_path: %v", err)
 	}
 
@@ -100,12 +108,12 @@ func TestMigration0001_UpDownCycle(t *testing.T) {
 		t.Fatalf("read up migration: %v", err)
 	}
 
-	if _, err := db.Exec(string(upSQL)); err != nil {
+	if _, err := conn.ExecContext(ctx, string(upSQL)); err != nil {
 		t.Fatalf("apply up migration: %v", err)
 	}
 
 	for _, tableName := range tableNames {
-		if !tableExistsInSchema(t, db, schemaName, tableName) {
+		if !tableExistsInSchema(t, ctx, conn, schemaName, tableName) {
 			t.Fatalf("expected table %s to exist after up migration", tableName)
 		}
 	}
@@ -115,22 +123,27 @@ func TestMigration0001_UpDownCycle(t *testing.T) {
 		t.Fatalf("read down migration: %v", err)
 	}
 
-	if _, err := db.Exec(string(downSQL)); err != nil {
+	if _, err := conn.ExecContext(ctx, string(downSQL)); err != nil {
 		t.Fatalf("apply down migration: %v", err)
 	}
 
+	if _, err := conn.ExecContext(ctx, string(downSQL)); err != nil {
+		t.Fatalf("re-apply down migration: %v", err)
+	}
+
 	for _, tableName := range tableNames {
-		if tableExistsInSchema(t, db, schemaName, tableName) {
+		if tableExistsInSchema(t, ctx, conn, schemaName, tableName) {
 			t.Fatalf("expected table %s to be removed after down migration", tableName)
 		}
 	}
 }
 
-func tableExistsInSchema(t *testing.T, db *sql.DB, schemaName string, tableName string) bool {
+func tableExistsInSchema(t *testing.T, ctx context.Context, conn *sql.Conn, schemaName string, tableName string) bool {
 	t.Helper()
 
 	var exists bool
-	err := db.QueryRow(
+	err := conn.QueryRowContext(
+		ctx,
 		`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2)`,
 		schemaName,
 		tableName,

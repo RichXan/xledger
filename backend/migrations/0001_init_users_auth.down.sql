@@ -1,3 +1,3 @@
-DROP TABLE ledgers;
-DROP TABLE refresh_tokens;
-DROP TABLE users;
+DROP TABLE IF EXISTS ledgers;
+DROP TABLE IF EXISTS refresh_tokens;
+DROP TABLE IF EXISTS users;

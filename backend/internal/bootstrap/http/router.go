@@ -6,9 +6,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter() *gin.Engine {
+func NewRouter(trustedProxies []string) *gin.Engine {
 	r := gin.New()
-	if err := r.SetTrustedProxies([]string{"127.0.0.1", "::1"}); err != nil {
+	if err := r.SetTrustedProxies(trustedProxies); err != nil {
 		panic(err)
 	}
 	r.Use(gin.Recovery())

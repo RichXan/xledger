@@ -19,7 +19,7 @@ func main() {
 		log.Fatalf("config error: %v", err)
 	}
 
-	router := bootstraphttp.NewRouter()
+	router := bootstraphttp.NewRouter(cfg.TrustedProxies)
 	server := &http.Server{
 		Addr:              cfg.APIAddr,
 		Handler:           router,

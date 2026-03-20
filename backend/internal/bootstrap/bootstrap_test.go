@@ -11,7 +11,7 @@ import (
 )
 
 func TestRouter_Healthz(t *testing.T) {
-	router := bootstraphttp.NewRouter()
+	router := bootstraphttp.NewRouter([]string{"127.0.0.1", "::1"})
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
@@ -46,5 +46,41 @@ func TestConfig_DefaultsAPIAddr(t *testing.T) {
 
 	if cfg.APIAddr != ":8080" {
 		t.Fatalf("expected default APIAddr %q, got %q", ":8080", cfg.APIAddr)
+	}
+}
+
+func TestConfig_DefaultsTrustedProxies(t *testing.T) {
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("TRUSTED_PROXIES", "")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("expected config to load, got error: %v", err)
+	}
+
+	if len(cfg.TrustedProxies) != 2 {
+		t.Fatalf("expected 2 default trusted proxies, got %d", len(cfg.TrustedProxies))
+	}
+
+	if cfg.TrustedProxies[0] != "127.0.0.1" || cfg.TrustedProxies[1] != "::1" {
+		t.Fatalf("unexpected default trusted proxies: %#v", cfg.TrustedProxies)
+	}
+}
+
+func TestConfig_ParsesTrustedProxiesFromEnv(t *testing.T) {
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("TRUSTED_PROXIES", "10.0.0.0/8, 192.168.0.0/16")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("expected config to load, got error: %v", err)
+	}
+
+	if len(cfg.TrustedProxies) != 2 {
+		t.Fatalf("expected 2 trusted proxies from env, got %d", len(cfg.TrustedProxies))
+	}
+
+	if cfg.TrustedProxies[0] != "10.0.0.0/8" || cfg.TrustedProxies[1] != "192.168.0.0/16" {
+		t.Fatalf("unexpected trusted proxies from env: %#v", cfg.TrustedProxies)
 	}
 }
