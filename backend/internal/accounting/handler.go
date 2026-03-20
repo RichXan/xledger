@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"xledger/backend/internal/classification"
 )
 
 type Handler struct {
@@ -40,6 +42,8 @@ type createTransactionRequest struct {
 	FromLedgerID  *string    `json:"from_ledger_id"`
 	ToLedgerID    *string    `json:"to_ledger_id"`
 	AccountID     *string    `json:"account_id"`
+	CategoryID    *string    `json:"category_id"`
+	TagIDs        []string   `json:"tag_ids"`
 	FromAccountID *string    `json:"from_account_id"`
 	ToAccountID   *string    `json:"to_account_id"`
 	Type          string     `json:"type"`
@@ -48,8 +52,10 @@ type createTransactionRequest struct {
 }
 
 type updateTransactionRequest struct {
-	Amount  float64 `json:"amount"`
-	Version *int    `json:"version"`
+	Amount     float64  `json:"amount"`
+	Version    *int     `json:"version"`
+	CategoryID *string  `json:"category_id"`
+	TagIDs     []string `json:"tag_ids"`
 }
 
 func NewHandler(ledgerService *LedgerService, accountService *AccountService, transactionService ...*TransactionService) *Handler {
@@ -104,6 +110,8 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 	txn, err := h.transactionService.CreateTransaction(c.Request.Context(), userID, TransactionCreateInput{
 		LedgerID:   req.LedgerID,
 		AccountID:  req.AccountID,
+		CategoryID: req.CategoryID,
+		TagIDs:     req.TagIDs,
 		Type:       req.Type,
 		Amount:     req.Amount,
 		OccurredAt: occurredAt,
@@ -135,8 +143,12 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 	}
 
 	txn, err := h.transactionService.EditTransaction(c.Request.Context(), userID, c.Param("id"), TransactionEditInput{
-		Amount:  req.Amount,
-		Version: req.Version,
+		Amount:      req.Amount,
+		Version:     req.Version,
+		HasCategory: req.CategoryID != nil,
+		CategoryID:  req.CategoryID,
+		HasTagIDs:   req.TagIDs != nil,
+		TagIDs:      req.TagIDs,
 	})
 	if err != nil {
 		h.writeError(c, err)
@@ -424,7 +436,14 @@ func (h *Handler) writeError(c *gin.Context, err error) {
 	case TXN_CONFLICT:
 		c.JSON(http.StatusConflict, gin.H{"error_code": TXN_CONFLICT})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		switch classification.ErrorCode(err) {
+		case classification.CAT_INVALID, classification.CAT_ARCHIVED, classification.TAG_INVALID:
+			c.JSON(http.StatusBadRequest, gin.H{"error_code": classification.ErrorCode(err)})
+		case classification.CAT_NOT_FOUND, classification.TAG_NOT_FOUND:
+			c.JSON(http.StatusNotFound, gin.H{"error_code": classification.ErrorCode(err)})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		}
 	}
 }
 

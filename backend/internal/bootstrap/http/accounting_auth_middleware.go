@@ -24,15 +24,39 @@ func accountingAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		parsed, err := auth.ParseSessionToken(token)
-		if err != nil || parsed.Type != "access" || strings.TrimSpace(parsed.Email) == "" || !time.Now().UTC().Before(parsed.ExpiresAt) {
+		email, ok := parseBusinessAuthEmail(token)
+		if !ok {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
 			return
 		}
 
-		c.Set("user_id", stableUserIDFromEmail(parsed.Email))
+		c.Set("user_id", stableUserIDFromEmail(email))
 		c.Next()
 	}
+}
+
+func parseBusinessAuthEmail(token string) (string, bool) {
+	parsed, err := auth.ParseSessionToken(token)
+	if err == nil && parsed.Type == "access" && strings.TrimSpace(parsed.Email) != "" && time.Now().UTC().Before(parsed.ExpiresAt) {
+		return strings.TrimSpace(parsed.Email), true
+	}
+
+	lowerToken := strings.ToLower(token)
+	if !strings.HasPrefix(lowerToken, "pat:") {
+		return "", false
+	}
+
+	rawEmail := strings.TrimSpace(token[len("pat:"):])
+	if rawEmail == "" {
+		return "", false
+	}
+	if idx := strings.Index(rawEmail, ":"); idx >= 0 {
+		rawEmail = strings.TrimSpace(rawEmail[:idx])
+	}
+	if rawEmail == "" {
+		return "", false
+	}
+	return rawEmail, true
 }
 
 func stableUserIDFromEmail(email string) string {

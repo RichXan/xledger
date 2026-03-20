@@ -12,7 +12,7 @@ func newTransferServiceFixture(t *testing.T) (*InMemoryTransactionRepository, *I
 	ledgerRepo := NewInMemoryLedgerRepository()
 	accountRepo := NewInMemoryAccountRepository()
 	txnRepo := NewInMemoryTransactionRepository()
-	service := NewTransactionService(txnRepo, ledgerRepo, accountRepo)
+	service := NewTransactionService(txnRepo, ledgerRepo, accountRepo, nil, nil)
 
 	fromLedger, err := ledgerRepo.Create("user-1", LedgerCreateInput{Name: "Primary", IsDefault: true})
 	if err != nil {

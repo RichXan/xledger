@@ -8,6 +8,7 @@ import (
 
 	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/auth"
+	"xledger/backend/internal/classification"
 )
 
 func NewRouter(trustedProxies []string) (*gin.Engine, error) {
@@ -15,8 +16,9 @@ func NewRouter(trustedProxies []string) (*gin.Engine, error) {
 }
 
 type Dependencies struct {
-	AuthHandler       *auth.Handler
-	AccountingHandler *accounting.Handler
+	AuthHandler           *auth.Handler
+	AccountingHandler     *accounting.Handler
+	ClassificationHandler *classification.Handler
 }
 
 func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin.Engine, error) {
@@ -46,8 +48,12 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 
 	accountingHandler := deps.AccountingHandler
+	var sharedClassificationRepo classification.Repository
+	if accountingHandler == nil || deps.ClassificationHandler == nil {
+		sharedClassificationRepo = classification.NewInMemoryRepository()
+	}
 	if accountingHandler == nil {
-		accountingHandler = newDefaultAccountingHandler()
+		accountingHandler = newDefaultAccountingHandler(sharedClassificationRepo)
 	}
 	if accountingHandler != nil {
 		accountingGroup := r.Group("/api")
@@ -66,6 +72,24 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		accountingGroup.POST("/transactions", accountingHandler.CreateTransaction)
 		accountingGroup.PUT("/transactions/:id", accountingHandler.UpdateTransaction)
 		accountingGroup.DELETE("/transactions/:id", accountingHandler.DeleteTransaction)
+	}
+
+	classificationHandler := deps.ClassificationHandler
+	if classificationHandler == nil {
+		classificationHandler = newDefaultClassificationHandler(sharedClassificationRepo)
+	}
+	if classificationHandler != nil {
+		classificationGroup := r.Group("/api")
+		classificationGroup.Use(accountingAuthMiddleware())
+		classificationGroup.GET("/categories", classificationHandler.ListCategories)
+		classificationGroup.POST("/categories", classificationHandler.CreateCategory)
+		classificationGroup.PUT("/categories/:id", classificationHandler.UpdateCategory)
+		classificationGroup.DELETE("/categories/:id", classificationHandler.DeleteCategory)
+
+		classificationGroup.GET("/tags", classificationHandler.ListTags)
+		classificationGroup.POST("/tags", classificationHandler.CreateTag)
+		classificationGroup.PUT("/tags/:id", classificationHandler.UpdateTag)
+		classificationGroup.DELETE("/tags/:id", classificationHandler.DeleteTag)
 	}
 
 	return r, nil

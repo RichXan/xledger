@@ -29,6 +29,8 @@ type Transaction struct {
 	UserID         string     `json:"user_id"`
 	LedgerID       string     `json:"ledger_id"`
 	AccountID      *string    `json:"account_id,omitempty"`
+	CategoryID     *string    `json:"category_id,omitempty"`
+	CategoryName   string     `json:"category_name,omitempty"`
 	FromAccountID  *string    `json:"from_account_id,omitempty"`
 	ToAccountID    *string    `json:"to_account_id,omitempty"`
 	TransferPairID *string    `json:"transfer_pair_id,omitempty"`
@@ -43,6 +45,8 @@ type Transaction struct {
 type TransactionCreateInput struct {
 	LedgerID      string
 	AccountID     *string
+	CategoryID    *string
+	TagIDs        []string
 	FromAccountID *string
 	ToAccountID   *string
 	Type          string
@@ -61,12 +65,19 @@ type TransactionTransferInput struct {
 }
 
 type TransactionEditInput struct {
-	Amount  float64
-	Version *int
+	Amount      float64
+	Version     *int
+	HasCategory bool
+	CategoryID  *string
+	HasTagIDs   bool
+	TagIDs      []string
 }
 
 type TransactionQuery struct {
-	LedgerID string
+	LedgerID          string
+	TagID             string
+	TransactionIDs    []string
+	UseTransactionIDs bool
 }
 
 type TransactionRepository interface {
@@ -116,6 +127,7 @@ func (r *InMemoryTransactionRepository) Create(userID string, input TransactionC
 		UserID:        userID,
 		LedgerID:      input.LedgerID,
 		AccountID:     cloneStringPtr(input.AccountID),
+		CategoryID:    cloneStringPtr(input.CategoryID),
 		FromAccountID: cloneStringPtr(input.FromAccountID),
 		ToAccountID:   cloneStringPtr(input.ToAccountID),
 		Version:       1,
@@ -332,10 +344,26 @@ func (r *InMemoryTransactionRepository) ListByUser(userID string, query Transact
 	defer r.mu.Unlock()
 
 	ledgerFilter := strings.TrimSpace(query.LedgerID)
+	allowedTxnIDs := map[string]bool{}
+	if query.UseTransactionIDs {
+		for _, txnID := range query.TransactionIDs {
+			trimmed := strings.TrimSpace(txnID)
+			if trimmed == "" {
+				continue
+			}
+			allowedTxnIDs[trimmed] = true
+		}
+		if len(allowedTxnIDs) == 0 {
+			return []Transaction{}, nil
+		}
+	}
 	items := make([]Transaction, 0)
 	seenTransferPairs := map[string]bool{}
 	for _, txn := range r.transactions {
 		if txn.UserID != userID {
+			continue
+		}
+		if query.UseTransactionIDs && !allowedTxnIDs[txn.ID] {
 			continue
 		}
 		if ledgerFilter != "" && txn.LedgerID != ledgerFilter {
