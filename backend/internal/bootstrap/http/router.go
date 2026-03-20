@@ -3,8 +3,6 @@ package http
 import (
 	"fmt"
 	"net/http"
-	"os"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -12,6 +10,14 @@ import (
 )
 
 func NewRouter(trustedProxies []string) (*gin.Engine, error) {
+	return NewRouterWithDependencies(trustedProxies, Dependencies{})
+}
+
+type Dependencies struct {
+	AuthHandler *auth.Handler
+}
+
+func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin.Engine, error) {
 	r := gin.New()
 	if err := r.SetTrustedProxies(trustedProxies); err != nil {
 		return nil, fmt.Errorf("set trusted proxies: %w", err)
@@ -21,16 +27,10 @@ func NewRouter(trustedProxies []string) (*gin.Engine, error) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	repo := auth.NewInMemoryRepository(time.Now)
-	sender := auth.NewSMTPMailSender(auth.SMTPConfig{
-		Host:     os.Getenv("SMTP_HOST"),
-		Port:     os.Getenv("SMTP_PORT"),
-		Username: os.Getenv("SMTP_USER"),
-		Password: os.Getenv("SMTP_PASS"),
-		From:     os.Getenv("SMTP_FROM"),
-	})
-	service := auth.NewCodeService(repo, sender, nil, time.Now, nil)
-	handler := auth.NewHandler(service)
+	handler := deps.AuthHandler
+	if handler == nil {
+		handler = newDefaultAuthHandlerFromEnv()
+	}
 
 	authGroup := r.Group("/api/auth")
 	authGroup.POST("/send-code", handler.SendCode)

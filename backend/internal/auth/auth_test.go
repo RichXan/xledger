@@ -92,6 +92,24 @@ func TestVerifyCode_Expired_ReturnsAUTH_CODE_EXPIRED(t *testing.T) {
 	}
 }
 
+func TestVerifyCode_DeleteFailure_DoesNotCreateSession(t *testing.T) {
+	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	baseRepo := NewInMemoryRepository(func() time.Time { return now })
+	if err := baseRepo.SaveVerificationCode(context.Background(), "deletefail@example.com", "444444", 10*time.Minute); err != nil {
+		t.Fatalf("seed code: %v", err)
+	}
+	repo := &deleteFailRepository{InMemoryRepository: baseRepo}
+	svc := NewCodeService(repo, &stubSender{}, nil, func() time.Time { return now }, nil)
+
+	_, err := svc.VerifyCode(context.Background(), "deletefail@example.com", "444444")
+	if err == nil {
+		t.Fatal("expected verify to fail when code deletion fails")
+	}
+	if repo.SessionCount() != 0 {
+		t.Fatalf("expected no session side effect when verify fails, got %d", repo.SessionCount())
+	}
+}
+
 func TestSendCode_SMTPFailure_ReturnsAUTH_CODE_SEND_FAILED(t *testing.T) {
 	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
 	repo := NewInMemoryRepository(func() time.Time { return now })
@@ -169,6 +187,14 @@ func TestSendCode_TooFrequent_ReturnsAUTH_CODE_RATE_LIMIT(t *testing.T) {
 type stubSender struct {
 	err   error
 	calls int
+}
+
+type deleteFailRepository struct {
+	*InMemoryRepository
+}
+
+func (r *deleteFailRepository) DeleteVerificationCode(ctx context.Context, email string) error {
+	return errors.New("delete failed")
 }
 
 func (s *stubSender) Send(to, subject, body string) error {

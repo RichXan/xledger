@@ -153,6 +153,9 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 	if providedCode != storedCode {
 		return TokenPair{}, &authError{code: AUTH_CODE_INVALID, err: errors.New("code mismatch")}
 	}
+	if err := s.repo.DeleteVerificationCode(ctx, normalizedEmail); err != nil {
+		return TokenPair{}, fmt.Errorf("delete verification code: %w", err)
+	}
 
 	tokens, err := s.issuer.Issue(normalizedEmail)
 	if err != nil {
@@ -161,9 +164,6 @@ func (s *CodeService) VerifyCode(ctx context.Context, email string, code string)
 
 	if err := s.repo.CreateSession(ctx, normalizedEmail); err != nil {
 		return TokenPair{}, fmt.Errorf("create session: %w", err)
-	}
-	if err := s.repo.DeleteVerificationCode(ctx, normalizedEmail); err != nil {
-		return TokenPair{}, fmt.Errorf("delete verification code: %w", err)
 	}
 
 	return tokens, nil
