@@ -2,8 +2,13 @@ package auth
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -161,8 +166,12 @@ func (s *SessionService) Logout(ctx context.Context, refreshToken string) error 
 
 func ParseSessionToken(raw string) (SessionToken, error) {
 	parts := strings.Split(strings.TrimSpace(raw), ":")
-	if len(parts) != 4 {
+	if len(parts) != 5 {
 		return SessionToken{}, errors.New("invalid token format")
+	}
+	payload := strings.Join(parts[:4], ":")
+	if !verifySessionTokenSignature(payload, parts[4]) {
+		return SessionToken{}, errors.New("invalid token signature")
 	}
 	expiresUnix, err := strconv.ParseInt(parts[2], 10, 64)
 	if err != nil {
@@ -183,5 +192,28 @@ func ParseSessionToken(raw string) (SessionToken, error) {
 func (s *SessionService) nextToken(tokenType string, email string, expiresAt time.Time) string {
 	next := atomic.AddInt64(&globalSessionTokenCounter, 1)
 	id := strconv.FormatInt(s.now().UnixNano(), 10) + "-" + strconv.FormatInt(next, 10)
-	return tokenType + ":" + email + ":" + strconv.FormatInt(expiresAt.UTC().Unix(), 10) + ":" + id
+	payload := tokenType + ":" + email + ":" + strconv.FormatInt(expiresAt.UTC().Unix(), 10) + ":" + id
+	return payload + ":" + signSessionToken(payload)
+}
+
+func signSessionToken(payload string) string {
+	mac := hmac.New(sha256.New, []byte(sessionTokenSecret()))
+	_, _ = mac.Write([]byte(payload))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func verifySessionTokenSignature(payload string, signature string) bool {
+	expected := signSessionToken(payload)
+	if len(expected) != len(signature) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(expected), []byte(signature)) == 1
+}
+
+func sessionTokenSecret() string {
+	secret := strings.TrimSpace(os.Getenv("AUTH_TOKEN_SECRET"))
+	if secret != "" {
+		return secret
+	}
+	return strings.TrimSpace(os.Getenv("AUTH_CODE_PEPPER"))
 }

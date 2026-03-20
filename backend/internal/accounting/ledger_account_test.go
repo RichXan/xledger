@@ -26,6 +26,21 @@ func TestDeleteDefaultLedger_ReturnsLEDGER_DEFAULT_IMMUTABLE(t *testing.T) {
 	}
 }
 
+func TestCreateSecondDefaultLedger_ReturnsLEDGER_INVALID(t *testing.T) {
+	repo := NewInMemoryLedgerRepository()
+	service := NewLedgerService(repo)
+
+	_, err := service.CreateLedger(context.Background(), "user-1", LedgerCreateInput{Name: "Default", IsDefault: true})
+	if err != nil {
+		t.Fatalf("create first default ledger: %v", err)
+	}
+
+	_, err = service.CreateLedger(context.Background(), "user-1", LedgerCreateInput{Name: "Another Default", IsDefault: true})
+	if ErrorCode(err) != LEDGER_INVALID {
+		t.Fatalf("expected %s, got %q", LEDGER_INVALID, ErrorCode(err))
+	}
+}
+
 func TestAccountCRUD_OwnershipScopedByUser(t *testing.T) {
 	repo := NewInMemoryAccountRepository()
 	service := NewAccountService(repo)

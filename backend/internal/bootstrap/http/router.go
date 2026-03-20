@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/auth"
 )
 
@@ -14,7 +15,8 @@ func NewRouter(trustedProxies []string) (*gin.Engine, error) {
 }
 
 type Dependencies struct {
-	AuthHandler *auth.Handler
+	AuthHandler       *auth.Handler
+	AccountingHandler *accounting.Handler
 }
 
 func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin.Engine, error) {
@@ -41,6 +43,25 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	if handler.HasSessionService() {
 		authGroup.POST("/refresh", handler.Refresh)
 		authGroup.POST("/logout", handler.Logout)
+	}
+
+	accountingHandler := deps.AccountingHandler
+	if accountingHandler == nil {
+		accountingHandler = newDefaultAccountingHandler()
+	}
+	if accountingHandler != nil {
+		accountingGroup := r.Group("/api")
+		accountingGroup.Use(accountingAuthMiddleware())
+		accountingGroup.GET("/ledgers", accountingHandler.ListLedgers)
+		accountingGroup.POST("/ledgers", accountingHandler.CreateLedger)
+		accountingGroup.PUT("/ledgers/:id", accountingHandler.UpdateLedger)
+		accountingGroup.DELETE("/ledgers/:id", accountingHandler.DeleteLedger)
+
+		accountingGroup.GET("/accounts", accountingHandler.ListAccounts)
+		accountingGroup.POST("/accounts", accountingHandler.CreateAccount)
+		accountingGroup.GET("/accounts/:id", accountingHandler.GetAccount)
+		accountingGroup.PUT("/accounts/:id", accountingHandler.UpdateAccount)
+		accountingGroup.DELETE("/accounts/:id", accountingHandler.DeleteAccount)
 	}
 
 	return r, nil

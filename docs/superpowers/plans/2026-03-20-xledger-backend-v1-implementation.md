@@ -39,7 +39,8 @@ Execution order is mandatory: `A -> B -> C -> D -> E -> F`.
 **Migrations**
 - Create: `backend/migrations/0001_init_users_auth.up.sql`
 - Create: `backend/migrations/0001_init_users_auth.down.sql`
-- Create: `backend/migrations/0002_init_ledger_account_transaction.sql`
+- Create: `backend/migrations/0002_init_ledger_account_transaction.up.sql`
+- Create: `backend/migrations/0002_init_ledger_account_transaction.down.sql`
 - Create: `backend/migrations/0003_init_category_tag.sql`
 - Create: `backend/migrations/0004_init_pat_import_jobs.sql`
 - Create: `backend/migrations/0005_indexes_and_constraints.sql`
@@ -279,7 +280,8 @@ git commit -m "feat(auth): add oauth callback refresh rotation and logout blackl
 ### Task 4: Implement ledger/account schema and CRUD contracts
 
 **Files:**
-- Create: `backend/migrations/0002_init_ledger_account_transaction.sql`
+- Create: `backend/migrations/0002_init_ledger_account_transaction.up.sql`
+- Create: `backend/migrations/0002_init_ledger_account_transaction.down.sql`
 - Create: `backend/internal/accounting/repository_ledger.go`
 - Create: `backend/internal/accounting/repository_account.go`
 - Create: `backend/internal/accounting/ledger_service.go`
@@ -327,7 +329,7 @@ Expected: `409` + `LEDGER_DEFAULT_IMMUTABLE`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add backend/migrations/0002_init_ledger_account_transaction.sql backend/internal/accounting/repository_ledger.go backend/internal/accounting/repository_account.go backend/internal/accounting/ledger_service.go backend/internal/accounting/account_service.go backend/internal/accounting/handler.go backend/internal/accounting/ledger_account_test.go
+git add backend/migrations/0002_init_ledger_account_transaction.up.sql backend/migrations/0002_init_ledger_account_transaction.down.sql backend/internal/accounting/repository_ledger.go backend/internal/accounting/repository_account.go backend/internal/accounting/ledger_service.go backend/internal/accounting/account_service.go backend/internal/accounting/handler.go backend/internal/accounting/ledger_account_test.go
 git commit -m "feat(accounting): add ledger account schema and ownership-safe crud"
 ```
 

@@ -1,8 +1,8 @@
 package accounting
 
 import (
+	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -34,8 +34,9 @@ type AccountUpdateInput struct {
 
 type AccountRepository interface {
 	Create(userID string, input AccountCreateInput) (Account, error)
+	ListByUser(userID string) ([]Account, error)
 	GetByIDForUser(userID string, accountID string) (Account, bool, error)
-	UpdateByIDForUser(userID string, accountID string, input AccountUpdateInput) (Account, bool, error)
+	SaveByIDForUser(userID string, accountID string, account Account) (Account, bool, error)
 	DeleteByIDForUser(userID string, accountID string) (bool, error)
 }
 
@@ -62,8 +63,8 @@ func (r *InMemoryAccountRepository) Create(userID string, input AccountCreateInp
 	account := Account{
 		ID:             nextID(),
 		UserID:         userID,
-		Name:           strings.TrimSpace(input.Name),
-		Type:           strings.TrimSpace(input.Type),
+		Name:           input.Name,
+		Type:           input.Type,
 		InitialBalance: input.InitialBalance,
 	}
 	r.accounts[account.ID] = account
@@ -81,30 +82,32 @@ func (r *InMemoryAccountRepository) GetByIDForUser(userID string, accountID stri
 	return account, true, nil
 }
 
-func (r *InMemoryAccountRepository) UpdateByIDForUser(userID string, accountID string, input AccountUpdateInput) (Account, bool, error) {
+func (r *InMemoryAccountRepository) ListByUser(userID string) ([]Account, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	account, ok := r.accounts[accountID]
-	if !ok || account.UserID != userID {
-		return Account{}, false, nil
-	}
-
-	if input.HasName {
-		account.Name = strings.TrimSpace(input.Name)
-	}
-	if input.HasType {
-		account.Type = strings.TrimSpace(input.Type)
-	}
-	if input.HasArchive {
-		if input.Archive {
-			now := time.Now().UTC()
-			account.ArchivedAt = &now
-		} else {
-			account.ArchivedAt = nil
+	accounts := make([]Account, 0)
+	for _, account := range r.accounts {
+		if account.UserID == userID {
+			accounts = append(accounts, account)
 		}
 	}
+	sort.Slice(accounts, func(i, j int) bool {
+		return accounts[i].ID < accounts[j].ID
+	})
+	return accounts, nil
+}
 
+func (r *InMemoryAccountRepository) SaveByIDForUser(userID string, accountID string, account Account) (Account, bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	current, ok := r.accounts[accountID]
+	if !ok || current.UserID != userID {
+		return Account{}, false, nil
+	}
+	account.ID = current.ID
+	account.UserID = current.UserID
 	r.accounts[accountID] = account
 	return account, true, nil
 }
