@@ -25,6 +25,7 @@ const (
 type SessionServiceOptions struct {
 	BlacklistStrictMode bool
 	BlacklistSLA        time.Duration
+	PostLoginBootstrap  func(ctx context.Context, userID string) error
 }
 
 type SessionToken struct {
@@ -41,6 +42,7 @@ type SessionService struct {
 	accessTTL           time.Duration
 	blacklistStrictMode bool
 	blacklistSLA        time.Duration
+	postLoginBootstrap  func(ctx context.Context, userID string) error
 }
 
 var globalSessionTokenCounter int64
@@ -58,6 +60,7 @@ func NewSessionService(repo CodeRepository, opts *SessionServiceOptions, now fun
 	if opts != nil {
 		service.blacklistStrictMode = opts.BlacklistStrictMode
 		service.blacklistSLA = opts.BlacklistSLA
+		service.postLoginBootstrap = opts.PostLoginBootstrap
 	}
 	if service.blacklistSLA <= 0 {
 		service.blacklistSLA = 5 * time.Second
@@ -85,6 +88,11 @@ func (s *SessionService) IssueSession(ctx context.Context, email string) (TokenP
 	}
 	if _, err := s.repo.EnsureDefaultLedger(ctx, normalizedEmail); err != nil {
 		return TokenPair{}, fmt.Errorf("bootstrap default ledger: %w", err)
+	}
+	if s.postLoginBootstrap != nil {
+		if err := s.postLoginBootstrap(ctx, normalizedEmail); err != nil {
+			_ = s.repo.RecordAlertEvent(ctx, "auth.session.user_defaults_bootstrap_failed")
+		}
 	}
 
 	return TokenPair{

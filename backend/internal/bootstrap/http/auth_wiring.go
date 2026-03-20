@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"xledger/backend/internal/auth"
+	"xledger/backend/internal/classification"
 )
 
 func newDefaultAuthHandlerFromEnv() *auth.Handler {
@@ -16,7 +17,10 @@ func newDefaultAuthHandlerFromEnv() *auth.Handler {
 		Password: os.Getenv("SMTP_PASS"),
 		From:     os.Getenv("SMTP_FROM"),
 	})
-	sessionService := auth.NewSessionService(repo, nil, time.Now)
+	templateService := classification.NewTemplateService(classification.NewInMemoryTemplateRepository())
+	sessionService := auth.NewSessionService(repo, &auth.SessionServiceOptions{
+		PostLoginBootstrap: templateService.EnsureUserDefaults,
+	}, time.Now)
 	codeService := auth.NewCodeService(repo, sender, auth.NewSessionTokenIssuer(sessionService), time.Now, nil)
 	oauthService := auth.NewOAuthService(repo, sessionService, time.Now)
 
