@@ -125,9 +125,11 @@ func (s *CodeService) SendCode(ctx context.Context, email string, clientIP strin
 
 	ipAllowed, ipErr := s.repo.AcquireIPHourlySlot(ctx, strings.TrimSpace(clientIP), s.now(), s.ipWindow, s.ipHourlyCap)
 	if ipErr != nil {
+		_ = s.repo.ReleaseSendLock(ctx, normalizedEmail)
 		return fmt.Errorf("check ip hourly limit: %w", ipErr)
 	}
 	if !ipAllowed {
+		_ = s.repo.ReleaseSendLock(ctx, normalizedEmail)
 		return &authError{code: AUTH_CODE_RATE_LIMIT}
 	}
 

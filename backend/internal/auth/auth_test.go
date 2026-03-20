@@ -231,6 +231,30 @@ func TestSendCode_IPHourlyCap_ReturnsRateLimitAcrossDifferentEmails(t *testing.T
 	}
 }
 
+func TestSendCode_IPCapReject_DoesNotConsumeEmailCooldown(t *testing.T) {
+	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	sender := &stubSender{}
+	svc := NewCodeService(repo, sender, nil, func() time.Time { return now }, func() string { return "343434" })
+
+	for i := 0; i < svc.ipHourlyCap; i++ {
+		email := fmt.Sprintf("burn-check-%d@example.com", i)
+		if err := svc.SendCode(context.Background(), email, "198.51.100.10"); err != nil {
+			t.Fatalf("seed attempt %d should succeed, got: %v", i+1, err)
+		}
+	}
+
+	err := svc.SendCode(context.Background(), "target@example.com", "198.51.100.10")
+	if ErrorCode(err) != AUTH_CODE_RATE_LIMIT {
+		t.Fatalf("expected ip cap rejection %s, got %q", AUTH_CODE_RATE_LIMIT, ErrorCode(err))
+	}
+
+	err = svc.SendCode(context.Background(), "target@example.com", "198.51.100.11")
+	if err != nil {
+		t.Fatalf("expected target email to send from different IP, got: %v", err)
+	}
+}
+
 func TestInMemoryRepository_OpportunisticCleanup_RemovesExpiredStaleEntries(t *testing.T) {
 	now := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
 	repo := NewInMemoryRepository(func() time.Time { return now })
