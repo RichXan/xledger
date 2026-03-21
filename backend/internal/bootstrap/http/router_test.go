@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/auth"
 	"xledger/backend/internal/classification"
+	"xledger/backend/internal/portability"
 	"xledger/backend/internal/reporting"
 )
 
@@ -158,6 +160,27 @@ func TestStatsEndpoints_AcceptsAccessAndPAT(t *testing.T) {
 	}
 }
 
+func TestImportPreviewEndpoint_AcceptsAccessAndPAT(t *testing.T) {
+	now := func() time.Time { return time.Now().UTC() }
+	authRepo := auth.NewInMemoryRepository(now)
+	authHandler := auth.NewHandler(auth.NewCodeService(authRepo, &countingSender{}, nil, now, func() string { return "123456" }))
+	pair, err := auth.NewSessionService(authRepo, nil, now).IssueSession(context.Background(), "import-auth@example.com")
+	if err != nil {
+		t.Fatalf("issue session: %v", err)
+	}
+
+	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
+		AuthHandler:        authHandler,
+		PortabilityHandler: portability.NewHandler(portability.NewImportPreviewService()),
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+
+	performMultipartCSV(t, r, "/api/import/csv", pair.AccessToken, http.StatusOK)
+	performMultipartCSV(t, r, "/api/import/csv", "pat:import-auth@example.com", http.StatusOK)
+}
+
 func performJSON(t *testing.T, handler http.Handler, method string, path string, body string, accessToken string, wantStatus int) map[string]any {
 	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -185,6 +208,30 @@ func responseField(t *testing.T, payload map[string]any, key string) string {
 		t.Fatalf("expected string field %q in %#v", key, payload)
 	}
 	return value
+}
+
+func performMultipartCSV(t *testing.T, handler http.Handler, path string, accessToken string, wantStatus int) {
+	t.Helper()
+	body := &strings.Builder{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", "preview.csv")
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	if _, err := part.Write([]byte("date,amount\n2026-03-01,12.5\n")); err != nil {
+		t.Fatalf("write csv payload: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close writer: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body.String()))
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != wantStatus {
+		t.Fatalf("expected status %d for multipart %s, got %d body=%s", wantStatus, path, rec.Code, rec.Body.String())
+	}
 }
 
 type countingSender struct {

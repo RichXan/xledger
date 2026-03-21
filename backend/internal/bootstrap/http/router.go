@@ -9,6 +9,7 @@ import (
 	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/auth"
 	"xledger/backend/internal/classification"
+	"xledger/backend/internal/portability"
 	"xledger/backend/internal/reporting"
 )
 
@@ -20,6 +21,7 @@ type Dependencies struct {
 	AuthHandler           *auth.Handler
 	AccountingHandler     *accounting.Handler
 	ClassificationHandler *classification.Handler
+	PortabilityHandler    *portability.Handler
 	ReportingHandler      *reporting.Handler
 }
 
@@ -51,9 +53,10 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 
 	accountingHandler := deps.AccountingHandler
 	classificationHandler := deps.ClassificationHandler
+	portabilityHandler := deps.PortabilityHandler
 	reportingHandler := deps.ReportingHandler
 	var businessDeps *defaultBusinessDeps
-	if accountingHandler == nil || classificationHandler == nil || reportingHandler == nil {
+	if accountingHandler == nil || classificationHandler == nil || portabilityHandler == nil || reportingHandler == nil {
 		businessDeps = newDefaultBusinessDeps()
 	}
 	if accountingHandler == nil {
@@ -94,6 +97,15 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		classificationGroup.POST("/tags", classificationHandler.CreateTag)
 		classificationGroup.PUT("/tags/:id", classificationHandler.UpdateTag)
 		classificationGroup.DELETE("/tags/:id", classificationHandler.DeleteTag)
+	}
+
+	if portabilityHandler == nil {
+		portabilityHandler = newDefaultPortabilityHandler()
+	}
+	if portabilityHandler != nil {
+		portabilityGroup := r.Group("/api")
+		portabilityGroup.Use(accountingAuthMiddleware())
+		portabilityGroup.POST("/import/csv", portabilityHandler.ImportPreview)
 	}
 
 	if reportingHandler == nil {
