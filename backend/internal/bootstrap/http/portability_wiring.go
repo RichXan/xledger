@@ -4,6 +4,7 @@ import "xledger/backend/internal/portability"
 
 func newDefaultPortabilityHandler(deps *defaultBusinessDeps) *portability.Handler {
 	repo := portability.NewRepository(nil)
+	patService := portability.NewPATService(nil)
 	var exportService *portability.ExportService
 	if deps != nil {
 		exportService = portability.NewExportService(portability.NewExportRepository(deps.transactionRepo, deps.categoryService))
@@ -12,5 +13,6 @@ func newDefaultPortabilityHandler(deps *defaultBusinessDeps) *portability.Handle
 		portability.NewImportPreviewService(),
 		portability.NewImportConfirmService(repo),
 		exportService,
+		patService,
 	)
 }

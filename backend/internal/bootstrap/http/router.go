@@ -41,6 +41,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 
 	authGroup := r.Group("/api/auth")
+	authGroup.Use(rejectPATOnAuthEndpoints())
 	authGroup.POST("/send-code", handler.SendCode)
 	authGroup.POST("/verify-code", handler.VerifyCode)
 	if handler.HasOAuthService() {
@@ -108,6 +109,11 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		portabilityGroup.POST("/import/csv", portabilityHandler.ImportPreview)
 		portabilityGroup.POST("/import/csv/confirm", portabilityHandler.ImportConfirm)
 		portabilityGroup.GET("/export", portabilityHandler.Export)
+		patGroup := r.Group("/api/settings/tokens")
+		patGroup.Use(accountingAuthMiddleware(), accessOnlyMiddleware())
+		patGroup.GET("", portabilityHandler.ListPATs)
+		patGroup.POST("", portabilityHandler.CreatePAT)
+		patGroup.DELETE(":id", portabilityHandler.RevokePAT)
 	}
 
 	if reportingHandler == nil {

@@ -11,10 +11,11 @@ type Handler struct {
 	preview *ImportPreviewService
 	confirm *ImportConfirmService
 	export  *ExportService
+	pat     *PATService
 }
 
-func NewHandler(preview *ImportPreviewService, confirm *ImportConfirmService, export *ExportService) *Handler {
-	return &Handler{preview: preview, confirm: confirm, export: export}
+func NewHandler(preview *ImportPreviewService, confirm *ImportConfirmService, export *ExportService, pat *PATService) *Handler {
+	return &Handler{preview: preview, confirm: confirm, export: export, pat: pat}
 }
 
 func (h *Handler) ImportPreview(c *gin.Context) {
@@ -115,6 +116,54 @@ func (h *Handler) Export(c *gin.Context) {
 		return
 	}
 	c.Data(http.StatusOK, "text/csv", []byte(content))
+}
+
+func (h *Handler) ListPATs(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		return
+	}
+	if h.pat == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": h.pat.ListPATs(c.Request.Context(), userID)})
+}
+
+func (h *Handler) CreatePAT(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		return
+	}
+	if h.pat == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		return
+	}
+	plain, record, err := h.pat.CreatePAT(c.Request.Context(), userID, "default", nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"token": plain, "id": record.ID, "expires_at": record.ExpiresAt})
+}
+
+func (h *Handler) RevokePAT(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		return
+	}
+	if h.pat == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		return
+	}
+	if err := h.pat.RevokePAT(c.Request.Context(), userID, c.Param("id")); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error_code": ErrorCode(err)})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"revoked": true})
 }
 
 func (h *Handler) writeError(c *gin.Context, err error) {

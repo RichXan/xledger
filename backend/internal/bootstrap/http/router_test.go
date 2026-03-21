@@ -172,7 +172,7 @@ func TestImportPreviewEndpoint_AcceptsAccessAndPAT(t *testing.T) {
 	repo := portability.NewRepository(nil)
 	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
 		AuthHandler:        authHandler,
-		PortabilityHandler: portability.NewHandler(portability.NewImportPreviewService(), portability.NewImportConfirmService(repo), nil),
+		PortabilityHandler: portability.NewHandler(portability.NewImportPreviewService(), portability.NewImportConfirmService(repo), nil, portability.NewPATService(nil)),
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
@@ -219,6 +219,7 @@ func TestExportEndpoint_AcceptsAccessAndPAT(t *testing.T) {
 			portability.NewImportPreviewService(),
 			portability.NewImportConfirmService(portability.NewRepository(nil)),
 			portability.NewExportService(exportRepo),
+			portability.NewPATService(nil),
 		),
 	})
 	if err != nil {
@@ -227,6 +228,53 @@ func TestExportEndpoint_AcceptsAccessAndPAT(t *testing.T) {
 
 	performExportRequest(t, r, "/api/export?format=csv", pair.AccessToken, http.StatusOK, "text/csv")
 	performExportRequest(t, r, "/api/export?format=json", "pat:export-auth@example.com", http.StatusOK, "application/json")
+}
+
+func TestPAT_CannotAccessAuthEndpoints(t *testing.T) {
+	now := func() time.Time { return time.Now().UTC() }
+	authRepo := auth.NewInMemoryRepository(now)
+	authHandler := auth.NewHandler(auth.NewCodeService(authRepo, &countingSender{}, nil, now, func() string { return "123456" }))
+	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{AuthHandler: authHandler})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+	for _, path := range []string{"/api/auth/send-code", "/api/auth/verify-code"} {
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"email":"x@example.com","code":"123456","refresh_token":"t"}`))
+		req.Header.Set("Authorization", "Bearer pat:blocked@example.com")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("expected PAT auth rejection for %s, got %d body=%s", path, rec.Code, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "PAT_FORBIDDEN_ON_AUTH") {
+			t.Fatalf("expected PAT_FORBIDDEN_ON_AUTH for %s, got %s", path, rec.Body.String())
+		}
+	}
+}
+
+func TestPATEndpoints_AccessOnly_GETPOSTDELETE_On_api_settings_tokens(t *testing.T) {
+	now := func() time.Time { return time.Now().UTC() }
+	authRepo := auth.NewInMemoryRepository(now)
+	authHandler := auth.NewHandler(auth.NewCodeService(authRepo, &countingSender{}, nil, now, func() string { return "123456" }))
+	pair, err := auth.NewSessionService(authRepo, nil, now).IssueSession(context.Background(), "pat-admin@example.com")
+	if err != nil {
+		t.Fatalf("issue session: %v", err)
+	}
+	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{AuthHandler: authHandler})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+	performJSON(t, r, http.MethodGet, "/api/settings/tokens", ``, pair.AccessToken, http.StatusOK)
+	performJSON(t, r, http.MethodPost, "/api/settings/tokens", `{}`, pair.AccessToken, http.StatusOK)
+	req := httptest.NewRequest(http.MethodDelete, "/api/settings/tokens/pat-1", nil)
+	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK && rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected delete PAT endpoint to be mounted, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	performJSON(t, r, http.MethodGet, "/api/settings/tokens", ``, "pat:pat-admin@example.com", http.StatusUnauthorized)
 }
 
 func performJSON(t *testing.T, handler http.Handler, method string, path string, body string, accessToken string, wantStatus int) map[string]any {
