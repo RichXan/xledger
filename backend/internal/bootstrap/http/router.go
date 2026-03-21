@@ -106,6 +106,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		portabilityGroup := r.Group("/api")
 		portabilityGroup.Use(accountingAuthMiddleware())
 		portabilityGroup.POST("/import/csv", portabilityHandler.ImportPreview)
+		portabilityGroup.POST("/import/csv/confirm", portabilityHandler.ImportConfirm)
 	}
 
 	if reportingHandler == nil {

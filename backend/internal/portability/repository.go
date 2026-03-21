@@ -1,0 +1,99 @@
+package portability
+
+import (
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+type Repository struct {
+	mu          sync.Mutex
+	now         func() time.Time
+	jobs        map[string]importJob
+	rows        map[string][]storedImportRow
+	tripleDedup map[string]bool
+}
+
+type importJob struct {
+	UserID         string
+	Path           string
+	IdempotencyKey string
+	CreatedAt      time.Time
+	Response       ImportConfirmResponse
+	ErrorCode      string
+}
+
+type storedImportRow struct {
+	Date        string
+	Amount      float64
+	Description string
+}
+
+func NewRepository(now func() time.Time) *Repository {
+	if now == nil {
+		now = func() time.Time { return time.Now().UTC() }
+	}
+	return &Repository{
+		now:         now,
+		jobs:        map[string]importJob{},
+		rows:        map[string][]storedImportRow{},
+		tripleDedup: map[string]bool{},
+	}
+}
+
+func (r *Repository) SetNow(now func() time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if now != nil {
+		r.now = now
+	}
+}
+
+func (r *Repository) FindJob(userID string, path string, idempotencyKey string) (importJob, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	key := r.jobKey(userID, path, idempotencyKey)
+	job, ok := r.jobs[key]
+	if !ok {
+		return importJob{}, false
+	}
+	if r.now().Sub(job.CreatedAt) >= 24*time.Hour {
+		delete(r.jobs, key)
+		return importJob{}, false
+	}
+	return job, true
+}
+
+func (r *Repository) SaveJob(job importJob) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.jobs[r.jobKey(job.UserID, job.Path, job.IdempotencyKey)] = job
+}
+
+func (r *Repository) HasTriple(userID string, row storedImportRow) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.tripleDedup[r.tripleKey(userID, row)]
+}
+
+func (r *Repository) SaveRow(userID string, row storedImportRow) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.rows[userID] = append(r.rows[userID], row)
+	r.tripleDedup[r.tripleKey(userID, row)] = true
+}
+
+func (r *Repository) StoredRowCount(userID string) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.rows[userID])
+}
+
+func (r *Repository) jobKey(userID string, path string, key string) string {
+	return strings.TrimSpace(userID) + "|" + strings.TrimSpace(path) + "|" + strings.TrimSpace(key)
+}
+
+func (r *Repository) tripleKey(userID string, row storedImportRow) string {
+	return strings.TrimSpace(userID) + "|" + strings.TrimSpace(row.Date) + "|" + strconv.FormatFloat(row.Amount, 'f', 2, 64) + "|" + strings.TrimSpace(strings.ToLower(row.Description))
+}

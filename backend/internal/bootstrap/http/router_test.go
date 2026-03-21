@@ -169,9 +169,10 @@ func TestImportPreviewEndpoint_AcceptsAccessAndPAT(t *testing.T) {
 		t.Fatalf("issue session: %v", err)
 	}
 
+	repo := portability.NewRepository(nil)
 	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
 		AuthHandler:        authHandler,
-		PortabilityHandler: portability.NewHandler(portability.NewImportPreviewService()),
+		PortabilityHandler: portability.NewHandler(portability.NewImportPreviewService(), portability.NewImportConfirmService(repo)),
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)

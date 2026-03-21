@@ -8,10 +8,11 @@ import (
 
 type Handler struct {
 	preview *ImportPreviewService
+	confirm *ImportConfirmService
 }
 
-func NewHandler(preview *ImportPreviewService) *Handler {
-	return &Handler{preview: preview}
+func NewHandler(preview *ImportPreviewService, confirm *ImportConfirmService) *Handler {
+	return &Handler{preview: preview, confirm: confirm}
 }
 
 func (h *Handler) ImportPreview(c *gin.Context) {
@@ -39,10 +40,55 @@ func (h *Handler) ImportPreview(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+func (h *Handler) ImportConfirm(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		return
+	}
+	if h.confirm == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		return
+	}
+	var req ImportConfirmRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error_code": IMPORT_DUPLICATE_REQUEST})
+		return
+	}
+	idempotencyKey := c.GetHeader("X-Idempotency-Key")
+	if idempotencyKey == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error_code": IMPORT_DUPLICATE_REQUEST})
+		return
+	}
+	result, err := h.confirm.ConfirmContext(c.Request.Context(), userID, idempotencyKey, req)
+	if err != nil {
+		h.writeConfirmError(c, err, result)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 func (h *Handler) writeError(c *gin.Context, err error) {
 	switch ErrorCode(err) {
 	case IMPORT_INVALID_FILE:
 		c.JSON(http.StatusBadRequest, gin.H{"error_code": IMPORT_INVALID_FILE})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+	}
+}
+
+func (h *Handler) writeConfirmError(c *gin.Context, err error, result ImportConfirmResponse) {
+	switch ErrorCode(err) {
+	case IMPORT_DUPLICATE_REQUEST:
+		c.JSON(http.StatusConflict, gin.H{"error_code": IMPORT_DUPLICATE_REQUEST})
+	case IMPORT_PARTIAL_FAILED:
+		c.JSON(http.StatusOK, gin.H{
+			"error_code":    IMPORT_PARTIAL_FAILED,
+			"success_count": result.SuccessCount,
+			"skip_count":    result.SkipCount,
+			"fail_count":    result.FailCount,
+			"rows":          result.Rows,
+		})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
 	}
