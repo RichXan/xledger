@@ -118,6 +118,10 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, userID strin
 	return created, nil
 }
 
+func (s *TransactionService) CreateForAutomation(userID string, input TransactionCreateInput) (Transaction, error) {
+	return s.CreateTransaction(context.Background(), userID, input)
+}
+
 func (s *TransactionService) CreateTransfer(ctx context.Context, userID string, input TransactionTransferInput) (Transaction, error) {
 	userID = strings.TrimSpace(userID)
 	if userID == "" {
