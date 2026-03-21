@@ -100,13 +100,14 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 
 	if portabilityHandler == nil {
-		portabilityHandler = newDefaultPortabilityHandler()
+		portabilityHandler = newDefaultPortabilityHandler(businessDeps)
 	}
 	if portabilityHandler != nil {
 		portabilityGroup := r.Group("/api")
 		portabilityGroup.Use(accountingAuthMiddleware())
 		portabilityGroup.POST("/import/csv", portabilityHandler.ImportPreview)
 		portabilityGroup.POST("/import/csv/confirm", portabilityHandler.ImportConfirm)
+		portabilityGroup.GET("/export", portabilityHandler.Export)
 	}
 
 	if reportingHandler == nil {

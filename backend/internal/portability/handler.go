@@ -2,6 +2,7 @@ package portability
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -9,10 +10,11 @@ import (
 type Handler struct {
 	preview *ImportPreviewService
 	confirm *ImportConfirmService
+	export  *ExportService
 }
 
-func NewHandler(preview *ImportPreviewService, confirm *ImportConfirmService) *Handler {
-	return &Handler{preview: preview, confirm: confirm}
+func NewHandler(preview *ImportPreviewService, confirm *ImportConfirmService, export *ExportService) *Handler {
+	return &Handler{preview: preview, confirm: confirm, export: export}
 }
 
 func (h *Handler) ImportPreview(c *gin.Context) {
@@ -68,6 +70,53 @@ func (h *Handler) ImportConfirm(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+func (h *Handler) Export(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		return
+	}
+	if h.export == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		return
+	}
+	query := ExportQuery{Format: c.DefaultQuery("format", "csv")}
+	if raw := c.Query("from"); raw != "" {
+		parsed, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error_code": EXPORT_INVALID_RANGE})
+			return
+		}
+		query.From = parsed
+	}
+	if raw := c.Query("to"); raw != "" {
+		parsed, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error_code": EXPORT_INVALID_RANGE})
+			return
+		}
+		query.To = parsed
+	}
+	if raw := c.Query("timeout_ms"); raw != "" {
+		parsed, err := time.ParseDuration(raw + "ms")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error_code": EXPORT_INVALID_RANGE})
+			return
+		}
+		query.Timeout = parsed
+	}
+	content, err := h.export.Export(c.Request.Context(), userID, query)
+	if err != nil {
+		h.writeExportError(c, err)
+		return
+	}
+	if query.Format == "json" {
+		c.Data(http.StatusOK, "application/json", []byte(content))
+		return
+	}
+	c.Data(http.StatusOK, "text/csv", []byte(content))
+}
+
 func (h *Handler) writeError(c *gin.Context, err error) {
 	switch ErrorCode(err) {
 	case IMPORT_INVALID_FILE:
@@ -89,6 +138,17 @@ func (h *Handler) writeConfirmError(c *gin.Context, err error, result ImportConf
 			"fail_count":    result.FailCount,
 			"rows":          result.Rows,
 		})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+	}
+}
+
+func (h *Handler) writeExportError(c *gin.Context, err error) {
+	switch ErrorCode(err) {
+	case EXPORT_INVALID_RANGE:
+		c.JSON(http.StatusBadRequest, gin.H{"error_code": EXPORT_INVALID_RANGE})
+	case EXPORT_TIMEOUT:
+		c.JSON(http.StatusGatewayTimeout, gin.H{"error_code": EXPORT_TIMEOUT})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
 	}

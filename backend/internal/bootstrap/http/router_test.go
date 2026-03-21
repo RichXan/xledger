@@ -172,7 +172,7 @@ func TestImportPreviewEndpoint_AcceptsAccessAndPAT(t *testing.T) {
 	repo := portability.NewRepository(nil)
 	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
 		AuthHandler:        authHandler,
-		PortabilityHandler: portability.NewHandler(portability.NewImportPreviewService(), portability.NewImportConfirmService(repo)),
+		PortabilityHandler: portability.NewHandler(portability.NewImportPreviewService(), portability.NewImportConfirmService(repo), nil),
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
@@ -180,6 +180,53 @@ func TestImportPreviewEndpoint_AcceptsAccessAndPAT(t *testing.T) {
 
 	performMultipartCSV(t, r, "/api/import/csv", pair.AccessToken, http.StatusOK)
 	performMultipartCSV(t, r, "/api/import/csv", "pat:import-auth@example.com", http.StatusOK)
+}
+
+func TestExportEndpoint_AcceptsAccessAndPAT(t *testing.T) {
+	now := func() time.Time { return time.Now().UTC() }
+	authRepo := auth.NewInMemoryRepository(now)
+	authHandler := auth.NewHandler(auth.NewCodeService(authRepo, &countingSender{}, nil, now, func() string { return "123456" }))
+	pair, err := auth.NewSessionService(authRepo, nil, now).IssueSession(context.Background(), "export-auth@example.com")
+	if err != nil {
+		t.Fatalf("issue session: %v", err)
+	}
+
+	ledgerRepo := accounting.NewInMemoryLedgerRepository()
+	accountRepo := accounting.NewInMemoryAccountRepository()
+	txnRepo := accounting.NewInMemoryTransactionRepository()
+	classificationRepo := classification.NewInMemoryRepository()
+	categoryService := classification.NewCategoryService(classificationRepo)
+	tagService := classification.NewTagService(classificationRepo)
+	txnService := accounting.NewTransactionService(txnRepo, ledgerRepo, accountRepo, categoryService, tagService)
+	ledger, err := ledgerRepo.Create("bddde8db-cd9c-56a8-a4a5-fae9e6424fa0", accounting.LedgerCreateInput{Name: "Main", IsDefault: true})
+	if err != nil {
+		t.Fatalf("seed ledger: %v", err)
+	}
+	category, err := categoryService.CreateCategory(context.Background(), "bddde8db-cd9c-56a8-a4a5-fae9e6424fa0", classification.CategoryCreateInput{Name: "Food"})
+	if err != nil {
+		t.Fatalf("seed category: %v", err)
+	}
+	if _, err := txnService.CreateTransaction(context.Background(), "bddde8db-cd9c-56a8-a4a5-fae9e6424fa0", accounting.TransactionCreateInput{LedgerID: ledger.ID, Type: accounting.TransactionTypeExpense, Amount: 25, OccurredAt: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC), CategoryID: &category.ID}); err != nil {
+		t.Fatalf("seed export txn: %v", err)
+	}
+	if _, err := categoryService.DeleteCategory(context.Background(), "bddde8db-cd9c-56a8-a4a5-fae9e6424fa0", category.ID); classification.ErrorCode(err) != classification.CAT_IN_USE_ARCHIVED {
+		t.Fatalf("archive category: %q", classification.ErrorCode(err))
+	}
+	exportRepo := portability.NewExportRepository(txnRepo, categoryService)
+	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
+		AuthHandler: authHandler,
+		PortabilityHandler: portability.NewHandler(
+			portability.NewImportPreviewService(),
+			portability.NewImportConfirmService(portability.NewRepository(nil)),
+			portability.NewExportService(exportRepo),
+		),
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+
+	performExportRequest(t, r, "/api/export?format=csv", pair.AccessToken, http.StatusOK, "text/csv")
+	performExportRequest(t, r, "/api/export?format=json", "pat:export-auth@example.com", http.StatusOK, "application/json")
 }
 
 func performJSON(t *testing.T, handler http.Handler, method string, path string, body string, accessToken string, wantStatus int) map[string]any {
@@ -232,6 +279,20 @@ func performMultipartCSV(t *testing.T, handler http.Handler, path string, access
 	handler.ServeHTTP(rec, req)
 	if rec.Code != wantStatus {
 		t.Fatalf("expected status %d for multipart %s, got %d body=%s", wantStatus, path, rec.Code, rec.Body.String())
+	}
+}
+
+func performExportRequest(t *testing.T, handler http.Handler, path string, accessToken string, wantStatus int, wantContentType string) {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != wantStatus {
+		t.Fatalf("expected status %d for export %s, got %d body=%s", wantStatus, path, rec.Code, rec.Body.String())
+	}
+	if contentType := rec.Header().Get("Content-Type"); !strings.HasPrefix(contentType, wantContentType) {
+		t.Fatalf("expected content-type %s, got %s", wantContentType, contentType)
 	}
 }
 
