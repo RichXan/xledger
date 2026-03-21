@@ -9,6 +9,7 @@ import (
 	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/auth"
 	"xledger/backend/internal/classification"
+	"xledger/backend/internal/reporting"
 )
 
 func NewRouter(trustedProxies []string) (*gin.Engine, error) {
@@ -19,6 +20,7 @@ type Dependencies struct {
 	AuthHandler           *auth.Handler
 	AccountingHandler     *accounting.Handler
 	ClassificationHandler *classification.Handler
+	ReportingHandler      *reporting.Handler
 }
 
 func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin.Engine, error) {
@@ -48,12 +50,14 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 
 	accountingHandler := deps.AccountingHandler
-	var sharedClassificationRepo classification.Repository
-	if accountingHandler == nil || deps.ClassificationHandler == nil {
-		sharedClassificationRepo = classification.NewInMemoryRepository()
+	classificationHandler := deps.ClassificationHandler
+	reportingHandler := deps.ReportingHandler
+	var businessDeps *defaultBusinessDeps
+	if accountingHandler == nil || classificationHandler == nil || reportingHandler == nil {
+		businessDeps = newDefaultBusinessDeps()
 	}
 	if accountingHandler == nil {
-		accountingHandler = newDefaultAccountingHandler(sharedClassificationRepo)
+		accountingHandler = newDefaultAccountingHandler(businessDeps)
 	}
 	if accountingHandler != nil {
 		accountingGroup := r.Group("/api")
@@ -70,13 +74,13 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		accountingGroup.DELETE("/accounts/:id", accountingHandler.DeleteAccount)
 
 		accountingGroup.POST("/transactions", accountingHandler.CreateTransaction)
+		accountingGroup.GET("/transactions", accountingHandler.ListTransactions)
 		accountingGroup.PUT("/transactions/:id", accountingHandler.UpdateTransaction)
 		accountingGroup.DELETE("/transactions/:id", accountingHandler.DeleteTransaction)
 	}
 
-	classificationHandler := deps.ClassificationHandler
 	if classificationHandler == nil {
-		classificationHandler = newDefaultClassificationHandler(sharedClassificationRepo)
+		classificationHandler = newDefaultClassificationHandler(businessDeps)
 	}
 	if classificationHandler != nil {
 		classificationGroup := r.Group("/api")
@@ -90,6 +94,17 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		classificationGroup.POST("/tags", classificationHandler.CreateTag)
 		classificationGroup.PUT("/tags/:id", classificationHandler.UpdateTag)
 		classificationGroup.DELETE("/tags/:id", classificationHandler.DeleteTag)
+	}
+
+	if reportingHandler == nil {
+		reportingHandler = newDefaultReportingHandler(businessDeps)
+	}
+	if reportingHandler != nil {
+		reportingGroup := r.Group("/api")
+		reportingGroup.Use(accountingAuthMiddleware())
+		reportingGroup.GET("/stats/overview", reportingHandler.Overview)
+		reportingGroup.GET("/stats/trend", reportingHandler.Trend)
+		reportingGroup.GET("/stats/category", reportingHandler.Category)
 	}
 
 	return r, nil

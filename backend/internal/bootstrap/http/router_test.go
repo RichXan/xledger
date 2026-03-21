@@ -9,7 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/auth"
+	"xledger/backend/internal/classification"
+	"xledger/backend/internal/reporting"
 )
 
 func TestNewRouter_InvalidTrustedProxies_ReturnsError(t *testing.T) {
@@ -113,6 +116,45 @@ func TestDefaultHandlers_ShareClassificationStateWithTransactions(t *testing.T) 
 	deleteResp := performJSON(t, r, http.MethodDelete, "/api/categories/"+categoryID, ``, authz, http.StatusOK)
 	if archived, ok := deleteResp["archived"].(bool); !ok || !archived {
 		t.Fatalf("expected referenced category delete to archive, got %#v", deleteResp)
+	}
+}
+
+func TestStatsEndpoints_AcceptsAccessAndPAT(t *testing.T) {
+	now := func() time.Time { return time.Now().UTC() }
+	authRepo := auth.NewInMemoryRepository(now)
+	authHandler := auth.NewHandler(auth.NewCodeService(authRepo, &countingSender{}, nil, now, func() string { return "123456" }))
+	pair, err := auth.NewSessionService(authRepo, nil, now).IssueSession(context.Background(), "reporting-auth@example.com")
+	if err != nil {
+		t.Fatalf("issue session: %v", err)
+	}
+
+	accountRepo := accounting.NewInMemoryAccountRepository()
+	txnRepo := accounting.NewInMemoryTransactionRepository()
+	classificationRepo := classification.NewInMemoryRepository()
+	categoryService := classification.NewCategoryService(classificationRepo)
+	reportingRepo := reporting.NewRepository(accountRepo, txnRepo, categoryService)
+	reportingHandler := reporting.NewHandler(
+		reporting.NewOverviewService(reportingRepo),
+		reporting.NewTrendService(reportingRepo),
+		reporting.NewCategoryService(reportingRepo),
+	)
+
+	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
+		AuthHandler:      authHandler,
+		ReportingHandler: reportingHandler,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+
+	if len(performJSON(t, r, http.MethodGet, "/api/stats/overview", ``, pair.AccessToken, http.StatusOK)) == 0 {
+		t.Fatalf("expected overview payload")
+	}
+	if len(performJSON(t, r, http.MethodGet, "/api/stats/trend?from=2026-03-01T00:00:00Z&to=2026-03-02T00:00:00Z", ``, "pat:reporting-auth@example.com", http.StatusOK)) == 0 {
+		t.Fatalf("expected trend payload")
+	}
+	if len(performJSON(t, r, http.MethodGet, "/api/stats/category", ``, pair.AccessToken, http.StatusOK)) == 0 {
+		t.Fatalf("expected category payload")
 	}
 }
 
