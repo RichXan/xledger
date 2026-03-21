@@ -16,6 +16,16 @@ type contractError struct{ code string }
 
 func (e *contractError) Error() string { return e.code }
 
+func ErrorCode(err error) string {
+	if err == nil {
+		return ""
+	}
+	if typed, ok := err.(*contractError); ok {
+		return typed.code
+	}
+	return err.Error()
+}
+
 type OverviewQuery struct {
 	LedgerID string
 }

@@ -54,7 +54,16 @@ func (h *Handler) Trend(c *gin.Context) {
 			return
 		}
 	}
-	result, err := h.trend.GetTrend(c.Request.Context(), userID, TrendQuery{From: from, To: to, Granularity: c.DefaultQuery("granularity", "day")})
+	timeout := time.Duration(0)
+	if raw := c.Query("timeout_ms"); raw != "" {
+		ms, convErr := time.ParseDuration(raw + "ms")
+		if convErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error_code": STAT_QUERY_INVALID})
+			return
+		}
+		timeout = ms
+	}
+	result, err := h.trend.GetTrend(c.Request.Context(), userID, TrendQuery{From: from, To: to, Granularity: c.DefaultQuery("granularity", "day"), Timezone: c.Query("timezone"), Timeout: timeout})
 	if err != nil {
 		h.writeError(c, err)
 		return
