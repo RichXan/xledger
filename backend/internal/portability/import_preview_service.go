@@ -28,6 +28,7 @@ type PreviewResponse struct {
 	SampleRows        [][]string          `json:"sample_rows"`
 	MappingSlots      []string            `json:"mappingSlots"`
 	MappingCandidates map[string][]string `json:"mappingCandidates"`
+	SuggestedMapping  map[string]string   `json:"suggested_mapping,omitempty"`
 }
 
 type ImportPreviewService struct{}
@@ -44,6 +45,7 @@ func (s *ImportPreviewService) PreviewCSV(reader io.Reader) (PreviewResponse, er
 		return PreviewResponse{}, &contractError{code: IMPORT_INVALID_FILE}
 	}
 	sampleRows := make([][]string, 0, min(5, len(rows)-1))
+
 	for _, row := range rows[1:] {
 		if len(row) == 0 {
 			continue
@@ -95,6 +97,29 @@ func buildMappingCandidates(columns []string, slots []string) map[string][]strin
 		candidates[slot] = matches
 	}
 	return candidates
+}
+
+func (s *ImportPreviewService) PreviewCSVWithSuggestions(reader io.Reader, suggester interface {
+	Suggest(columns []string) (map[string]string, error)
+}) (PreviewResponse, error) {
+	result, err := s.PreviewCSV(reader)
+	if err != nil {
+		return PreviewResponse{}, err
+	}
+	if suggester == nil {
+		result.SuggestedMapping = map[string]string{}
+		return result, nil
+	}
+	mapping, suggestErr := suggester.Suggest(result.Columns)
+	if suggestErr != nil {
+		result.SuggestedMapping = map[string]string{}
+		return result, nil
+	}
+	if mapping == nil {
+		mapping = map[string]string{}
+	}
+	result.SuggestedMapping = mapping
+	return result, nil
 }
 
 func min(a int, b int) int {
