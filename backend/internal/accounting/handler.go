@@ -189,6 +189,70 @@ func (h *Handler) DeleteTransaction(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"deleted": true})
 }
 
+func (h *Handler) ListTransactions(c *gin.Context) {
+	if h.transactionService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		return
+	}
+
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		return
+	}
+
+	query := TransactionQuery{
+		LedgerID:   c.Query("ledger_id"),
+		AccountID:  c.Query("account_id"),
+		CategoryID: c.Query("category_id"),
+		TagID:      c.Query("tag_id"),
+	}
+	if rawFrom := c.Query("date_from"); rawFrom != "" {
+		parsed, err := time.Parse(time.RFC3339, rawFrom)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+			return
+		}
+		query.OccurredFrom = parsed.UTC()
+	}
+	if rawTo := c.Query("date_to"); rawTo != "" {
+		parsed, err := time.Parse(time.RFC3339, rawTo)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+			return
+		}
+		query.OccurredTo = parsed.UTC()
+	}
+	if rawPage := c.Query("page"); rawPage != "" {
+		parsed, err := strconv.Atoi(rawPage)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+			return
+		}
+		query.Page = parsed
+	}
+	if rawPageSize := c.Query("page_size"); rawPageSize != "" {
+		parsed, err := strconv.Atoi(rawPageSize)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+			return
+		}
+		query.PageSize = parsed
+	}
+
+	items, err := h.transactionService.ListTransactions(c.Request.Context(), userID, query)
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+	if query.Page == 0 && query.PageSize == 0 {
+		query.Page = 1
+		query.PageSize = len(items)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
 func (h *Handler) CreateAccount(c *gin.Context) {
 	if h.accountService == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})

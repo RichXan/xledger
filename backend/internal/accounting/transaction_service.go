@@ -325,7 +325,21 @@ func (s *TransactionService) ListTransactions(ctx context.Context, userID string
 		return nil, &contractError{code: TXN_VALIDATION_FAILED}
 	}
 	query.LedgerID = strings.TrimSpace(query.LedgerID)
+	query.AccountID = strings.TrimSpace(query.AccountID)
+	query.CategoryID = strings.TrimSpace(query.CategoryID)
 	query.TagID = strings.TrimSpace(query.TagID)
+	if !query.OccurredFrom.IsZero() && !query.OccurredTo.IsZero() && query.OccurredFrom.After(query.OccurredTo) {
+		return nil, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	if query.Page < 0 || query.PageSize < 0 {
+		return nil, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	if query.Page == 0 && query.PageSize > 0 {
+		return nil, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	if query.Page > 0 && query.PageSize == 0 {
+		return nil, &contractError{code: TXN_VALIDATION_FAILED}
+	}
 	if query.TagID != "" {
 		if s.tagSvc == nil {
 			return []Transaction{}, nil

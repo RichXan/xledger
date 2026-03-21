@@ -75,7 +75,13 @@ type TransactionEditInput struct {
 
 type TransactionQuery struct {
 	LedgerID          string
+	AccountID         string
+	CategoryID        string
 	TagID             string
+	OccurredFrom      time.Time
+	OccurredTo        time.Time
+	Page              int
+	PageSize          int
 	TransactionIDs    []string
 	UseTransactionIDs bool
 }
@@ -344,6 +350,8 @@ func (r *InMemoryTransactionRepository) ListByUser(userID string, query Transact
 	defer r.mu.Unlock()
 
 	ledgerFilter := strings.TrimSpace(query.LedgerID)
+	accountFilter := strings.TrimSpace(query.AccountID)
+	categoryFilter := strings.TrimSpace(query.CategoryID)
 	allowedTxnIDs := map[string]bool{}
 	if query.UseTransactionIDs {
 		for _, txnID := range query.TransactionIDs {
@@ -369,6 +377,18 @@ func (r *InMemoryTransactionRepository) ListByUser(userID string, query Transact
 		if ledgerFilter != "" && txn.LedgerID != ledgerFilter {
 			continue
 		}
+		if accountFilter != "" && !transactionMatchesAccountFilter(txn, accountFilter) {
+			continue
+		}
+		if categoryFilter != "" && strings.TrimSpace(ptrString(txn.CategoryID)) != categoryFilter {
+			continue
+		}
+		if !query.OccurredFrom.IsZero() && txn.OccurredAt.Before(query.OccurredFrom) {
+			continue
+		}
+		if !query.OccurredTo.IsZero() && txn.OccurredAt.After(query.OccurredTo) {
+			continue
+		}
 		if txn.Type == TransactionTypeTransfer {
 			pairID := strings.TrimSpace(ptrString(txn.TransferPairID))
 			if pairID != "" {
@@ -391,8 +411,22 @@ func (r *InMemoryTransactionRepository) ListByUser(userID string, query Transact
 		items = append(items, txn)
 	}
 	sort.Slice(items, func(i, j int) bool {
-		return items[i].OccurredAt.Before(items[j].OccurredAt)
+		if items[i].OccurredAt.Equal(items[j].OccurredAt) {
+			return items[i].ID > items[j].ID
+		}
+		return items[i].OccurredAt.After(items[j].OccurredAt)
 	})
+	if query.Page > 0 && query.PageSize > 0 {
+		start := (query.Page - 1) * query.PageSize
+		if start >= len(items) {
+			return []Transaction{}, nil
+		}
+		end := start + query.PageSize
+		if end > len(items) {
+			end = len(items)
+		}
+		items = items[start:end]
+	}
 	return items, nil
 }
 
@@ -516,6 +550,19 @@ func appendUnique(items []string, value string) []string {
 		}
 	}
 	return append(items, value)
+}
+
+func transactionMatchesAccountFilter(txn Transaction, accountID string) bool {
+	if strings.TrimSpace(ptrString(txn.AccountID)) == accountID {
+		return true
+	}
+	if strings.TrimSpace(ptrString(txn.FromAccountID)) == accountID {
+		return true
+	}
+	if strings.TrimSpace(ptrString(txn.ToAccountID)) == accountID {
+		return true
+	}
+	return false
 }
 
 func (r *InMemoryTransactionRepository) InjectTransferCreateFailureAfterFrom() {
