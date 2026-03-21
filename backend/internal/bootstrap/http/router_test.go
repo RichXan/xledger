@@ -265,16 +265,16 @@ func TestPATEndpoints_AccessOnly_GETPOSTDELETE_On_api_settings_tokens(t *testing
 	if err != nil {
 		t.Fatalf("new router: %v", err)
 	}
-	performJSON(t, r, http.MethodGet, "/api/settings/tokens", ``, pair.AccessToken, http.StatusOK)
-	performJSON(t, r, http.MethodPost, "/api/settings/tokens", `{}`, pair.AccessToken, http.StatusOK)
-	req := httptest.NewRequest(http.MethodDelete, "/api/settings/tokens/pat-1", nil)
+	performJSON(t, r, http.MethodGet, "/api/personal-access-tokens", ``, pair.AccessToken, http.StatusOK)
+	performJSON(t, r, http.MethodPost, "/api/personal-access-tokens", `{}`, pair.AccessToken, http.StatusOK)
+	req := httptest.NewRequest(http.MethodDelete, "/api/personal-access-tokens/pat-1", nil)
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK && rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected delete PAT endpoint to be mounted, got %d body=%s", rec.Code, rec.Body.String())
 	}
-	performJSON(t, r, http.MethodGet, "/api/settings/tokens", ``, "pat:pat-admin@example.com", http.StatusUnauthorized)
+	performJSON(t, r, http.MethodGet, "/api/personal-access-tokens", ``, "pat:pat-admin@example.com", http.StatusUnauthorized)
 }
 
 func performJSON(t *testing.T, handler http.Handler, method string, path string, body string, accessToken string, wantStatus int) map[string]any {

@@ -139,7 +139,7 @@ func (s *PATService) CanUsePATOnPath(token string, path string) bool {
 	if strings.HasPrefix(path, "/api/auth") {
 		return false
 	}
-	if strings.HasPrefix(path, "/api/settings/tokens") {
+	if strings.HasPrefix(path, "/api/personal-access-tokens") {
 		return false
 	}
 	return true

@@ -23,7 +23,7 @@ func TestPATEndpoints_AccessOnly_GETPOSTDELETE_On_api_settings_tokens(t *testing
 	if err != nil {
 		t.Fatalf("create pat: %v", err)
 	}
-	if service.CanUsePATOnPath(plain, "/api/settings/tokens") {
+	if service.CanUsePATOnPath(plain, "/api/personal-access-tokens") {
 		t.Fatalf("expected PAT to be forbidden from PAT management endpoints")
 	}
 }

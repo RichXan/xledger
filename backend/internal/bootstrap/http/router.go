@@ -109,7 +109,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		portabilityGroup.POST("/import/csv", portabilityHandler.ImportPreview)
 		portabilityGroup.POST("/import/csv/confirm", portabilityHandler.ImportConfirm)
 		portabilityGroup.GET("/export", portabilityHandler.Export)
-		patGroup := r.Group("/api/settings/tokens")
+		patGroup := r.Group("/api/personal-access-tokens")
 		patGroup.Use(accountingAuthMiddleware(), accessOnlyMiddleware())
 		patGroup.GET("", portabilityHandler.ListPATs)
 		patGroup.POST("", portabilityHandler.CreatePAT)

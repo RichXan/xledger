@@ -1,0 +1,106 @@
+openapi: 3.1.0
+info:
+  title: Xledger Backend API
+  version: v0.3
+servers:
+  - url: /api
+paths:
+  /auth/send-code:
+    post:
+      summary: Send login code
+      responses:
+        '200':
+          description: OK
+  /auth/verify-code:
+    post:
+      summary: Verify login code
+      responses:
+        '200':
+          description: OK
+  /ledgers:
+    get:
+      summary: List ledgers
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create ledger
+      responses:
+        '201':
+          description: Created
+  /transactions:
+    get:
+      summary: List transactions
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create transaction
+      responses:
+        '201':
+          description: Created
+  /categories:
+    get:
+      summary: List categories
+      responses:
+        '200':
+          description: OK
+  /tags:
+    get:
+      summary: List tags
+      responses:
+        '200':
+          description: OK
+  /stats/overview:
+    get:
+      summary: Overview stats
+      responses:
+        '200':
+          description: OK
+  /stats/trend:
+    get:
+      summary: Trend stats
+      responses:
+        '200':
+          description: OK
+  /stats/category:
+    get:
+      summary: Category stats
+      responses:
+        '200':
+          description: OK
+  /import/csv:
+    post:
+      summary: Preview CSV import
+      responses:
+        '200':
+          description: OK
+  /import/csv/confirm:
+    post:
+      summary: Confirm CSV import
+      responses:
+        '200':
+          description: OK
+  /export:
+    get:
+      summary: Export data
+      responses:
+        '200':
+          description: File stream
+  /personal-access-tokens:
+    get:
+      summary: List PAT metadata
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create PAT
+      responses:
+        '200':
+          description: OK
+  /personal-access-tokens/{id}:
+    delete:
+      summary: Revoke PAT
+      responses:
+        '200':
+          description: OK

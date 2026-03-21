@@ -14,7 +14,7 @@ import (
 func TestImportConfirm_UsesIdempotencyBeforeTripleDedup(t *testing.T) {
 	repo := NewRepository(func() time.Time { return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC) })
 	service := NewImportConfirmService(repo)
-	handler := NewHandler(NewImportPreviewService(), service)
+	handler := NewHandler(NewImportPreviewService(), service, nil, nil)
 	r := gin.New()
 	r.POST("/import/csv/confirm", withUser("user-1"), handler.ImportConfirm)
 
@@ -80,7 +80,7 @@ func TestImportConfirm_AcceptsAccessAndPAT(t *testing.T) {
 	for _, tokenType := range []string{"access", "pat"} {
 		repo := NewRepository(func() time.Time { return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC) })
 		service := NewImportConfirmService(repo)
-		handler := NewHandler(NewImportPreviewService(), service)
+		handler := NewHandler(NewImportPreviewService(), service, nil, nil)
 		r := gin.New()
 		r.POST("/import/csv/confirm", withUser("user-1"), handler.ImportConfirm)
 		resp := performConfirm(t, r, payload, "confirm-"+tokenType, "user-1", http.StatusOK)
@@ -93,7 +93,7 @@ func TestImportConfirm_AcceptsAccessAndPAT(t *testing.T) {
 func TestImportConfirm_MissingIdempotencyKey_ReturnsBadRequest(t *testing.T) {
 	repo := NewRepository(func() time.Time { return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC) })
 	service := NewImportConfirmService(repo)
-	handler := NewHandler(NewImportPreviewService(), service)
+	handler := NewHandler(NewImportPreviewService(), service, nil, nil)
 	r := gin.New()
 	r.POST("/import/csv/confirm", withUser("user-1"), handler.ImportConfirm)
 	payload := `{"rows":[{"date":"2026-03-01","amount":12.5,"description":"lunch"}]}`

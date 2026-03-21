@@ -12,7 +12,7 @@ import (
 
 func TestImportPreview_ReturnsDetectedColumnsAndSampleRows(t *testing.T) {
 	g := gin.New()
-	handler := NewHandler(NewImportPreviewService())
+	handler := NewHandler(NewImportPreviewService(), nil, nil, nil)
 	g.POST("/import/csv", withUser("user-1"), handler.ImportPreview)
 
 	body, contentType := buildMultipartCSV(t, "preview.csv", "date,amount,description\n2026-03-01,12.5,lunch\n2026-03-02,8.8,coffee\n")
@@ -31,7 +31,7 @@ func TestImportPreview_ReturnsDetectedColumnsAndSampleRows(t *testing.T) {
 
 func TestImportPreview_IncludesMappingSlotsForConfirmStage(t *testing.T) {
 	g := gin.New()
-	handler := NewHandler(NewImportPreviewService())
+	handler := NewHandler(NewImportPreviewService(), nil, nil, nil)
 	g.POST("/import/csv", withUser("user-1"), handler.ImportPreview)
 
 	body, contentType := buildMultipartCSV(t, "preview.csv", "date,amount,description\n2026-03-01,12.5,lunch\n")
@@ -50,7 +50,7 @@ func TestImportPreview_IncludesMappingSlotsForConfirmStage(t *testing.T) {
 
 func TestImportPreview_InvalidFile_ReturnsIMPORT_INVALID_FILE(t *testing.T) {
 	g := gin.New()
-	handler := NewHandler(NewImportPreviewService())
+	handler := NewHandler(NewImportPreviewService(), nil, nil, nil)
 	g.POST("/import/csv", withUser("user-1"), handler.ImportPreview)
 
 	body, contentType := buildMultipartCSV(t, "invalid.csv", "not,a,valid,csv\n\"broken\n")
@@ -68,7 +68,7 @@ func TestImportPreview_InvalidFile_ReturnsIMPORT_INVALID_FILE(t *testing.T) {
 
 func TestImportPreview_AcceptsAccessAndPAT(t *testing.T) {
 	g := gin.New()
-	handler := NewHandler(NewImportPreviewService())
+	handler := NewHandler(NewImportPreviewService(), nil, nil, nil)
 	g.POST("/import/csv", withUser("user-1"), handler.ImportPreview)
 
 	for _, tokenType := range []string{"access", "pat"} {

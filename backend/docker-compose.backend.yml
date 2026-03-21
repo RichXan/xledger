@@ -1,0 +1,14 @@
+services:
+  xledger-backend:
+    image: golang:1.25
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: sh -lc "go test ./tests/integration -run TestE2E_CorePath_AuthToExport_WithoutN8N -count=1"
+    environment:
+      SMTP_HOST: smtp.example.com
+      SMTP_PORT: "587"
+      SMTP_USER: user@example.com
+      SMTP_PASS: replace-me
+      SMTP_FROM: notify@example.com
+      N8N_BASE_URL: http://127.0.0.1:9
