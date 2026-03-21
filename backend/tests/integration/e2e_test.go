@@ -25,10 +25,10 @@ func TestE2E_CorePath_AuthToExport_WithoutN8N(t *testing.T) {
 
 	performJSONStatus(t, r, http.MethodPost, "/api/auth/send-code", `{"email":"e2e@example.com"}`, "", http.StatusOK)
 	verifyResp := performJSONStatus(t, r, http.MethodPost, "/api/auth/verify-code", `{"email":"e2e@example.com","code":"123456"}`, "", http.StatusOK)
-	accessToken := responseString(t, verifyResp, "access_token")
+	accessToken := responseStringFromData(t, verifyResp, "access_token")
 
 	ledgerResp := performJSONStatus(t, r, http.MethodPost, "/api/ledgers", `{"name":"Main","is_default":true}`, accessToken, http.StatusCreated)
-	ledgerID := responseString(t, ledgerResp, "id")
+	ledgerID := responseStringFromData(t, ledgerResp, "id")
 	performJSONStatus(t, r, http.MethodPost, "/api/transactions", `{"ledger_id":"`+ledgerID+`","type":"expense","amount":25}`, accessToken, http.StatusCreated)
 
 	body, contentType := buildCSVMultipart(t, "date,amount,description\n2026-03-01,12.5,lunch\n")
@@ -102,6 +102,19 @@ func responseString(t *testing.T, payload map[string]any, key string) string {
 	value, ok := payload[key].(string)
 	if !ok || value == "" {
 		t.Fatalf("expected string field %s in %#v", key, payload)
+	}
+	return value
+}
+
+func responseStringFromData(t *testing.T, payload map[string]any, key string) string {
+	t.Helper()
+	data, ok := payload["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected data map in %#v", payload)
+	}
+	value, ok := data[key].(string)
+	if !ok || value == "" {
+		t.Fatalf("expected string field %s in data %#v", key, payload)
 	}
 	return value
 }

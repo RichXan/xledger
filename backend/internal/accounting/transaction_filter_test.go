@@ -192,11 +192,14 @@ func assertTransactionFilterBadRequest(t *testing.T, rec *httptest.ResponseRecor
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusBadRequest, rec.Code, rec.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response body: %v", err)
 	}
-	if body["error_code"] != TXN_VALIDATION_FAILED {
-		t.Fatalf("expected error_code=%s, got %q", TXN_VALIDATION_FAILED, body["error_code"])
+	if body["code"] != "VALIDATION_ERROR" {
+		t.Fatalf("expected code=VALIDATION_ERROR, got %#v", body)
+	}
+	if body["data"] != nil {
+		t.Fatalf("expected nil data, got %#v", body["data"])
 	}
 }

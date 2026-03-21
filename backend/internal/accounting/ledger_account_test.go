@@ -109,11 +109,14 @@ func TestAccountCreate_InvalidPayload_ReturnsACCOUNT_INVALID(t *testing.T) {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusBadRequest, rec.Code, rec.Body.String())
 	}
 
-	var body map[string]string
+	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response body: %v", err)
 	}
-	if body["error_code"] != ACCOUNT_INVALID {
-		t.Fatalf("expected error_code=%s, got %q", ACCOUNT_INVALID, body["error_code"])
+	if body["code"] != "VALIDATION_ERROR" {
+		t.Fatalf("expected code=VALIDATION_ERROR, got %#v", body)
+	}
+	if body["data"] != nil {
+		t.Fatalf("expected nil data, got %#v", body["data"])
 	}
 }

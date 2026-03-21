@@ -3,8 +3,11 @@ package auth
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"xledger/backend/internal/common/httpx"
 )
 
 type Handler struct {
@@ -53,7 +56,7 @@ func (h *Handler) HasSessionService() bool {
 func (h *Handler) SendCode(c *gin.Context) {
 	var req sendCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": "AUTH_BAD_REQUEST"})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
 
@@ -61,43 +64,40 @@ func (h *Handler) SendCode(c *gin.Context) {
 	if err != nil {
 		switch ErrorCode(err) {
 		case AUTH_CODE_RATE_LIMIT:
-			c.JSON(http.StatusTooManyRequests, gin.H{"error_code": AUTH_CODE_RATE_LIMIT})
+			httpx.JSON(c, http.StatusTooManyRequests, "RATE_LIMITED", "触发限流", nil)
 			return
 		case AUTH_CODE_SEND_FAILED:
-			c.JSON(http.StatusBadGateway, gin.H{"error_code": AUTH_CODE_SEND_FAILED})
+			httpx.JSON(c, http.StatusBadGateway, "INTERNAL_ERROR", "服务内部错误", nil)
 			return
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+			httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code_sent": true})
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"code_sent": true})
 }
 
 func (h *Handler) VerifyCode(c *gin.Context) {
 	var req verifyCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": "AUTH_BAD_REQUEST"})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
 
 	tokens, err := h.codeService.VerifyCode(c.Request.Context(), req.Email, req.Code)
 	if err != nil {
 		switch ErrorCode(err) {
-		case AUTH_CODE_INVALID:
-			c.JSON(http.StatusUnauthorized, gin.H{"error_code": AUTH_CODE_INVALID})
-			return
-		case AUTH_CODE_EXPIRED:
-			c.JSON(http.StatusUnauthorized, gin.H{"error_code": AUTH_CODE_EXPIRED})
+		case AUTH_CODE_INVALID, AUTH_CODE_EXPIRED:
+			httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 			return
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+			httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, tokens)
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"access_token": tokens.AccessToken, "refresh_token": tokens.RefreshToken})
 }
 
 func (h *Handler) GoogleCallback(c *gin.Context) {
@@ -122,6 +122,19 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, tokens)
+}
+
+func (h *Handler) Me(c *gin.Context) {
+	authorization := strings.TrimSpace(c.GetHeader("Authorization"))
+	if strings.HasPrefix(strings.ToLower(authorization), "bearer ") {
+		authorization = strings.TrimSpace(authorization[len("Bearer "):])
+	}
+	token, err := ParseSessionToken(authorization)
+	if err != nil || token.Type != "access" || !time.Now().UTC().Before(token.ExpiresAt) {
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"email": token.Email})
 }
 
 func (h *Handler) Refresh(c *gin.Context) {

@@ -20,12 +20,13 @@ func TestImportConfirm_UsesIdempotencyBeforeTripleDedup(t *testing.T) {
 
 	payload := `{"rows":[{"date":"2026-03-01","amount":12.5,"description":"lunch"},{"date":"2026-03-01","amount":12.5,"description":"lunch"}]}`
 	first := performConfirm(t, r, payload, "import-1", "user-1", http.StatusOK)
-	if first["success_count"].(float64) != 1 || first["skip_count"].(float64) != 1 {
+	firstData := confirmDataMap(t, first)
+	if firstData["success_count"].(float64) != 1 || firstData["skip_count"].(float64) != 1 {
 		t.Fatalf("expected first import to write one row then dedup one row, got %#v", first)
 	}
 	second := performConfirm(t, r, payload, "import-1", "user-1", http.StatusConflict)
-	if second["error_code"] != IMPORT_DUPLICATE_REQUEST {
-		t.Fatalf("expected duplicate request error, got %#v", second)
+	if second["code"] != "BUSINESS_RULE_VIOLATION" {
+		t.Fatalf("expected duplicate request business rule violation, got %#v", second)
 	}
 	if repo.StoredRowCount("user-1") != 1 {
 		t.Fatalf("expected idempotency to prevent second-write amplification, got %d rows", repo.StoredRowCount("user-1"))
@@ -84,7 +85,7 @@ func TestImportConfirm_AcceptsAccessAndPAT(t *testing.T) {
 		r := gin.New()
 		r.POST("/import/csv/confirm", withUser("user-1"), handler.ImportConfirm)
 		resp := performConfirm(t, r, payload, "confirm-"+tokenType, "user-1", http.StatusOK)
-		if resp["success_count"].(float64) != 1 {
+		if confirmDataMap(t, resp)["success_count"].(float64) != 1 {
 			t.Fatalf("expected success for %s token, got %#v", tokenType, resp)
 		}
 	}
@@ -98,8 +99,8 @@ func TestImportConfirm_MissingIdempotencyKey_ReturnsBadRequest(t *testing.T) {
 	r.POST("/import/csv/confirm", withUser("user-1"), handler.ImportConfirm)
 	payload := `{"rows":[{"date":"2026-03-01","amount":12.5,"description":"lunch"}]}`
 	resp := performConfirm(t, r, payload, "", "user-1", http.StatusBadRequest)
-	if resp["error_code"] != IMPORT_DUPLICATE_REQUEST {
-		t.Fatalf("expected bad request error_code placeholder for missing key, got %#v", resp)
+	if resp["code"] != "VALIDATION_ERROR" {
+		t.Fatalf("expected validation error for missing key, got %#v", resp)
 	}
 }
 
@@ -119,6 +120,15 @@ func TestImportConfirm_IdempotencyWindowBoundary24h(t *testing.T) {
 	if result.SuccessCount != 1 {
 		t.Fatalf("expected new write after 24h boundary, got %#v", result)
 	}
+}
+
+func confirmDataMap(t *testing.T, payload map[string]any) map[string]any {
+	t.Helper()
+	data, ok := payload["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected data map in %#v", payload)
+	}
+	return data
 }
 
 func performConfirm(t *testing.T, handler http.Handler, payload string, idempotencyKey string, userID string, wantStatus int) map[string]any {

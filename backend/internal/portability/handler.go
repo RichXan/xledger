@@ -1,10 +1,13 @@
 package portability
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"xledger/backend/internal/common/httpx"
 )
 
 type Handler struct {
@@ -20,47 +23,46 @@ func NewHandler(preview *ImportPreviewService, confirm *ImportConfirmService, ex
 
 func (h *Handler) ImportPreview(c *gin.Context) {
 	if _, ok := userIDFromContext(c); !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": IMPORT_INVALID_FILE})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
 	opened, err := file.Open()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": IMPORT_INVALID_FILE})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
 	defer opened.Close()
-
 	result, err := h.preview.PreviewCSV(opened)
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, result)
+	httpx.JSON(c, http.StatusOK, "OK", "成功", result)
 }
 
 func (h *Handler) ImportConfirm(c *gin.Context) {
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
 	if h.confirm == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
 	var req ImportConfirmRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": IMPORT_DUPLICATE_REQUEST})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
 	idempotencyKey := c.GetHeader("X-Idempotency-Key")
 	if idempotencyKey == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": IMPORT_DUPLICATE_REQUEST})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
 	result, err := h.confirm.ConfirmContext(c.Request.Context(), userID, idempotencyKey, req)
@@ -68,24 +70,24 @@ func (h *Handler) ImportConfirm(c *gin.Context) {
 		h.writeConfirmError(c, err, result)
 		return
 	}
-	c.JSON(http.StatusOK, result)
+	httpx.JSON(c, http.StatusOK, "OK", "成功", result)
 }
 
 func (h *Handler) Export(c *gin.Context) {
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
 	if h.export == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
 	query := ExportQuery{Format: c.DefaultQuery("format", "csv")}
 	if raw := c.Query("from"); raw != "" {
 		parsed, err := time.Parse(time.RFC3339, raw)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error_code": EXPORT_INVALID_RANGE})
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 			return
 		}
 		query.From = parsed
@@ -93,7 +95,7 @@ func (h *Handler) Export(c *gin.Context) {
 	if raw := c.Query("to"); raw != "" {
 		parsed, err := time.Parse(time.RFC3339, raw)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error_code": EXPORT_INVALID_RANGE})
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 			return
 		}
 		query.To = parsed
@@ -101,7 +103,7 @@ func (h *Handler) Export(c *gin.Context) {
 	if raw := c.Query("timeout_ms"); raw != "" {
 		parsed, err := time.ParseDuration(raw + "ms")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error_code": EXPORT_INVALID_RANGE})
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 			return
 		}
 		query.Timeout = parsed
@@ -112,7 +114,7 @@ func (h *Handler) Export(c *gin.Context) {
 		return
 	}
 	if query.Format == "json" {
-		c.Data(http.StatusOK, "application/json", []byte(content))
+		httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"content": json.RawMessage(content)})
 		return
 	}
 	c.Data(http.StatusOK, "text/csv", []byte(content))
@@ -121,85 +123,80 @@ func (h *Handler) Export(c *gin.Context) {
 func (h *Handler) ListPATs(c *gin.Context) {
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
 	if h.pat == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": h.pat.ListPATs(c.Request.Context(), userID)})
+	items := h.pat.ListPATs(c.Request.Context(), userID)
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"items": items, "pagination": gin.H{"page": 1, "page_size": len(items), "total": len(items), "total_pages": 1}})
 }
 
 func (h *Handler) CreatePAT(c *gin.Context) {
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
 	if h.pat == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
 	plain, record, err := h.pat.CreatePAT(c.Request.Context(), userID, "default", nil)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"token": plain, "id": record.ID, "expires_at": record.ExpiresAt})
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"token": plain, "id": record.ID, "expires_at": record.ExpiresAt})
 }
 
 func (h *Handler) RevokePAT(c *gin.Context) {
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
 	if h.pat == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
 	if err := h.pat.RevokePAT(c.Request.Context(), userID, c.Param("id")); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": ErrorCode(err)})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"revoked": true})
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"revoked": true})
 }
 
 func (h *Handler) writeError(c *gin.Context, err error) {
 	switch ErrorCode(err) {
 	case IMPORT_INVALID_FILE:
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": IMPORT_INVALID_FILE})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 	}
 }
 
 func (h *Handler) writeConfirmError(c *gin.Context, err error, result ImportConfirmResponse) {
 	switch ErrorCode(err) {
 	case IMPORT_DUPLICATE_REQUEST:
-		c.JSON(http.StatusConflict, gin.H{"error_code": IMPORT_DUPLICATE_REQUEST})
+		httpx.JSON(c, http.StatusConflict, "BUSINESS_RULE_VIOLATION", "业务规则不满足", nil)
 	case IMPORT_PARTIAL_FAILED:
-		c.JSON(http.StatusOK, gin.H{
-			"error_code":    IMPORT_PARTIAL_FAILED,
-			"success_count": result.SuccessCount,
-			"skip_count":    result.SkipCount,
-			"fail_count":    result.FailCount,
-			"rows":          result.Rows,
-		})
+		httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"success_count": result.SuccessCount, "skip_count": result.SkipCount, "fail_count": result.FailCount, "rows": result.Rows})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 	}
 }
 
 func (h *Handler) writeExportError(c *gin.Context, err error) {
 	switch ErrorCode(err) {
 	case EXPORT_INVALID_RANGE:
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": EXPORT_INVALID_RANGE})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 	case EXPORT_TIMEOUT:
-		c.JSON(http.StatusGatewayTimeout, gin.H{"error_code": EXPORT_TIMEOUT})
+		httpx.JSON(c, http.StatusGatewayTimeout, "INTERNAL_ERROR", "服务内部错误", nil)
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "PORTABILITY_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 	}
 }
 

@@ -31,6 +31,9 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		return nil, fmt.Errorf("set trusted proxies: %w", err)
 	}
 	r.Use(gin.Recovery())
+	r.NoRoute(func(c *gin.Context) {
+		c.JSON(http.StatusNotFound, gin.H{"code": "RESOURCE_NOT_FOUND", "message": "资源不存在", "data": nil})
+	})
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
@@ -44,6 +47,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	authGroup.Use(rejectPATOnAuthEndpoints())
 	authGroup.POST("/send-code", handler.SendCode)
 	authGroup.POST("/verify-code", handler.VerifyCode)
+	authGroup.GET("/me", handler.Me)
 	if handler.HasOAuthService() {
 		authGroup.GET("/google/callback", handler.GoogleCallback)
 	}
@@ -68,18 +72,18 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		accountingGroup.Use(accountingAuthMiddleware())
 		accountingGroup.GET("/ledgers", accountingHandler.ListLedgers)
 		accountingGroup.POST("/ledgers", accountingHandler.CreateLedger)
-		accountingGroup.PUT("/ledgers/:id", accountingHandler.UpdateLedger)
+		accountingGroup.PATCH("/ledgers/:id", accountingHandler.UpdateLedger)
 		accountingGroup.DELETE("/ledgers/:id", accountingHandler.DeleteLedger)
 
 		accountingGroup.GET("/accounts", accountingHandler.ListAccounts)
 		accountingGroup.POST("/accounts", accountingHandler.CreateAccount)
 		accountingGroup.GET("/accounts/:id", accountingHandler.GetAccount)
-		accountingGroup.PUT("/accounts/:id", accountingHandler.UpdateAccount)
+		accountingGroup.PATCH("/accounts/:id", accountingHandler.UpdateAccount)
 		accountingGroup.DELETE("/accounts/:id", accountingHandler.DeleteAccount)
 
 		accountingGroup.POST("/transactions", accountingHandler.CreateTransaction)
 		accountingGroup.GET("/transactions", accountingHandler.ListTransactions)
-		accountingGroup.PUT("/transactions/:id", accountingHandler.UpdateTransaction)
+		accountingGroup.PATCH("/transactions/:id", accountingHandler.UpdateTransaction)
 		accountingGroup.DELETE("/transactions/:id", accountingHandler.DeleteTransaction)
 	}
 
@@ -91,12 +95,12 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		classificationGroup.Use(accountingAuthMiddleware())
 		classificationGroup.GET("/categories", classificationHandler.ListCategories)
 		classificationGroup.POST("/categories", classificationHandler.CreateCategory)
-		classificationGroup.PUT("/categories/:id", classificationHandler.UpdateCategory)
+		classificationGroup.PATCH("/categories/:id", classificationHandler.UpdateCategory)
 		classificationGroup.DELETE("/categories/:id", classificationHandler.DeleteCategory)
 
 		classificationGroup.GET("/tags", classificationHandler.ListTags)
 		classificationGroup.POST("/tags", classificationHandler.CreateTag)
-		classificationGroup.PUT("/tags/:id", classificationHandler.UpdateTag)
+		classificationGroup.PATCH("/tags/:id", classificationHandler.UpdateTag)
 		classificationGroup.DELETE("/tags/:id", classificationHandler.DeleteTag)
 	}
 

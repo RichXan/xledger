@@ -105,18 +105,19 @@ func TestDefaultHandlers_ShareClassificationStateWithTransactions(t *testing.T) 
 	}
 	authz := "pat:shared@example.com"
 
-	ledgerID := responseField(t, performJSON(t, r, http.MethodPost, "/api/ledgers", `{"name":"Main","is_default":true}`, authz, http.StatusCreated), "id")
-	categoryID := responseField(t, performJSON(t, r, http.MethodPost, "/api/categories", `{"name":"Salary"}`, authz, http.StatusCreated), "id")
-	tagID := responseField(t, performJSON(t, r, http.MethodPost, "/api/tags", `{"name":"monthly"}`, authz, http.StatusCreated), "id")
+	ledgerID := responseFieldFromData(t, performJSON(t, r, http.MethodPost, "/api/ledgers", `{"name":"Main","is_default":true}`, authz, http.StatusCreated), "id")
+	categoryID := responseFieldFromData(t, performJSON(t, r, http.MethodPost, "/api/categories", `{"name":"Salary"}`, authz, http.StatusCreated), "id")
+	tagID := responseFieldFromData(t, performJSON(t, r, http.MethodPost, "/api/tags", `{"name":"monthly"}`, authz, http.StatusCreated), "id")
 
 	txnBody := `{"ledger_id":"` + ledgerID + `","type":"income","amount":100,"category_id":"` + categoryID + `","tag_ids":["` + tagID + `"]}`
 	txnResp := performJSON(t, r, http.MethodPost, "/api/transactions", txnBody, authz, http.StatusCreated)
-	if got := responseField(t, txnResp, "category_name"); got != "Salary" {
+	if got := responseFieldFromData(t, txnResp, "category_name"); got != "Salary" {
 		t.Fatalf("expected transaction category snapshot Salary, got %q", got)
 	}
 
 	deleteResp := performJSON(t, r, http.MethodDelete, "/api/categories/"+categoryID, ``, authz, http.StatusOK)
-	if archived, ok := deleteResp["archived"].(bool); !ok || !archived {
+	deleteData := responseDataMap(t, deleteResp)
+	if archived, ok := deleteData["archived"].(bool); !ok || !archived {
 		t.Fatalf("expected referenced category delete to archive, got %#v", deleteResp)
 	}
 }
@@ -304,6 +305,25 @@ func responseField(t *testing.T, payload map[string]any, key string) string {
 		t.Fatalf("expected string field %q in %#v", key, payload)
 	}
 	return value
+}
+
+func responseFieldFromData(t *testing.T, payload map[string]any, key string) string {
+	t.Helper()
+	data := responseDataMap(t, payload)
+	value, ok := data[key].(string)
+	if !ok {
+		t.Fatalf("expected string field %q in data %#v", key, payload)
+	}
+	return value
+}
+
+func responseDataMap(t *testing.T, payload map[string]any) map[string]any {
+	t.Helper()
+	data, ok := payload["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected data map in %#v", payload)
+	}
+	return data
 }
 
 func performMultipartCSV(t *testing.T, handler http.Handler, path string, accessToken string, wantStatus int) {

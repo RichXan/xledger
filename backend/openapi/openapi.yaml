@@ -4,6 +4,41 @@ info:
   version: v0.3
 servers:
   - url: /api
+components:
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        data:
+          nullable: true
+    PaginatedEnvelope:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items: {}
+            pagination:
+              type: object
+              properties:
+                page:
+                  type: integer
+                page_size:
+                  type: integer
+                total:
+                  type: integer
+                total_pages:
+                  type: integer
 paths:
   /auth/send-code:
     post:

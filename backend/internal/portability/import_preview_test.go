@@ -48,7 +48,7 @@ func TestImportPreview_IncludesMappingSlotsForConfirmStage(t *testing.T) {
 	assertBodyContains(t, rec.Body.String(), `"mappingCandidates":{`)
 }
 
-func TestImportPreview_InvalidFile_ReturnsIMPORT_INVALID_FILE(t *testing.T) {
+func TestImportPreview_InvalidFile_ReturnsValidationEnvelope(t *testing.T) {
 	g := gin.New()
 	handler := NewHandler(NewImportPreviewService(), nil, nil, nil)
 	g.POST("/import/csv", withUser("user-1"), handler.ImportPreview)
@@ -63,7 +63,7 @@ func TestImportPreview_InvalidFile_ReturnsIMPORT_INVALID_FILE(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusBadRequest, rec.Code, rec.Body.String())
 	}
-	assertBodyContains(t, rec.Body.String(), `"error_code":"IMPORT_INVALID_FILE"`)
+	assertBodyContains(t, rec.Body.String(), `"code":"VALIDATION_ERROR"`)
 }
 
 func TestImportPreview_AcceptsAccessAndPAT(t *testing.T) {

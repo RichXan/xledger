@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"xledger/backend/internal/classification"
+	"xledger/backend/internal/common/httpx"
 )
 
 type Handler struct {
@@ -68,149 +69,104 @@ func NewHandler(ledgerService *LedgerService, accountService *AccountService, tr
 
 func (h *Handler) CreateTransaction(c *gin.Context) {
 	if h.transactionService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
 	var req createTransactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
-
 	occurredAt := time.Time{}
 	if req.OccurredAt != nil {
 		occurredAt = req.OccurredAt.UTC()
 	}
-
 	if req.Type == TransactionTypeTransfer {
-		txn, err := h.transactionService.CreateTransfer(c.Request.Context(), userID, TransactionTransferInput{
-			LedgerID:      req.LedgerID,
-			FromLedgerID:  req.FromLedgerID,
-			ToLedgerID:    req.ToLedgerID,
-			FromAccountID: req.FromAccountID,
-			ToAccountID:   req.ToAccountID,
-			Amount:        req.Amount,
-			OccurredAt:    occurredAt,
-		})
+		txn, err := h.transactionService.CreateTransfer(c.Request.Context(), userID, TransactionTransferInput{LedgerID: req.LedgerID, FromLedgerID: req.FromLedgerID, ToLedgerID: req.ToLedgerID, FromAccountID: req.FromAccountID, ToAccountID: req.ToAccountID, Amount: req.Amount, OccurredAt: occurredAt})
 		if err != nil {
 			h.writeError(c, err)
 			return
 		}
-		c.JSON(http.StatusCreated, txn)
+		httpx.JSON(c, http.StatusCreated, "OK", "成功", txn)
 		return
 	}
-
-	txn, err := h.transactionService.CreateTransaction(c.Request.Context(), userID, TransactionCreateInput{
-		LedgerID:   req.LedgerID,
-		AccountID:  req.AccountID,
-		CategoryID: req.CategoryID,
-		TagIDs:     req.TagIDs,
-		Type:       req.Type,
-		Amount:     req.Amount,
-		OccurredAt: occurredAt,
-	})
+	txn, err := h.transactionService.CreateTransaction(c.Request.Context(), userID, TransactionCreateInput{LedgerID: req.LedgerID, AccountID: req.AccountID, CategoryID: req.CategoryID, TagIDs: req.TagIDs, Type: req.Type, Amount: req.Amount, OccurredAt: occurredAt})
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
-
-	c.JSON(http.StatusCreated, txn)
+	httpx.JSON(c, http.StatusCreated, "OK", "成功", txn)
 }
 
 func (h *Handler) UpdateTransaction(c *gin.Context) {
 	if h.transactionService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
 	var req updateTransactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
-
-	txn, err := h.transactionService.EditTransaction(c.Request.Context(), userID, c.Param("id"), TransactionEditInput{
-		Amount:      req.Amount,
-		Version:     req.Version,
-		HasCategory: req.CategoryID != nil,
-		CategoryID:  req.CategoryID,
-		HasTagIDs:   req.TagIDs != nil,
-		TagIDs:      req.TagIDs,
-	})
+	txn, err := h.transactionService.EditTransaction(c.Request.Context(), userID, c.Param("id"), TransactionEditInput{Amount: req.Amount, Version: req.Version, HasCategory: req.CategoryID != nil, CategoryID: req.CategoryID, HasTagIDs: req.TagIDs != nil, TagIDs: req.TagIDs})
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
-
-	c.JSON(http.StatusOK, txn)
+	httpx.JSON(c, http.StatusOK, "OK", "成功", txn)
 }
 
 func (h *Handler) DeleteTransaction(c *gin.Context) {
 	if h.transactionService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
 	var version *int
 	if rawVersion := c.Query("version"); rawVersion != "" {
 		parsed, parseErr := strconv.Atoi(rawVersion)
 		if parseErr != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 			return
 		}
 		version = &parsed
 	}
-
-	err := h.transactionService.DeleteTransaction(c.Request.Context(), userID, c.Param("id"), version)
-	if err != nil {
+	if err := h.transactionService.DeleteTransaction(c.Request.Context(), userID, c.Param("id"), version); err != nil {
 		h.writeError(c, err)
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"deleted": true})
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"deleted": true})
 }
 
 func (h *Handler) ListTransactions(c *gin.Context) {
 	if h.transactionService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
-	query := TransactionQuery{
-		LedgerID:   c.Query("ledger_id"),
-		AccountID:  c.Query("account_id"),
-		CategoryID: c.Query("category_id"),
-		TagID:      c.Query("tag_id"),
-	}
+	query := TransactionQuery{LedgerID: c.Query("ledger_id"), AccountID: c.Query("account_id"), CategoryID: c.Query("category_id"), TagID: c.Query("tag_id")}
 	if rawFrom := c.Query("date_from"); rawFrom != "" {
 		parsed, err := time.Parse(time.RFC3339, rawFrom)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 			return
 		}
 		query.OccurredFrom = parsed.UTC()
@@ -218,7 +174,7 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 	if rawTo := c.Query("date_to"); rawTo != "" {
 		parsed, err := time.Parse(time.RFC3339, rawTo)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 			return
 		}
 		query.OccurredTo = parsed.UTC()
@@ -226,7 +182,7 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 	if rawPage := c.Query("page"); rawPage != "" {
 		parsed, err := strconv.Atoi(rawPage)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 			return
 		}
 		query.Page = parsed
@@ -234,114 +190,112 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 	if rawPageSize := c.Query("page_size"); rawPageSize != "" {
 		parsed, err := strconv.Atoi(rawPageSize)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 			return
 		}
 		query.PageSize = parsed
 	}
-
 	items, err := h.transactionService.ListTransactions(c.Request.Context(), userID, query)
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
-	if query.Page == 0 && query.PageSize == 0 {
-		query.Page = 1
-		query.PageSize = len(items)
+	page := query.Page
+	pageSize := query.PageSize
+	if page == 0 {
+		page = 1
 	}
-
-	c.JSON(http.StatusOK, gin.H{"items": items})
+	if pageSize == 0 {
+		pageSize = len(items)
+	}
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"items": items, "pagination": gin.H{"page": page, "page_size": pageSize, "total": len(items), "total_pages": 1}})
 }
 
 func (h *Handler) CreateAccount(c *gin.Context) {
 	if h.accountService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
 	var req createAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": ACCOUNT_INVALID})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
-
-	account, err := h.accountService.CreateAccount(c.Request.Context(), userID, AccountCreateInput{
-		Name:           req.Name,
-		Type:           req.Type,
-		InitialBalance: req.InitialBalance,
-	})
+	account, err := h.accountService.CreateAccount(c.Request.Context(), userID, AccountCreateInput{Name: req.Name, Type: req.Type, InitialBalance: req.InitialBalance})
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
-
-	c.JSON(http.StatusCreated, account)
+	httpx.JSON(c, http.StatusCreated, "OK", "成功", account)
 }
 
 func (h *Handler) ListAccounts(c *gin.Context) {
 	if h.accountService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
 	accounts, err := h.accountService.ListAccounts(c.Request.Context(), userID)
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": accounts})
+	page, pageSize := 1, len(accounts)
+	if rawPage := c.Query("page"); rawPage != "" {
+		if parsed, err := strconv.Atoi(rawPage); err == nil {
+			page = parsed
+		}
+	}
+	if rawPageSize := c.Query("page_size"); rawPageSize != "" {
+		if parsed, err := strconv.Atoi(rawPageSize); err == nil {
+			pageSize = parsed
+		}
+	}
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"items": accounts, "pagination": gin.H{"page": page, "page_size": pageSize, "total": len(accounts), "total_pages": 1}})
 }
 
 func (h *Handler) GetAccount(c *gin.Context) {
 	if h.accountService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
 	account, err := h.accountService.GetAccount(c.Request.Context(), userID, c.Param("id"))
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, account)
+	httpx.JSON(c, http.StatusOK, "OK", "成功", account)
 }
 
 func (h *Handler) UpdateAccount(c *gin.Context) {
 	if h.accountService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
 	var req updateAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": ACCOUNT_INVALID})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
-
 	input := AccountUpdateInput{}
 	if req.Name != nil {
 		input.HasName = true
@@ -355,158 +309,128 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 		input.HasArchive = true
 		input.Archive = *req.ArchivedAt
 	}
-
 	account, err := h.accountService.UpdateAccount(c.Request.Context(), userID, c.Param("id"), input)
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, account)
+	httpx.JSON(c, http.StatusOK, "OK", "成功", account)
 }
 
 func (h *Handler) DeleteAccount(c *gin.Context) {
 	if h.accountService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
-	err := h.accountService.DeleteAccount(c.Request.Context(), userID, c.Param("id"))
-	if err != nil {
+	if err := h.accountService.DeleteAccount(c.Request.Context(), userID, c.Param("id")); err != nil {
 		h.writeError(c, err)
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"deleted": true})
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"deleted": true})
 }
 
 func (h *Handler) ListLedgers(c *gin.Context) {
 	if h.ledgerService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
 	ledgers, err := h.ledgerService.ListLedgers(c.Request.Context(), userID)
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"items": ledgers})
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"items": ledgers, "pagination": gin.H{"page": 1, "page_size": len(ledgers), "total": len(ledgers), "total_pages": 1}})
 }
 
 func (h *Handler) CreateLedger(c *gin.Context) {
 	if h.ledgerService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
 	var req createLedgerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": LEDGER_INVALID})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
-
 	ledger, err := h.ledgerService.CreateLedger(c.Request.Context(), userID, LedgerCreateInput{Name: req.Name, IsDefault: req.IsDefault})
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
-
-	c.JSON(http.StatusCreated, ledger)
+	httpx.JSON(c, http.StatusCreated, "OK", "成功", ledger)
 }
 
 func (h *Handler) UpdateLedger(c *gin.Context) {
 	if h.ledgerService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
 	var req updateLedgerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": LEDGER_INVALID})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
-
 	ledger, err := h.ledgerService.UpdateLedger(c.Request.Context(), userID, c.Param("id"), LedgerCreateInput{Name: req.Name})
 	if err != nil {
 		h.writeError(c, err)
 		return
 	}
-
-	c.JSON(http.StatusOK, ledger)
+	httpx.JSON(c, http.StatusOK, "OK", "成功", ledger)
 }
 
 func (h *Handler) DeleteLedger(c *gin.Context) {
 	if h.ledgerService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		return
 	}
-
 	userID, ok := userIDFromContext(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-
-	err := h.ledgerService.DeleteLedger(c.Request.Context(), userID, c.Param("id"))
-	if err != nil {
+	if err := h.ledgerService.DeleteLedger(c.Request.Context(), userID, c.Param("id")); err != nil {
 		h.writeError(c, err)
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"deleted": true})
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"deleted": true})
 }
 
 func (h *Handler) writeError(c *gin.Context, err error) {
 	switch ErrorCode(err) {
-	case ACCOUNT_INVALID:
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": ACCOUNT_INVALID})
-	case ACCOUNT_NOT_FOUND:
-		c.JSON(http.StatusNotFound, gin.H{"error_code": ACCOUNT_NOT_FOUND})
-	case LEDGER_DEFAULT_IMMUTABLE:
-		c.JSON(http.StatusConflict, gin.H{"error_code": LEDGER_DEFAULT_IMMUTABLE})
-	case LEDGER_INVALID:
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": LEDGER_INVALID})
-	case LEDGER_NOT_FOUND:
-		c.JSON(http.StatusNotFound, gin.H{"error_code": LEDGER_NOT_FOUND})
-	case TXN_VALIDATION_FAILED:
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": TXN_VALIDATION_FAILED})
-	case TXN_NOT_FOUND:
-		c.JSON(http.StatusNotFound, gin.H{"error_code": TXN_NOT_FOUND})
-	case TXN_CONFLICT:
-		c.JSON(http.StatusConflict, gin.H{"error_code": TXN_CONFLICT})
+	case ACCOUNT_INVALID, LEDGER_INVALID, TXN_VALIDATION_FAILED:
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+	case ACCOUNT_NOT_FOUND, LEDGER_NOT_FOUND, TXN_NOT_FOUND:
+		httpx.JSON(c, http.StatusNotFound, "RESOURCE_NOT_FOUND", "资源不存在", nil)
+	case LEDGER_DEFAULT_IMMUTABLE, TXN_CONFLICT:
+		httpx.JSON(c, http.StatusConflict, "BUSINESS_RULE_VIOLATION", "业务规则不满足", nil)
 	default:
 		switch classification.ErrorCode(err) {
 		case classification.CAT_INVALID, classification.CAT_ARCHIVED, classification.TAG_INVALID:
-			c.JSON(http.StatusBadRequest, gin.H{"error_code": classification.ErrorCode(err)})
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		case classification.CAT_NOT_FOUND, classification.TAG_NOT_FOUND:
-			c.JSON(http.StatusNotFound, gin.H{"error_code": classification.ErrorCode(err)})
+			httpx.JSON(c, http.StatusNotFound, "RESOURCE_NOT_FOUND", "资源不存在", nil)
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error_code": "ACCOUNTING_INTERNAL"})
+			httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
 		}
 	}
 }
