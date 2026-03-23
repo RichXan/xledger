@@ -47,6 +47,9 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	authGroup.Use(rejectPATOnAuthEndpoints())
 	authGroup.POST("/send-code", handler.SendCode)
 	authGroup.POST("/verify-code", handler.VerifyCode)
+	if gin.Mode() != gin.ReleaseMode && handler.HasSessionService() {
+		authGroup.POST("/dev-login", handler.DevLogin)
+	}
 	authGroup.GET("/me", handler.Me)
 	if handler.HasOAuthService() {
 		authGroup.GET("/google/callback", handler.GoogleCallback)

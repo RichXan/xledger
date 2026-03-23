@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -168,6 +169,34 @@ func (h *Handler) Refresh(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, tokens)
+}
+
+func (h *Handler) DevLogin(c *gin.Context) {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("GIN_MODE")), "release") {
+		httpx.JSON(c, http.StatusNotFound, "RESOURCE_NOT_FOUND", "资源不存在", nil)
+		return
+	}
+	if h.sessionService == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		return
+	}
+
+	email := strings.TrimSpace(c.Query("email"))
+	if email == "" {
+		email = "demo@example.com"
+	}
+
+	tokens, err := h.sessionService.IssueSession(c.Request.Context(), email)
+	if err != nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		return
+	}
+
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{
+		"access_token":  tokens.AccessToken,
+		"refresh_token": tokens.RefreshToken,
+		"email":         strings.TrimSpace(strings.ToLower(email)),
+	})
 }
 
 func (h *Handler) Logout(c *gin.Context) {

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>xledger - Transactions Calendar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#e0e3e6",
+              "surface-variant": "#e0e3e6",
+              "on-primary-fixed": "#001946",
+              "on-surface": "#191c1e",
+              "on-tertiary-fixed-variant": "#005316",
+              "on-secondary": "#ffffff",
+              "inverse-surface": "#2d3133",
+              "surface-container-lowest": "#ffffff",
+              "outline": "#737784",
+              "tertiary-container": "#005a19",
+              "on-error": "#ffffff",
+              "on-surface-variant": "#434653",
+              "primary-container": "#0047ab",
+              "surface-bright": "#f7f9fc",
+              "on-primary-fixed-variant": "#00419e",
+              "on-tertiary-fixed": "#002105",
+              "on-secondary-fixed-variant": "#37466c",
+              "primary": "#00327d",
+              "surface-tint": "#2559bd",
+              "on-error-container": "#93000a",
+              "on-primary-container": "#a5bdff",
+              "inverse-primary": "#b1c5ff",
+              "secondary": "#4e5e85",
+              "primary-fixed-dim": "#b1c5ff",
+              "on-tertiary-container": "#6fd372",
+              "on-tertiary": "#ffffff",
+              "tertiary-fixed-dim": "#77dc7a",
+              "surface-container-low": "#f2f4f7",
+              "on-secondary-fixed": "#081a3e",
+              "error": "#ba1a1a",
+              "inverse-on-surface": "#eff1f4",
+              "on-secondary-container": "#4a5980",
+              "primary-fixed": "#dae2ff",
+              "secondary-fixed": "#dae2ff",
+              "surface-container": "#eceef1",
+              "surface-container-high": "#e6e8eb",
+              "surface-dim": "#d8dadd",
+              "tertiary": "#00400f",
+              "secondary-container": "#c1d1ff",
+              "error-container": "#ffdad6",
+              "surface": "#f7f9fc",
+              "on-background": "#191c1e",
+              "background": "#f7f9fc",
+              "tertiary-fixed": "#93f993",
+              "outline-variant": "#c3c6d5",
+              "on-primary": "#ffffff",
+              "secondary-fixed-dim": "#b6c6f3"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-effect {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(12px);
+      }
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+        background-color: #e6e8eb;
+      }
+      .calendar-cell {
+        min-height: 120px;
+        background-color: #ffffff;
+        transition: background-color 0.2s;
+      }
+      .calendar-cell:hover {
+        background-color: #f2f4f7;
+      }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased overflow-hidden">
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 top-0 h-full flex flex-col p-4 gap-2 border-r border-slate-100 dark:border-slate-800 bg-[#f7f9fc] dark:bg-slate-950 w-64 z-50">
+<div class="mb-8 px-4 py-2">
+<h1 class="text-xl font-black text-[#0047AB] dark:text-blue-400 font-headline tracking-tight">xledger</h1>
+<p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-label">Financial Precision</p>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 px-4 py-3 hover:bg-slate-200 dark:hover:bg-slate-900 rounded-lg hover:translate-x-1 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-xs font-bold uppercase tracking-wider font-label">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 bg-white dark:bg-slate-800 text-[#0047AB] dark:text-blue-300 rounded-lg px-4 py-3 font-bold shadow-sm transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="text-xs font-bold uppercase tracking-wider font-label">Transactions</span>
+</a>
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 px-4 py-3 hover:bg-slate-200 dark:hover:bg-slate-900 rounded-lg hover:translate-x-1 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="text-xs font-bold uppercase tracking-wider font-label">Analytics</span>
+</a>
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 px-4 py-3 hover:bg-slate-200 dark:hover:bg-slate-900 rounded-lg hover:translate-x-1 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance">account_balance</span>
+<span class="text-xs font-bold uppercase tracking-wider font-label">Accounts</span>
+</a>
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 px-4 py-3 hover:bg-slate-200 dark:hover:bg-slate-900 rounded-lg hover:translate-x-1 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-xs font-bold uppercase tracking-wider font-label">Settings</span>
+</a>
+</nav>
+<div class="mt-auto">
+<button class="w-full bg-gradient-to-br from-[#00327d] to-[#0047ab] text-white rounded-xl py-4 px-4 flex items-center justify-center gap-2 font-bold transition-transform duration-200 active:scale-95 shadow-lg">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+<span class="font-label text-xs uppercase tracking-widest">New Transaction</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen flex flex-col bg-surface-container-low">
+<!-- TopNavBar Shell -->
+<header class="flex justify-between items-center w-full px-8 py-4 bg-[#f2f4f7]/80 backdrop-blur-md sticky top-0 z-40">
+<div class="flex items-center gap-8">
+<h2 class="text-2xl font-bold tracking-tight text-[#0047AB] font-headline">Transactions</h2>
+<div class="bg-surface-container-high p-1 rounded-xl flex gap-1">
+<button class="px-6 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:text-[#0047AB] transition-colors">List View</button>
+<button class="px-6 py-2 rounded-lg text-sm font-bold bg-white text-[#0047AB] shadow-sm">Calendar View</button>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-white rounded-full px-4 py-2 gap-3 shadow-sm border border-slate-100">
+<span class="material-symbols-outlined text-slate-400" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-48 font-body" placeholder="Search ledger..." type="text"/>
+</div>
+<button class="p-2 text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="h-10 w-10 rounded-full bg-primary-container flex items-center justify-center text-white font-bold text-sm shadow-inner">
+                    JD
+                </div>
+</div>
+</header>
+<!-- Calendar Toolbar -->
+<div class="px-8 py-6 flex justify-between items-center">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined text-primary" data-icon="chevron_left">chevron_left</span>
+</button>
+<h3 class="text-xl font-bold font-headline text-on-surface min-w-[160px] text-center">October 2024</h3>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined text-primary" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<button class="text-sm font-bold text-[#0047AB] hover:underline decoration-2 underline-offset-4">Today</button>
+</div>
+<div class="flex items-center gap-3"><button class="bg-surface-container-highest text-on-surface-variant px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-surface-container transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="upload">upload</span>
+  Import
+</button>
+<button class="bg-[#00327d] text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-[#0047ab] transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+  Add Transaction
+</button></div>
+</div>
+<!-- Main Layout with Side Panel -->
+<div class="flex-1 flex px-8 pb-8 gap-6 overflow-hidden">
+<!-- Calendar Grid (Bento Style) -->
+<div class="flex-1 bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm flex flex-col">
+<div class="grid grid-cols-7 border-b border-outline-variant/30">
+<div class="py-3 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 font-label">Sun</div>
+<div class="py-3 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 font-label">Mon</div>
+<div class="py-3 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 font-label">Tue</div>
+<div class="py-3 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 font-label">Wed</div>
+<div class="py-3 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 font-label">Thu</div>
+<div class="py-3 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 font-label">Fri</div>
+<div class="py-3 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 font-label">Sat</div>
+</div>
+<div class="flex-1 grid grid-cols-7 grid-rows-5 overflow-y-auto">
+<!-- Week 1 - Partial -->
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20 opacity-40 bg-surface">
+<span class="text-xs font-medium">29</span>
+</div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20 opacity-40 bg-surface">
+<span class="text-xs font-medium">30</span>
+</div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20">
+<span class="text-xs font-bold text-[#0047AB]">1</span>
+<div class="mt-2 space-y-1">
+<div class="text-[10px] font-bold text-[#005a19] bg-[#93f993]/20 px-1.5 py-0.5 rounded leading-tight">+$4,200.00</div>
+</div>
+</div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20">
+<span class="text-xs font-bold">2</span>
+<div class="mt-2 space-y-1">
+<div class="text-[10px] font-bold text-error bg-error-container/30 px-1.5 py-0.5 rounded leading-tight">-$125.40</div>
+</div>
+</div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20">
+<span class="text-xs font-bold text-[#0047AB]">3</span>
+</div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20">
+<span class="text-xs font-bold">4</span>
+<div class="mt-2 space-y-1">
+<div class="text-[10px] font-bold text-error bg-error-container/30 px-1.5 py-0.5 rounded leading-tight">-$890.00</div>
+</div>
+</div>
+<div class="calendar-cell p-3 border-b border-outline-variant/20">
+<span class="text-xs font-bold text-[#0047AB]">5</span>
+</div>
+<!-- Week 2 (Active Day Mock) -->
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20">
+<span class="text-xs font-bold">6</span>
+</div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20">
+<span class="text-xs font-bold">7</span>
+</div>
+<div class="calendar-cell p-3 border-r border-b border-[#0047AB] bg-blue-50/50 relative">
+<div class="absolute inset-0 border-2 border-[#0047AB]/20 rounded-sm pointer-events-none"></div>
+<span class="text-xs font-black text-[#0047AB]">8</span>
+<div class="mt-2 space-y-1">
+<div class="text-[10px] font-bold text-error bg-error-container/30 px-1.5 py-0.5 rounded leading-tight">-$2,450.00</div>
+<div class="text-[10px] font-bold text-[#005a19] bg-[#93f993]/20 px-1.5 py-0.5 rounded leading-tight">+$120.00</div>
+</div>
+</div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20">
+<span class="text-xs font-bold">9</span>
+</div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20">
+<span class="text-xs font-bold">10</span>
+<div class="mt-2 space-y-1">
+<div class="text-[10px] font-bold text-error bg-error-container/30 px-1.5 py-0.5 rounded leading-tight">-$42.00</div>
+</div>
+</div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20">
+<span class="text-xs font-bold">11</span>
+</div>
+<div class="calendar-cell p-3 border-b border-outline-variant/20">
+<span class="text-xs font-bold text-[#0047AB]">12</span>
+</div>
+<!-- Additional Rows Fill -->
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20"><span class="text-xs font-bold">13</span></div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20"><span class="text-xs font-bold">14</span></div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20"><span class="text-xs font-bold">15</span></div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20">
+<span class="text-xs font-bold">16</span>
+<div class="mt-2">
+<div class="text-[10px] font-bold text-[#005a19] bg-[#93f993]/20 px-1.5 py-0.5 rounded leading-tight">+$15,000.00</div>
+</div>
+</div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20"><span class="text-xs font-bold">17</span></div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20"><span class="text-xs font-bold">18</span></div>
+<div class="calendar-cell p-3 border-b border-outline-variant/20"><span class="text-xs font-bold">19</span></div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20"><span class="text-xs font-bold">20</span></div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20"><span class="text-xs font-bold">21</span></div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20"><span class="text-xs font-bold">22</span></div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20"><span class="text-xs font-bold">23</span></div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20"><span class="text-xs font-bold">24</span></div>
+<div class="calendar-cell p-3 border-r border-b border-outline-variant/20"><span class="text-xs font-bold">25</span></div>
+<div class="calendar-cell p-3 border-b border-outline-variant/20"><span class="text-xs font-bold">26</span></div>
+<div class="calendar-cell p-3 border-r border-outline-variant/20"><span class="text-xs font-bold">27</span></div>
+<div class="calendar-cell p-3 border-r border-outline-variant/20"><span class="text-xs font-bold">28</span></div>
+<div class="calendar-cell p-3 border-r border-outline-variant/20"><span class="text-xs font-bold">29</span></div>
+<div class="calendar-cell p-3 border-r border-outline-variant/20"><span class="text-xs font-bold">30</span></div>
+<div class="calendar-cell p-3 border-r border-outline-variant/20"><span class="text-xs font-bold">31</span></div>
+<div class="calendar-cell p-3 border-r border-outline-variant/20 opacity-40 bg-surface"><span class="text-xs font-medium">1</span></div>
+<div class="calendar-cell p-3 opacity-40 bg-surface"><span class="text-xs font-medium">2</span></div>
+</div>
+</div>
+<!-- Side Panel: Daily Summary -->
+<aside class="w-96 bg-surface-container-low flex flex-col gap-4">
+<div class="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border-l-4 border-primary">
+<div class="flex justify-between items-start mb-6">
+<div>
+<p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-label mb-1">Daily Summary</p>
+<h4 class="text-xl font-bold font-headline">Oct 08, 2024</h4>
+</div>
+<span class="material-symbols-outlined text-slate-300 cursor-pointer" data-icon="close">close</span>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-8">
+<div class="bg-surface-container rounded-xl p-4">
+<p class="text-[10px] font-bold text-slate-500 uppercase font-label">Total Out</p>
+<p class="text-lg font-bold text-error font-headline">-$2,450.00</p>
+</div>
+<div class="bg-surface-container rounded-xl p-4">
+<p class="text-[10px] font-bold text-slate-500 uppercase font-label">Total In</p>
+<p class="text-lg font-bold text-[#005a19] font-headline">+$120.00</p>
+</div>
+</div>
+<h5 class="text-xs font-black uppercase tracking-widest text-slate-400 font-label mb-4">Transactions (3)</h5>
+<div class="space-y-4">
+<!-- Transaction Card 1 -->
+<div class="group p-4 bg-white hover:bg-surface-container-high rounded-xl transition-all border border-transparent hover:border-outline-variant/30 cursor-pointer">
+<div class="flex justify-between items-start mb-2">
+<div>
+<p class="text-sm font-bold text-on-surface">Amazon Web Services</p>
+<p class="text-[10px] font-medium text-slate-500">Cloud Infrastructure</p>
+</div>
+<p class="text-sm font-bold text-error">-$2,100.00</p>
+</div>
+<div class="flex gap-2 mt-3">
+<span class="px-2 py-0.5 bg-surface-container rounded text-[9px] font-bold text-slate-600">OPERATING</span>
+<span class="px-2 py-0.5 bg-surface-container rounded text-[9px] font-bold text-slate-600">CORP-X</span>
+</div>
+</div>
+<!-- Transaction Card 2 -->
+<div class="group p-4 bg-white hover:bg-surface-container-high rounded-xl transition-all border border-transparent hover:border-outline-variant/30 cursor-pointer">
+<div class="flex justify-between items-start mb-2">
+<div>
+<p class="text-sm font-bold text-on-surface">Coffee &amp; Co.</p>
+<p class="text-[10px] font-medium text-slate-500">Business Meeting</p>
+</div>
+<p class="text-sm font-bold text-error">-$350.00</p>
+</div>
+<div class="flex gap-2 mt-3">
+<span class="px-2 py-0.5 bg-surface-container rounded text-[9px] font-bold text-slate-600">EXPENSES</span>
+</div>
+</div>
+<!-- Transaction Card 3 -->
+<div class="group p-4 bg-white hover:bg-surface-container-high rounded-xl transition-all border border-transparent hover:border-outline-variant/30 cursor-pointer">
+<div class="flex justify-between items-start mb-2">
+<div>
+<p class="text-sm font-bold text-on-surface">Dividend Return</p>
+<p class="text-[10px] font-medium text-slate-500">Investment</p>
+</div>
+<p class="text-sm font-bold text-[#005a19]">+$120.00</p>
+</div>
+<div class="flex gap-2 mt-3">
+<span class="px-2 py-0.5 bg-tertiary-fixed/30 rounded text-[9px] font-bold text-on-tertiary-fixed-variant">INCOME</span>
+</div>
+</div>
+</div>
+<div class="mt-8">
+<button class="w-full border-2 border-dashed border-outline-variant rounded-xl p-4 text-slate-400 hover:text-primary hover:border-primary transition-all flex flex-col items-center gap-1 group">
+<span class="material-symbols-outlined text-xl" data-icon="add_circle">add_circle</span>
+<span class="text-[10px] font-bold uppercase tracking-widest font-label">Add Transaction for Oct 8</span>
+</button>
+</div>
+</div>
+<!-- Small Secondary Insight Card -->
+<div class="bg-[#00327d] rounded-2xl p-6 text-white relative overflow-hidden group">
+<div class="relative z-10">
+<p class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-2">Month Projection</p>
+<h4 class="text-2xl font-bold font-headline mb-1">$42,800.50</h4>
+<p class="text-[10px] flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span>
+                            12.5% vs Last Month
+                        </p>
+</div>
+<!-- Abstract Background Pattern -->
+<div class="absolute -right-4 -bottom-4 opacity-10 scale-150 transform group-hover:rotate-12 transition-transform duration-700">
+<span class="material-symbols-outlined text-9xl" data-icon="monitoring">monitoring</span>
+</div>
+</div>
+</aside>
+</div>
+</main>
+</body></html>

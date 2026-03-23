@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Login | xledger</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#e0e3e6",
+              "on-primary-fixed": "#001946",
+              "surface-variant": "#e0e3e6",
+              "on-surface": "#191c1e",
+              "on-tertiary-fixed-variant": "#005316",
+              "inverse-surface": "#2d3133",
+              "on-secondary": "#ffffff",
+              "surface-container-lowest": "#ffffff",
+              "outline": "#737784",
+              "tertiary-container": "#005a19",
+              "on-error": "#ffffff",
+              "on-surface-variant": "#434653",
+              "primary-container": "#0047ab",
+              "surface-bright": "#f7f9fc",
+              "on-primary-fixed-variant": "#00419e",
+              "on-tertiary-fixed": "#002105",
+              "on-secondary-fixed-variant": "#37466c",
+              "primary": "#00327d",
+              "surface-tint": "#2559bd",
+              "on-error-container": "#93000a",
+              "on-primary-container": "#a5bdff",
+              "inverse-primary": "#b1c5ff",
+              "secondary": "#4e5e85",
+              "on-tertiary": "#ffffff",
+              "on-tertiary-container": "#6fd372",
+              "primary-fixed-dim": "#b1c5ff",
+              "surface-container-low": "#f2f4f7",
+              "error": "#ba1a1a",
+              "on-secondary-fixed": "#081a3e",
+              "tertiary-fixed-dim": "#77dc7a",
+              "inverse-on-surface": "#eff1f4",
+              "on-secondary-container": "#4a5980",
+              "primary-fixed": "#dae2ff",
+              "secondary-fixed": "#dae2ff",
+              "surface-container": "#eceef1",
+              "surface-container-high": "#e6e8eb",
+              "surface-dim": "#d8dadd",
+              "secondary-container": "#c1d1ff",
+              "tertiary": "#00400f",
+              "error-container": "#ffdad6",
+              "surface": "#f7f9fc",
+              "background": "#f7f9fc",
+              "on-background": "#191c1e",
+              "on-primary": "#ffffff",
+              "outline-variant": "#c3c6d5",
+              "tertiary-fixed": "#93f993",
+              "secondary-fixed-dim": "#b6c6f3"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .primary-gradient {
+            background: linear-gradient(135deg, #00327d 0%, #0047ab 100%);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased overflow-hidden">
+<div class="flex min-h-screen">
+<!-- Left Side: Abstract 3D Financial Illustration & Brand Presence -->
+<section class="hidden lg:flex lg:w-7/12 relative overflow-hidden bg-primary items-center justify-center">
+<!-- Background Decorative Elements -->
+<div class="absolute inset-0 z-0">
+<div class="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-primary-container opacity-20 blur-[100px]"></div>
+<div class="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-tertiary-container opacity-10 blur-[80px]"></div>
+<div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 mix-blend-overlay"></div>
+</div>
+<!-- Content Container -->
+<div class="relative z-10 w-full max-w-2xl px-12 space-y-12">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-xl bg-tertiary-fixed flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-on-tertiary-fixed font-bold text-3xl" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+</div>
+<span class="font-headline font-black text-4xl tracking-tight text-white">xledger</span>
+</div>
+<div class="space-y-6">
+<h1 class="font-headline text-5xl font-extrabold text-white leading-tight">
+                        Precision in every <br/>
+<span class="text-tertiary-fixed">financial perspective.</span>
+</h1>
+<p class="text-on-primary-container text-lg max-w-md font-medium leading-relaxed">
+                        Experience the architectural ledger where data meets design. Secure, real-time analytics for the modern enterprise.
+                    </p>
+</div>
+<!-- Abstract Bento Illustration Representation -->
+<div class="grid grid-cols-2 gap-4">
+<div class="glass-panel p-6 rounded-2xl flex flex-col gap-4">
+<span class="material-symbols-outlined text-tertiary-fixed text-4xl">analytics</span>
+<div class="space-y-2">
+<div class="h-1 w-2/3 bg-white/20 rounded-full overflow-hidden">
+<div class="h-full w-3/4 bg-tertiary-fixed"></div>
+</div>
+<div class="h-1 w-1/2 bg-white/20 rounded-full"></div>
+</div>
+</div>
+<div class="glass-panel p-6 rounded-2xl flex flex-col justify-between translate-y-8">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-white/80">trending_up</span>
+<span class="text-xs font-label font-bold text-tertiary-fixed tracking-wider">LIVE</span>
+</div>
+<div class="text-2xl font-headline font-bold text-white tracking-tight">+24.8%</div>
+</div>
+</div>
+</div>
+<!-- Foreground Image Element -->
+<div class="absolute bottom-0 right-0 w-full h-1/2 opacity-20 pointer-events-none">
+<img alt="" class="w-full h-full object-cover mix-blend-screen" data-alt="Abstract 3D digital financial network nodes and lines" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAD4CYYdYGgd6Ib5Y8eA7amOUKB9BH1b732kyfWBIt6XDJrsFKX-BCKS53FdcmlYwyIaWMzL9q3kH8SJWjXPqxwJnGnNAr97Xy--Jy8gwfdK45r3-YbDJDMRnXHYag-Gu6_HcqwPLlSvgk54b9LoPXCa0qIIEA5t1rHtDUwhHDzeIuAGeU8EDFZKo0yS4m01yM2Axf0THLFIeBsXRmDdCgKlZ3QAPye1On6Fu1kYNbm-dwTAwAqzGuWInsiCCLkWAXflbjPAmyyzjQ"/>
+</div>
+</section>
+<!-- Right Side: Login Form -->
+<main class="w-full lg:w-5/12 bg-surface-container-lowest flex items-center justify-center px-8 sm:px-16 md:px-24">
+<div class="w-full max-w-md space-y-10">
+<!-- Mobile Branding -->
+<div class="lg:hidden flex items-center gap-3 mb-12">
+<span class="material-symbols-outlined text-primary text-3xl font-bold">account_balance</span>
+<span class="font-headline font-bold text-2xl tracking-tight text-primary">xledger</span>
+</div>
+<div class="space-y-3">
+<h2 class="font-headline text-3xl font-extrabold text-on-surface tracking-tight">Welcome back</h2>
+<p class="text-on-surface-variant font-body">Access your secure financial dashboard.</p>
+</div>
+<form class="space-y-8">
+<!-- Minimalist Input Group -->
+<div class="space-y-6">
+<div class="relative group">
+<label class="block font-label text-[10px] font-bold uppercase tracking-[0.1em] text-outline mb-1" for="email">Email Address</label>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant py-3 focus:ring-0 focus:border-primary transition-all duration-300 placeholder:text-surface-container-highest" id="email" name="email" placeholder="name@company.com" type="email"/>
+<div class="absolute bottom-0 left-0 w-0 h-[2px] bg-primary group-focus-within:w-full transition-all duration-500"></div>
+</div>
+<div class="relative group">
+<div class="flex justify-between items-center mb-1">
+<label class="block font-label text-[10px] font-bold uppercase tracking-[0.1em] text-outline" for="password">Password</label>
+<a class="font-label text-[10px] font-bold uppercase tracking-[0.1em] text-primary hover:text-primary-container transition-colors" href="#">Forgot?</a>
+</div>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant py-3 focus:ring-0 focus:border-primary transition-all duration-300 placeholder:text-surface-container-highest" id="password" name="password" placeholder="••••••••" type="password"/>
+<div class="absolute bottom-0 left-0 w-0 h-[2px] bg-primary group-focus-within:w-full transition-all duration-500"></div>
+</div>
+</div>
+<!-- Stay logged in -->
+<div class="flex items-center gap-3">
+<input class="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary/20" id="remember" type="checkbox"/>
+<label class="text-sm font-body text-on-surface-variant" for="remember">Stay signed in for 30 days</label>
+</div>
+<!-- CTA Button -->
+<button class="primary-gradient w-full py-4 rounded-xl text-white font-headline font-bold text-lg shadow-lg hover:shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200" type="submit">
+                        Sign In
+                    </button>
+</form>
+<!-- Alternative Sign In -->
+<div class="space-y-6 pt-6">
+<div class="relative">
+<div class="absolute inset-0 flex items-center"><div class="w-full border-t border-surface-container-high"></div></div>
+<div class="relative flex justify-center text-[10px] uppercase font-bold tracking-widest"><span class="bg-surface-container-lowest px-4 text-outline">Or secure access via</span></div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<button class="flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-outline-variant hover:bg-surface-container-low transition-colors group">
+<img alt="" class="w-5 h-5" data-alt="Google G Logo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLsnO9bYHbh01_xFFE0sPJOHD-gx2dzSmFaIPYRmuCFoJuoLYNA1kBD5qtExW114xCs0JPxk01Fh2IXmGnn-eZAFYLMEFwun-Lgc7tBrLRjtN2Y9be2_4D8o1uI8mRYog_Oe4kkoWwrTJ1PhOD8cUU0pClldGLCAZgFGM18nuW14bgZBf1873n8RoDeAU78f5t_X62HfL4bNYrTX4d6g6syMIh_0d5V6WvjP-lMHTFoZqO8MRudqvKazncGA6Z3cgahdlM9FJoYqQ"/>
+<span class="font-label text-[11px] font-bold uppercase tracking-wider text-on-surface group-hover:text-primary">Google SSO</span>
+</button>
+<button class="flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-outline-variant hover:bg-surface-container-low transition-colors group">
+<span class="material-symbols-outlined text-on-surface group-hover:text-primary">fingerprint</span>
+<span class="font-label text-[11px] font-bold uppercase tracking-wider text-on-surface group-hover:text-primary">Biometric</span>
+</button>
+</div>
+</div>
+<p class="text-center text-on-surface-variant text-sm pt-4">
+                    Don't have an enterprise account? <a class="text-primary font-bold hover:underline" href="#">Contact Support</a>
+</p>
+</div>
+</main>
+</div>
+<!-- Security Badges - Fixed Bottom Right -->
+<div class="fixed bottom-6 right-6 flex items-center gap-4 bg-surface-container-low/50 backdrop-blur-md px-4 py-2 rounded-full hidden md:flex">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<span class="font-label text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">AES-256 Encrypted</span>
+</div>
+<div class="h-3 w-[1px] bg-outline-variant"></div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">lock</span>
+<span class="font-label text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">SOC2 Compliant</span>
+</div>
+</div>
+</body></html>
