@@ -509,5 +509,51 @@ func tagIDsIfSet(hasTagIDs bool, tagIDs []string) []string {
 	return tagIDs
 }
 
+func (s *TransactionService) ListTransactionsWithTotal(ctx context.Context, userID string, query TransactionQuery) ([]Transaction, int, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return nil, 0, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	query.LedgerID = strings.TrimSpace(query.LedgerID)
+	query.AccountID = strings.TrimSpace(query.AccountID)
+	query.CategoryID = strings.TrimSpace(query.CategoryID)
+	query.TagID = strings.TrimSpace(query.TagID)
+	if !query.OccurredFrom.IsZero() && !query.OccurredTo.IsZero() && query.OccurredFrom.After(query.OccurredTo) {
+		return nil, 0, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	if query.Page < 0 || query.PageSize < 0 {
+		return nil, 0, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	if query.Page == 0 && query.PageSize > 0 {
+		return nil, 0, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	if query.Page > 0 && query.PageSize == 0 {
+		return nil, 0, &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	if query.TagID != "" {
+		if s.tagSvc == nil {
+			return []Transaction{}, 0, nil
+		}
+		txnIDs, err := s.tagSvc.ListTransactionIDsByTag(ctx, userID, query.TagID)
+		if err != nil {
+			return nil, 0, err
+		}
+		query.TransactionIDs = txnIDs
+		query.UseTransactionIDs = true
+	}
+
+	total, err := s.repo.CountByUser(userID, query)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	items, err := s.repo.ListByUser(userID, query)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return items, total, nil
+}
+
 var _ transactionCategoryService = (*classification.CategoryService)(nil)
 var _ transactionTagService = (*classification.TagService)(nil)

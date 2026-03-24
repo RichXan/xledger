@@ -1,141 +1,1178 @@
 openapi: 3.1.0
 info:
   title: Xledger Backend API
-  version: v0.3
+  version: v1.0.0
+  description: Xledger 智能个人财务管理平台 API
 servers:
   - url: /api
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    PATAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: "pat:{user_id}:{random}"
   schemas:
     Envelope:
       type: object
+      required: [code, message]
       properties:
         code:
           type: string
+          example: OK
         message:
           type: string
+          example: 成功
         data:
           nullable: true
     PaginatedEnvelope:
       type: object
+      required: [code, message, data]
       properties:
         code:
           type: string
+          example: OK
         message:
           type: string
+          example: 成功
         data:
           type: object
+          required: [items, pagination]
           properties:
             items:
               type: array
               items: {}
             pagination:
-              type: object
-              properties:
-                page:
-                  type: integer
-                page_size:
-                  type: integer
-                total:
-                  type: integer
-                total_pages:
-                  type: integer
+              $ref: '#/components/schemas/Pagination'
+    Pagination:
+      type: object
+      required: [page, page_size, total, total_pages]
+      properties:
+        page:
+          type: integer
+          example: 1
+        page_size:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 100
+        total_pages:
+          type: integer
+          example: 5
+    User:
+      type: object
+      required: [id, email, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+    Ledger:
+      type: object
+      required: [id, user_id, name, is_default]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: 总账本
+        is_default:
+          type: boolean
+    Account:
+      type: object
+      required: [id, user_id, name, type, initial_balance]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: 招商银行储蓄卡
+        type:
+          type: string
+          enum: [debit, credit, cash, ewallet]
+          example: debit
+        initial_balance:
+          type: number
+          format: double
+          example: 10000.00
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
+    Transaction:
+      type: object
+      required: [id, user_id, ledger_id, type, amount, version, occurred_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        ledger_id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+          nullable: true
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        category_name:
+          type: string
+          nullable: true
+        from_account_id:
+          type: string
+          format: uuid
+          nullable: true
+        to_account_id:
+          type: string
+          format: uuid
+          nullable: true
+        transfer_pair_id:
+          type: string
+          format: uuid
+          nullable: true
+        transfer_side:
+          type: string
+          enum: [from, to]
+          nullable: true
+        version:
+          type: integer
+        type:
+          type: string
+          enum: [income, expense, transfer]
+        amount:
+          type: number
+          format: double
+        occurred_at:
+          type: string
+          format: date-time
+    Category:
+      type: object
+      required: [id, user_id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: 餐饮
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
+    Tag:
+      type: object
+      required: [id, user_id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: 月度
+    OverviewStats:
+      type: object
+      required: [total_assets, income, expense, net]
+      properties:
+        total_assets:
+          type: number
+          format: double
+          example: 50000.00
+        income:
+          type: number
+          format: double
+          example: 15000.00
+        expense:
+          type: number
+          format: double
+          example: 8000.00
+        net:
+          type: number
+          format: double
+          example: 7000.00
+    TrendDataPoint:
+      type: object
+      required: [date, income, expense]
+      properties:
+        date:
+          type: string
+          format: date
+        income:
+          type: number
+          format: double
+        expense:
+          type: number
+          format: double
+    CategoryStatsItem:
+      type: object
+      required: [category_id, category_name, total_amount, transaction_count]
+      properties:
+        category_id:
+          type: string
+          format: uuid
+        category_name:
+          type: string
+        total_amount:
+          type: number
+          format: double
+        transaction_count:
+          type: integer
+    PAT:
+      type: object
+      required: [id, name, created_at, expires_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+    ImportPreviewResult:
+      type: object
+      required: [columns, sample_rows, row_count]
+      properties:
+        columns:
+          type: array
+          items:
+            type: string
+        sample_rows:
+          type: array
+          items:
+            type: object
+        row_count:
+          type: integer
+    ImportConfirmResult:
+      type: object
+      required: [success_count, skip_count, fail_count]
+      properties:
+        success_count:
+          type: integer
+        skip_count:
+          type: integer
+        fail_count:
+          type: integer
+        rows:
+          type: array
+          items:
+            type: object
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeParam:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    LedgerIDParam:
+      name: ledger_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+    AccountIDParam:
+      name: account_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+    CategoryIDParam:
+      name: category_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+    TagIDParam:
+      name: tag_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+    DateFromParam:
+      name: date_from
+      in: query
+      schema:
+        type: string
+        format: date-time
+    DateToParam:
+      name: date_to
+      in: query
+      schema:
+        type: string
+        format: date-time
+    FromParam:
+      name: from
+      in: query
+      schema:
+        type: string
+        format: date-time
+    ToParam:
+      name: to
+      in: query
+      schema:
+        type: string
+        format: date-time
 paths:
   /auth/send-code:
     post:
-      summary: Send login code
+      summary: 发送邮箱验证码
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
       responses:
         '200':
-          description: OK
+          description: 验证码已发送
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '429':
+          description: 触发限流
   /auth/verify-code:
     post:
-      summary: Verify login code
+      summary: 验证码登录
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  pattern: '^\d{6}$'
       responses:
         '200':
-          description: OK
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TokenPair'
+        '401':
+          description: 验证码无效或已过期
+  /auth/refresh:
+    post:
+      summary: 刷新 Access Token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TokenPair'
+  /auth/logout:
+    post:
+      summary: 退出登录
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 退出成功
+  /auth/me:
+    get:
+      summary: 获取当前用户信息
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 用户信息
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
   /ledgers:
     get:
-      summary: List ledgers
+      summary: 获取账本列表
+      tags: [Ledgers]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
       responses:
         '200':
-          description: OK
+          description: 账本列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEnvelope'
     post:
-      summary: Create ledger
+      summary: 创建账本
+      tags: [Ledgers]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                is_default:
+                  type: boolean
+                  default: false
       responses:
         '201':
-          description: Created
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Ledger'
+  /ledgers/{id}:
+    patch:
+      summary: 更新账本
+      tags: [Ledgers]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      summary: 删除账本
+      tags: [Ledgers]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 删除成功
+        '409':
+          description: 默认账本不可删除
+  /accounts:
+    get:
+      summary: 获取账户列表
+      tags: [Accounts]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      responses:
+        '200':
+          description: 账户列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEnvelope'
+    post:
+      summary: 创建账户
+      tags: [Accounts]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, type, initial_balance]
+              properties:
+                name:
+                  type: string
+                type:
+                  type: string
+                  enum: [debit, credit, cash, ewallet]
+                initial_balance:
+                  type: number
+                  format: double
+      responses:
+        '201':
+          description: 创建成功
+  /accounts/{id}:
+    get:
+      summary: 获取账户详情
+      tags: [Accounts]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 账户详情
+    patch:
+      summary: 更新账户
+      tags: [Accounts]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                type:
+                  type: string
+                  enum: [debit, credit, cash, ewallet]
+                archived:
+                  type: boolean
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      summary: 删除账户
+      tags: [Accounts]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 删除成功
   /transactions:
     get:
-      summary: List transactions
+      summary: 获取交易列表
+      tags: [Transactions]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - $ref: '#/components/parameters/LedgerIDParam'
+        - $ref: '#/components/parameters/AccountIDParam'
+        - $ref: '#/components/parameters/CategoryIDParam'
+        - $ref: '#/components/parameters/TagIDParam'
+        - $ref: '#/components/parameters/DateFromParam'
+        - $ref: '#/components/parameters/DateToParam'
       responses:
         '200':
-          description: OK
+          description: 交易列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEnvelope'
     post:
-      summary: Create transaction
+      summary: 创建交易
+      tags: [Transactions]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ledger_id, type, amount]
+              properties:
+                ledger_id:
+                  type: string
+                  format: uuid
+                type:
+                  type: string
+                  enum: [income, expense, transfer]
+                amount:
+                  type: number
+                  format: double
+                  minimum: 0.01
+                account_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                category_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                tag_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                from_account_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                to_account_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                occurred_at:
+                  type: string
+                  format: date-time
       responses:
         '201':
-          description: Created
+          description: 创建成功
+  /transactions/{id}:
+    patch:
+      summary: 更新交易
+      tags: [Transactions]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount:
+                  type: number
+                  format: double
+                version:
+                  type: integer
+                category_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                tag_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: 更新成功
+        '409':
+          description: 版本冲突
+    delete:
+      summary: 删除交易
+      tags: [Transactions]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: version
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 删除成功
+        '409':
+          description: 版本冲突
   /categories:
     get:
-      summary: List categories
+      summary: 获取分类列表
+      tags: [Categories]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
       responses:
         '200':
-          description: OK
+          description: 分类列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEnvelope'
+    post:
+      summary: 创建分类
+      tags: [Categories]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                parent_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+      responses:
+        '201':
+          description: 创建成功
+  /categories/{id}:
+    patch:
+      summary: 更新分类
+      tags: [Categories]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                parent_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                no_parent:
+                  type: boolean
+                archived:
+                  type: boolean
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      summary: 删除分类
+      tags: [Categories]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 删除成功（若被引用则归档）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          deleted:
+                            type: boolean
+                          archived:
+                            type: boolean
   /tags:
     get:
-      summary: List tags
+      summary: 获取标签列表
+      tags: [Tags]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
       responses:
         '200':
-          description: OK
+          description: 标签列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEnvelope'
+    post:
+      summary: 创建标签
+      tags: [Tags]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: 创建成功
+        '409':
+          description: 标签名重复
+  /tags/{id}:
+    patch:
+      summary: 更新标签
+      tags: [Tags]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      summary: 删除标签
+      tags: [Tags]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 删除成功
   /stats/overview:
     get:
-      summary: Overview stats
+      summary: 获取概览统计
+      tags: [Stats]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LedgerIDParam'
       responses:
         '200':
-          description: OK
+          description: 概览数据
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OverviewStats'
   /stats/trend:
     get:
-      summary: Trend stats
+      summary: 获取收支趋势
+      tags: [Stats]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FromParam'
+        - $ref: '#/components/parameters/ToParam'
+        - name: granularity
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: day
+        - name: timezone
+          in: query
+          schema:
+            type: string
       responses:
         '200':
-          description: OK
+          description: 趋势数据
   /stats/category:
     get:
-      summary: Category stats
+      summary: 获取分类统计
+      tags: [Stats]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FromParam'
+        - $ref: '#/components/parameters/ToParam'
       responses:
         '200':
-          description: OK
+          description: 分类统计数据
   /import/csv:
     post:
-      summary: Preview CSV import
+      summary: 预览 CSV 导入
+      tags: [Import]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
       responses:
         '200':
-          description: OK
+          description: 预览结果
   /import/csv/confirm:
     post:
-      summary: Confirm CSV import
+      summary: 确认 CSV 导入
+      tags: [Import]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mapping, ledger_id]
+              properties:
+                mapping:
+                  type: object
+                ledger_id:
+                  type: string
+                  format: uuid
       responses:
         '200':
-          description: OK
+          description: 导入结果
+        '409':
+          description: 重复请求
   /export:
     get:
-      summary: Export data
+      summary: 导出数据
+      tags: [Export]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, json]
+            default: csv
+        - $ref: '#/components/parameters/FromParam'
+        - $ref: '#/components/parameters/ToParam'
       responses:
         '200':
-          description: File stream
+          description: 导出文件
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Transaction'
   /personal-access-tokens:
     get:
-      summary: List PAT metadata
+      summary: 获取 PAT 列表
+      tags: [PAT]
+      security:
+        - BearerAuth: []
       responses:
         '200':
-          description: OK
+          description: PAT 列表
     post:
-      summary: Create PAT
+      summary: 创建 PAT
+      tags: [PAT]
+      security:
+        - BearerAuth: []
       responses:
         '200':
-          description: OK
+          description: 创建成功（返回明文 token）
   /personal-access-tokens/{id}:
     delete:
-      summary: Revoke PAT
+      summary: 撤销 PAT
+      tags: [PAT]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         '200':
-          description: OK
+          description: 撤销成功
+tags:
+  - name: Auth
+    description: 认证相关
+  - name: Ledgers
+    description: 账本管理
+  - name: Accounts
+    description: 账户管理
+  - name: Transactions
+    description: 交易管理
+  - name: Categories
+    description: 分类管理
+  - name: Tags
+    description: 标签管理
+  - name: Stats
+    description: 统计报表
+  - name: Import
+    description: 数据导入
+  - name: Export
+    description: 数据导出
+  - name: PAT
+    description: Personal Access Token 管理

@@ -3,6 +3,7 @@ package portability
 import (
 	"context"
 	"strings"
+	"time"
 )
 
 const (
@@ -33,11 +34,20 @@ type ImportConfirmResponse struct {
 	Rows         []ImportConfirmRowResult `json:"rows"`
 }
 
-type ImportConfirmService struct {
-	repo *Repository
+type ImportConfirmRepository interface {
+	FindJob(userID string, path string, idempotencyKey string) (importJob, bool)
+	SaveJob(job importJob)
+	HasTriple(userID string, row storedImportRow) bool
+	SaveRow(userID string, row storedImportRow)
+	StoredRowCount(userID string) int
+	Now() time.Time
 }
 
-func NewImportConfirmService(repo *Repository) *ImportConfirmService {
+type ImportConfirmService struct {
+	repo ImportConfirmRepository
+}
+
+func NewImportConfirmService(repo ImportConfirmRepository) *ImportConfirmService {
 	return &ImportConfirmService{repo: repo}
 }
 
@@ -73,7 +83,7 @@ func (s *ImportConfirmService) Confirm(userID string, idempotencyKey string, req
 	if result.FailCount > 0 {
 		errCode = IMPORT_PARTIAL_FAILED
 	}
-	s.repo.SaveJob(importJob{UserID: userID, Path: "/api/import/csv/confirm", IdempotencyKey: idempotencyKey, CreatedAt: s.repo.now(), Response: result, ErrorCode: errCode})
+	s.repo.SaveJob(importJob{UserID: userID, Path: "/api/import/csv/confirm", IdempotencyKey: idempotencyKey, CreatedAt: s.repo.Now(), Response: result, ErrorCode: errCode})
 	if errCode != "" {
 		return result, &contractError{code: errCode}
 	}

@@ -97,6 +97,7 @@ type TransactionRepository interface {
 	DeleteTransferPairByTxnID(userID string, txnID string, expectedVersion *int) ([]string, error)
 	WithTransferPairLock(userID string, pairID string, fn func() error) error
 	ListByUser(userID string, query TransactionQuery) ([]Transaction, error)
+	CountByUser(userID string, query TransactionQuery) (int, error)
 	ListByTransferPairForUser(userID string, pairID string) ([]Transaction, error)
 	MarkBalancesRecalculated(userID string, ledgerID string) error
 	MarkStatsInputRecalculated(userID string, ledgerID string) error
@@ -428,6 +429,74 @@ func (r *InMemoryTransactionRepository) ListByUser(userID string, query Transact
 		items = items[start:end]
 	}
 	return items, nil
+}
+
+func (r *InMemoryTransactionRepository) CountByUser(userID string, query TransactionQuery) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	ledgerFilter := strings.TrimSpace(query.LedgerID)
+	accountFilter := strings.TrimSpace(query.AccountID)
+	categoryFilter := strings.TrimSpace(query.CategoryID)
+	allowedTxnIDs := map[string]bool{}
+	if query.UseTransactionIDs {
+		for _, txnID := range query.TransactionIDs {
+			trimmed := strings.TrimSpace(txnID)
+			if trimmed == "" {
+				continue
+			}
+			allowedTxnIDs[trimmed] = true
+		}
+		if len(allowedTxnIDs) == 0 {
+			return 0, nil
+		}
+	}
+	count := 0
+	seenTransferPairs := map[string]bool{}
+	for _, txn := range r.transactions {
+		if txn.UserID != userID {
+			continue
+		}
+		if query.UseTransactionIDs && !allowedTxnIDs[txn.ID] {
+			continue
+		}
+		if ledgerFilter != "" && txn.LedgerID != ledgerFilter {
+			continue
+		}
+		if accountFilter != "" && !transactionMatchesAccountFilter(txn, accountFilter) {
+			continue
+		}
+		if categoryFilter != "" && strings.TrimSpace(ptrString(txn.CategoryID)) != categoryFilter {
+			continue
+		}
+		if !query.OccurredFrom.IsZero() && txn.OccurredAt.Before(query.OccurredFrom) {
+			continue
+		}
+		if !query.OccurredTo.IsZero() && txn.OccurredAt.After(query.OccurredTo) {
+			continue
+		}
+		if txn.Type == TransactionTypeTransfer {
+			pairID := strings.TrimSpace(ptrString(txn.TransferPairID))
+			if pairID != "" {
+				if ledgerFilter == "" {
+					if txn.TransferSide != transferSideFrom {
+						continue
+					}
+				} else {
+					if txn.TransferSide != transferSideFrom && r.transferPairHasSideInLedgerLocked(userID, pairID, transferSideFrom, ledgerFilter) {
+						continue
+					}
+				}
+				key := pairID + "|" + ledgerFilter
+				if seenTransferPairs[key] {
+					continue
+				}
+				seenTransferPairs[key] = true
+			}
+		}
+		count++
+	}
+	return count, nil
 }
 
 func (r *InMemoryTransactionRepository) ListByTransferPairForUser(userID string, pairID string) ([]Transaction, error) {

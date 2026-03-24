@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: xledger
+      POSTGRES_PASSWORD: xledger_secret
+      POSTGRES_DB: xledger
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xledger"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  xledger-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://xledger:xledger_secret@postgres:5432/xledger?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      SMTP_HOST: smtp.example.com
+      SMTP_PORT: "587"
+      SMTP_USER: user@example.com
+      SMTP_PASS: replace-me
+      SMTP_FROM: notify@example.com
+      N8N_BASE_URL: http://n8n:5678
+      GIN_MODE: release
+      AUTH_TOKEN_SECRET: change-me-in-production
+      AUTH_CODE_PEPPER: change-me-in-production
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,13 +1,16 @@
 package http
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/auth"
+	"xledger/backend/internal/bootstrap/config"
 	"xledger/backend/internal/classification"
 	"xledger/backend/internal/portability"
 	"xledger/backend/internal/reporting"
@@ -135,4 +138,58 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 
 	return r, nil
+}
+
+func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config) *gin.Engine {
+	authRepo := auth.NewPostgresRepository(db)
+	templateService := classification.NewTemplateService(classification.NewPostgresTemplateRepository(db))
+	sessionService := auth.NewSessionService(authRepo, &auth.SessionServiceOptions{
+		PostLoginBootstrap: templateService.EnsureUserDefaults,
+	}, time.Now)
+	codeService := auth.NewCodeService(authRepo, nil, auth.NewSessionTokenIssuer(sessionService), time.Now, nil)
+	oauthService := auth.NewOAuthService(authRepo, sessionService, time.Now)
+	authHandler := auth.NewHandlerWithServices(codeService, oauthService, sessionService)
+
+	ledgerRepo := accounting.NewPostgresLedgerRepository(db)
+	accountRepo := accounting.NewPostgresAccountRepository(db)
+	txnRepo := accounting.NewPostgresTransactionRepository(db)
+	classificationRepo := classification.NewPostgresRepository(db)
+	categoryService := classification.NewCategoryService(classificationRepo)
+	tagService := classification.NewTagService(classificationRepo)
+	txnService := accounting.NewTransactionService(txnRepo, ledgerRepo, accountRepo, categoryService, tagService)
+	accountingHandler := accounting.NewHandler(
+		accounting.NewLedgerService(ledgerRepo),
+		accounting.NewAccountService(accountRepo),
+		txnService,
+	)
+	classificationHandler := classification.NewHandler(categoryService, tagService)
+
+	reportingRepo := reporting.NewRepository(accountRepo, txnRepo, categoryService)
+	reportingHandler := reporting.NewHandler(
+		reporting.NewOverviewService(reportingRepo),
+		reporting.NewTrendService(reportingRepo),
+		reporting.NewCategoryService(reportingRepo),
+	)
+
+	exportRepo := portability.NewExportRepository(txnRepo, categoryService)
+	portabilityHandler := portability.NewHandler(
+		portability.NewImportPreviewService(),
+		portability.NewImportConfirmService(portability.NewPostgresRepository(db)),
+		portability.NewExportService(exportRepo),
+		portability.NewPATService(nil),
+	)
+
+	deps := Dependencies{
+		AuthHandler:           authHandler,
+		AccountingHandler:     accountingHandler,
+		ClassificationHandler: classificationHandler,
+		PortabilityHandler:    portabilityHandler,
+		ReportingHandler:      reportingHandler,
+	}
+
+	r, err := NewRouterWithDependencies(cfg.TrustedProxies, deps)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create router: %v", err))
+	}
+	return r
 }

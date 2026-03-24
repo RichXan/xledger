@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -9,8 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/lib/pq"
+
 	"xledger/backend/internal/bootstrap/config"
 	bootstraphttp "xledger/backend/internal/bootstrap/http"
+	"xledger/backend/internal/bootstrap/infrastructure"
 )
 
 func main() {
@@ -19,10 +23,50 @@ func main() {
 		log.Fatalf("config error: %v", err)
 	}
 
-	router, err := bootstraphttp.NewRouter(cfg.TrustedProxies)
-	if err != nil {
-		log.Fatalf("startup error: %v", err)
+	ctx := context.Background()
+
+	var db *sql.DB
+	if cfg.DatabaseURL != "" {
+		db, err = infrastructure.ConnectPostgres(ctx, infrastructure.PostgresConfig{
+			URL:             cfg.DatabaseURL,
+			MaxOpenConns:    25,
+			MaxIdleConns:    5,
+			ConnMaxLifetime: 5 * time.Minute,
+			PingTimeout:     5 * time.Second,
+		})
+		if err != nil {
+			log.Fatalf("database connection error: %v", err)
+		}
+		defer db.Close()
+		log.Println("Connected to PostgreSQL")
+	} else {
+		log.Println("DATABASE_URL not set, using in-memory repositories")
 	}
+
+	if cfg.RedisURL != "" {
+		redisClient, redisErr := infrastructure.ConnectRedis(ctx, infrastructure.RedisConfig{
+			URL:         cfg.RedisURL,
+			PingTimeout: 3 * time.Second,
+		})
+		if redisErr != nil {
+			log.Fatalf("redis connection error: %v", redisErr)
+		}
+		defer redisClient.Close()
+		log.Println("Connected to Redis")
+	} else {
+		log.Println("REDIS_URL not set, skipping Redis connection")
+	}
+
+	var router http.Handler
+	if db != nil {
+		router = bootstraphttp.NewRouterWithPostgreSQL(db, cfg)
+	} else {
+		router, err = bootstraphttp.NewRouter(cfg.TrustedProxies)
+		if err != nil {
+			log.Fatalf("startup error: %v", err)
+		}
+	}
+
 	server := &http.Server{
 		Addr:              cfg.APIAddr,
 		Handler:           router,
@@ -31,7 +75,7 @@ func main() {
 		WriteTimeout:      10 * time.Second,
 		IdleTimeout:       30 * time.Second,
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	errCh := make(chan error, 1)
@@ -51,13 +95,13 @@ func main() {
 			log.Fatalf("server stopped: %v", err)
 		}
 		return
-	case <-ctx.Done():
+	case <-shutdownCtx.Done():
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	gracefulCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
+	if err := server.Shutdown(gracefulCtx); err != nil {
 		log.Fatalf("shutdown failed: %v", err)
 	}
 

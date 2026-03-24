@@ -90,6 +90,12 @@ func (r *Repository) StoredRowCount(userID string) int {
 	return len(r.rows[userID])
 }
 
+func (r *Repository) Now() time.Time {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.now()
+}
+
 func (r *Repository) jobKey(userID string, path string, key string) string {
 	return strings.TrimSpace(userID) + "|" + strings.TrimSpace(path) + "|" + strings.TrimSpace(key)
 }

@@ -11,6 +11,8 @@ type Config struct {
 	AuthCodePepper string
 	APIAddr        string
 	TrustedProxies []string
+	DatabaseURL    string
+	RedisURL       string
 }
 
 func Load() (Config, error) {
@@ -31,11 +33,16 @@ func Load() (Config, error) {
 
 	trustedProxies := parseTrustedProxies(os.Getenv("TRUSTED_PROXIES"))
 
+	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	redisURL := strings.TrimSpace(os.Getenv("REDIS_URL"))
+
 	return Config{
 		SMTPHost:       smtpHost,
 		AuthCodePepper: authCodePepper,
 		APIAddr:        apiAddr,
 		TrustedProxies: trustedProxies,
+		DatabaseURL:    databaseURL,
+		RedisURL:       redisURL,
 	}, nil
 }
 
