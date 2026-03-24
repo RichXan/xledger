@@ -195,7 +195,7 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		}
 		query.PageSize = parsed
 	}
-	items, err := h.transactionService.ListTransactions(c.Request.Context(), userID, query)
+	items, total, err := h.transactionService.ListTransactionsWithTotal(c.Request.Context(), userID, query)
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -206,9 +206,13 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		page = 1
 	}
 	if pageSize == 0 {
-		pageSize = len(items)
+		pageSize = 20
 	}
-	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"items": items, "pagination": gin.H{"page": page, "page_size": pageSize, "total": len(items), "total_pages": 1}})
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"items": items, "pagination": gin.H{"page": page, "page_size": pageSize, "total": total, "total_pages": totalPages}})
 }
 
 func (h *Handler) CreateAccount(c *gin.Context) {

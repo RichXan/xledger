@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#e0e3e6",
+              "on-primary-fixed": "#001946",
+              "surface-variant": "#e0e3e6",
+              "on-surface": "#191c1e",
+              "on-tertiary-fixed-variant": "#005316",
+              "inverse-surface": "#2d3133",
+              "on-secondary": "#ffffff",
+              "surface-container-lowest": "#ffffff",
+              "outline": "#737784",
+              "tertiary-container": "#005a19",
+              "on-error": "#ffffff",
+              "on-surface-variant": "#434653",
+              "primary-container": "#0047ab",
+              "surface-bright": "#f7f9fc",
+              "on-primary-fixed-variant": "#00419e",
+              "on-tertiary-fixed": "#002105",
+              "on-secondary-fixed-variant": "#37466c",
+              "primary": "#00327d",
+              "surface-tint": "#2559bd",
+              "on-error-container": "#93000a",
+              "on-primary-container": "#a5bdff",
+              "inverse-primary": "#b1c5ff",
+              "secondary": "#4e5e85",
+              "on-tertiary": "#ffffff",
+              "on-tertiary-container": "#6fd372",
+              "primary-fixed-dim": "#b1c5ff",
+              "surface-container-low": "#f2f4f7",
+              "error": "#ba1a1a",
+              "on-secondary-fixed": "#081a3e",
+              "tertiary-fixed-dim": "#77dc7a",
+              "inverse-on-surface": "#eff1f4",
+              "on-secondary-container": "#4a5980",
+              "primary-fixed": "#dae2ff",
+              "secondary-fixed": "#dae2ff",
+              "surface-container": "#eceef1",
+              "surface-container-high": "#e6e8eb",
+              "surface-dim": "#d8dadd",
+              "secondary-container": "#c1d1ff",
+              "tertiary": "#00400f",
+              "error-container": "#ffdad6",
+              "surface": "#f7f9fc",
+              "background": "#f7f9fc",
+              "on-background": "#191c1e",
+              "on-primary": "#ffffff",
+              "outline-variant": "#c3c6d5",
+              "tertiary-fixed": "#93f993",
+              "secondary-fixed-dim": "#b6c6f3"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full flex flex-col p-4 gap-2 border-r border-slate-100 dark:border-slate-800 bg-[#f7f9fc] dark:bg-slate-950 w-64 z-50">
+<div class="mb-8 px-4 py-2">
+<h1 class="text-xl font-black text-[#0047AB] dark:text-blue-400 font-headline">xledger</h1>
+<p class="text-[10px] font-bold uppercase tracking-widest text-slate-500 font-label">Financial Precision</p>
+</div>
+<nav class="flex flex-col gap-1 flex-1">
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 px-4 py-3 hover:bg-slate-200 dark:hover:bg-slate-900 rounded-lg transition-all duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-xs font-bold uppercase tracking-wider font-label">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 px-4 py-3 hover:bg-slate-200 dark:hover:bg-slate-900 rounded-lg transition-all duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="text-xs font-bold uppercase tracking-wider font-label">Transactions</span>
+</a>
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 px-4 py-3 hover:bg-slate-200 dark:hover:bg-slate-900 rounded-lg transition-all duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="text-xs font-bold uppercase tracking-wider font-label">Analytics</span>
+</a>
+<!-- Active State: Accounts -->
+<a class="flex items-center gap-3 bg-white dark:bg-slate-800 text-[#0047AB] dark:text-blue-300 rounded-lg px-4 py-3 font-bold shadow-sm transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance">account_balance</span>
+<span class="text-xs font-bold uppercase tracking-wider font-label">Accounts</span>
+</a>
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 px-4 py-3 hover:bg-slate-200 dark:hover:bg-slate-900 rounded-lg transition-all duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-xs font-bold uppercase tracking-wider font-label">Settings</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-8 py-4 bg-[#f2f4f7]/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
+<div class="flex items-center gap-8">
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400" data-icon="search">search</span>
+<input class="bg-surface-container-high/50 border-none rounded-full pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary w-64 transition-all" placeholder="Search accounts..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant/30 mx-2"></div>
+<div class="flex items-center gap-3">
+<img alt="User profile avatar portrait" class="w-8 h-8 rounded-full border-2 border-white shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBu1kGXDTOvoKViibshm_zJs0z67Td4Xy3s-IpXb6HNrwQK8SGv6c8YMa4_YcnyKXNXbnVPwgoY7ubBQu8K4-wyY6ArlA4eLeA7t9KA1zPyVPX3dJzWJsaBwnWqa8ji9cPZnTYnIIWXjtNgvwN_SadwYk3C6SPtyhuvED2Nyhgb3DDExftxXQj29p1q6wVs-ImPPZqYEMvS8baBTogx5FYDN9Lj_J9P00Khkq30U-VWQCTTXzEGw2OH9YzZS7TmmezBrlqD0m-3C0Q"/>
+<span class="text-sm font-semibold text-on-surface">Alex Chen</span>
+</div>
+</div>
+</header>
+<section class="p-8 max-w-7xl mx-auto">
+<!-- Header Section -->
+<div class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h2 class="text-4xl font-extrabold font-headline tracking-tight text-on-surface mb-2">My Ledger Accounts</h2>
+<p class="text-on-surface-variant max-w-2xl font-body">Manage your architectural financial stack. High-precision monitoring of cash flows, credit lines, and long-term savings.</p>
+</div>
+<button class="bg-gradient-to-br from-primary to-primary-container text-white py-3 px-6 rounded-xl font-bold flex items-center justify-center gap-2 hover:scale-[0.98] transition-transform duration-200 shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined" data-icon="add_card">add_card</span>
+        Add Account
+    </button>
+</div>
+<!-- Bento Grid - Digital Bank Cards Section -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+<!-- Cash Account Card -->
+<div class="glass-card rounded-[2rem] p-8 border border-white/40 shadow-sm relative overflow-hidden group">
+<div class="absolute top-4 right-4 flex gap-1 z-20">
+<button class="w-8 h-8 rounded-full bg-white/80 flex items-center justify-center text-slate-600 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="edit">edit</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-white/80 flex items-center justify-center text-slate-600 hover:text-error transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="delete">delete</span>
+</button>
+</div>
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-12">
+<div class="w-10 h-10 rounded-xl bg-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-on-tertiary-fixed" data-icon="wallet">wallet</span>
+</div>
+<span class="font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">Liquid Cash</span>
+</div>
+<div class="mb-8">
+<p class="text-sm font-medium text-slate-500 mb-1">Available Balance</p>
+<h3 class="text-4xl font-bold font-headline text-primary tabular-nums">$42,850.24</h3>
+</div>
+<div class="flex justify-between items-end">
+<div>
+<p class="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Account Number</p>
+<p class="font-mono text-sm tracking-tighter">•••• 8821</p>
+</div>
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full bg-primary/20 backdrop-blur-sm"></div>
+<div class="w-8 h-8 rounded-full bg-tertiary-fixed/40 backdrop-blur-sm"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Credit Card -->
+<div class="bg-gradient-to-br from-primary to-primary-container rounded-[2rem] p-8 shadow-xl relative overflow-hidden group text-white">
+<div class="absolute top-4 right-4 flex gap-1 z-20">
+<button class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="edit">edit</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="delete">delete</span>
+</button>
+</div>
+<div class="absolute -bottom-10 -right-10 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
+<div class="relative z-10">
+<div class="flex justify-between items-start mb-12">
+<div class="flex items-center gap-2">
+<span class="font-headline font-black text-xl italic tracking-tighter">XL Platinum</span>
+</div>
+</div>
+<div class="mb-8">
+<p class="text-xs font-medium text-white/70 mb-1">Current Balance</p>
+<h3 class="text-4xl font-bold font-headline tabular-nums">$12,402.10</h3>
+</div>
+<div class="flex justify-between items-end">
+<div>
+<p class="text-[10px] uppercase font-bold tracking-widest text-white/50 mb-1">Credit Limit</p>
+<p class="text-sm font-semibold">$50,000.00</p>
+</div>
+<div class="bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/20">
+                            Active
+                        </div>
+</div>
+</div>
+</div>
+<!-- Savings Account -->
+<div class="bg-surface-container-lowest rounded-[2rem] p-8 shadow-sm relative overflow-hidden group border border-outline-variant/10">
+<div class="absolute top-4 right-4 flex gap-1 z-20">
+<button class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="edit">edit</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:text-error transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="delete">delete</span>
+</button>
+</div>
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-tertiary-fixed"></div>
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-12">
+<div class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="trending_up">trending_up</span>
+</div>
+<span class="font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">High-Yield Savings</span>
+</div>
+<div class="mb-8">
+<p class="text-sm font-medium text-slate-500 mb-1">Total Assets</p>
+<h3 class="text-4xl font-bold font-headline text-on-surface tabular-nums">$184,302.95</h3>
+</div>
+<div class="flex justify-between items-end">
+<div class="flex items-center gap-2 text-on-tertiary-fixed-variant">
+<span class="material-symbols-outlined text-sm" data-icon="arrow_upward">arrow_upward</span>
+<span class="text-xs font-bold">+4.2% APY</span>
+</div>
+<button class="text-primary text-xs font-bold uppercase tracking-widest flex items-center gap-1 hover:gap-2 transition-all">
+                            Details
+                            <span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Management Tools Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+<!-- Recent Activity -->
+<div class="lg:col-span-2 bg-surface-container-low rounded-[2rem] p-8">
+<div class="flex justify-between items-center mb-8">
+<h4 class="font-headline font-bold text-xl">Account Ledgers</h4>
+<div class="flex gap-2">
+<button class="px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-lg bg-white border border-outline-variant/30 text-slate-600">All</button>
+<button class="px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-lg hover:bg-white text-slate-500 transition-colors">Cash</button>
+<button class="px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-lg hover:bg-white text-slate-500 transition-colors">Credit</button>
+</div>
+</div>
+<div class="space-y-4">
+<!-- Transaction Row 1 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-2xl hover:bg-white transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center group-hover:bg-primary-fixed transition-colors">
+<span class="material-symbols-outlined text-slate-600 group-hover:text-primary" data-icon="shopping_bag">shopping_bag</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Apple Store Soho</p>
+<p class="text-xs text-on-surface-variant">Sept 24, 2023 • XL Platinum</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-headline font-bold text-on-surface">-$1,299.00</p>
+<span class="inline-block px-2 py-0.5 rounded-full bg-surface-container text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Pending</span>
+</div>
+</div>
+<!-- Transaction Row 2 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-2xl hover:bg-white transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-tertiary-fixed/20 flex items-center justify-center group-hover:bg-tertiary-fixed transition-colors">
+<span class="material-symbols-outlined text-on-tertiary-fixed-variant" data-icon="account_balance_wallet">account_balance_wallet</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">External Transfer: Payroll</p>
+<p class="text-xs text-on-surface-variant">Sept 22, 2023 • Liquid Cash</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-headline font-bold text-on-tertiary-fixed-variant">+$8,450.00</p>
+<span class="inline-block px-2 py-0.5 rounded-full bg-tertiary-fixed text-[10px] font-bold uppercase tracking-wider text-on-tertiary-fixed">Approved</span>
+</div>
+</div>
+</div>
+<button class="w-full mt-6 py-3 border-2 border-dashed border-outline-variant/40 rounded-2xl text-slate-500 text-sm font-semibold hover:border-primary hover:text-primary transition-all">
+                    Load More Activity
+                </button>
+</div>
+<!-- Sidebar Insights -->
+<div class="space-y-8">
+<!-- Account Optimization -->
+<div class="bg-surface-container-highest/30 rounded-[2rem] p-8 border border-white/50">
+<h4 class="font-headline font-bold text-lg mb-6">Asset Insights</h4>
+<div class="space-y-6">
+<div class="flex items-start gap-4 p-4 bg-white/50 rounded-2xl">
+<div class="text-tertiary-container mt-1">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<div>
+<h5 class="text-sm font-bold">Optimization Tip</h5>
+<p class="text-xs text-on-surface-variant mt-1">Move $5,000 to Savings to earn an extra $210/year in interest.</p>
+</div>
+</div>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-xs font-bold uppercase tracking-widest mb-2">
+<span class="text-on-surface-variant">Credit Utilization</span>
+<span class="">24%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[24%]"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs font-bold uppercase tracking-widest mb-2">
+<span class="text-on-surface-variant">Savings Goal</span>
+<span class="">82%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-tertiary-fixed-variant w-[82%]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Ledger Actions -->
+<div class="bg-primary-container rounded-[2rem] p-8 text-white relative overflow-hidden shadow-xl shadow-primary/10">
+<div class="relative z-10">
+<p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Account Management</p>
+<h4 class="font-headline font-bold text-xl mb-6">Ledger Tools</h4>
+<div class="grid grid-cols-2 gap-3">
+<button class="bg-white/10 hover:bg-white/20 p-4 rounded-2xl flex flex-col gap-2 transition-colors text-left border border-white/10">
+<span class="material-symbols-outlined text-tertiary-fixed" data-icon="swap_horiz">swap_horiz</span>
+<span class="text-xs font-bold">Transfer</span>
+</button>
+<button class="bg-white/10 hover:bg-white/20 p-4 rounded-2xl flex flex-col gap-2 transition-colors text-left border border-white/10">
+<span class="material-symbols-outlined text-tertiary-fixed" data-icon="receipt">receipt</span>
+<span class="text-xs font-bold">Bill Pay</span>
+</button>
+<button class="bg-white/10 hover:bg-white/20 p-4 rounded-2xl flex flex-col gap-2 transition-colors text-left border border-white/10">
+<span class="material-symbols-outlined text-tertiary-fixed" data-icon="security">security</span>
+<span class="text-xs font-bold">Freeze</span>
+</button>
+<button class="bg-white/10 hover:bg-white/20 p-4 rounded-2xl flex flex-col gap-2 transition-colors text-left border border-white/10">
+<span class="material-symbols-outlined text-tertiary-fixed" data-icon="download">download</span>
+<span class="text-xs font-bold">Statement</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+</body></html>

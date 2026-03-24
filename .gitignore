@@ -1,1 +1,8 @@
 .worktrees/
+frontend/app/.local/
+frontend/app/.npm-cache/
+frontend/app/node_modules/
+frontend/app/dist/
+frontend/app/manual-qa.mjs
+frontend/app/test-results/
+frontend/app/playwright-report/

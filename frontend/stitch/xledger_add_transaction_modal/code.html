@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>xledger - Add Transaction</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "inverse-primary": "#b1c5ff",
+              "primary-fixed": "#dae2ff",
+              "on-primary-fixed-variant": "#00419e",
+              "secondary-container": "#c1d1ff",
+              "tertiary-container": "#005a19",
+              "surface-container-lowest": "#ffffff",
+              "on-tertiary-fixed": "#002105",
+              "error-container": "#ffdad6",
+              "tertiary": "#00400f",
+              "on-tertiary-fixed-variant": "#005316",
+              "primary-fixed-dim": "#b1c5ff",
+              "surface-container-high": "#e6e8eb",
+              "surface": "#f7f9fc",
+              "outline": "#737784",
+              "surface-dim": "#d8dadd",
+              "on-secondary-fixed": "#081a3e",
+              "on-secondary": "#ffffff",
+              "on-background": "#191c1e",
+              "tertiary-fixed-dim": "#77dc7a",
+              "on-surface": "#191c1e",
+              "surface-container-low": "#f2f4f7",
+              "surface-container-highest": "#e0e3e6",
+              "on-tertiary": "#ffffff",
+              "outline-variant": "#c3c6d5",
+              "inverse-surface": "#2d3133",
+              "surface-tint": "#2559bd",
+              "on-surface-variant": "#434653",
+              "background": "#f7f9fc",
+              "inverse-on-surface": "#eff1f4",
+              "primary": "#00327d",
+              "secondary-fixed-dim": "#b6c6f3",
+              "surface-bright": "#f7f9fc",
+              "error": "#ba1a1a",
+              "surface-container": "#eceef1",
+              "secondary": "#4e5e85",
+              "secondary-fixed": "#dae2ff",
+              "on-secondary-container": "#4a5980",
+              "on-primary": "#ffffff",
+              "on-error-container": "#93000a",
+              "on-error": "#ffffff",
+              "tertiary-fixed": "#93f993",
+              "on-secondary-fixed-variant": "#37466c",
+              "on-primary-fixed": "#001946",
+              "surface-variant": "#e0e3e6",
+              "on-primary-container": "#a5bdff",
+              "primary-container": "#0047ab",
+              "on-tertiary-container": "#6fd372"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased">
+<!-- Background: Transactions Calendar (Simulated) -->
+<div class="fixed inset-0 z-0 overflow-hidden opacity-40 select-none pointer-events-none">
+<header class="flex items-center justify-between px-6 py-4 bg-slate-50">
+<div class="flex items-center gap-4">
+<div class="h-8 w-32 bg-slate-200 rounded"></div>
+<div class="h-8 w-64 bg-slate-200 rounded"></div>
+</div>
+<div class="h-10 w-10 bg-slate-200 rounded-full"></div>
+</header>
+<div class="p-6 grid grid-cols-7 gap-4 h-full">
+<div class="col-span-7 h-12 bg-slate-100 rounded-lg"></div>
+<!-- Calendar Grid Placeholder -->
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+<div class="h-4 w-12 bg-slate-100 mb-2"></div>
+<div class="h-6 w-full bg-blue-50 rounded mb-1"></div>
+<div class="h-6 w-full bg-slate-50 rounded"></div>
+</div>
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+<div class="h-4 w-12 bg-slate-100 mb-2"></div>
+<div class="h-6 w-3/4 bg-green-50 rounded"></div>
+</div>
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+<div class="h-4 w-12 bg-slate-100 mb-2"></div>
+</div>
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+<div class="h-4 w-12 bg-slate-100 mb-2"></div>
+<div class="h-6 w-full bg-red-50 rounded"></div>
+</div>
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4"></div>
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4"></div>
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4"></div>
+<!-- Row 2 -->
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4"></div>
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4"></div>
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+<div class="h-6 w-full bg-blue-50 rounded"></div>
+</div>
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4"></div>
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4"></div>
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4"></div>
+<div class="h-48 bg-white rounded-xl shadow-sm border border-slate-100 p-4"></div>
+</div>
+</div>
+<!-- Modal Backdrop -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-background/10 backdrop-blur-sm">
+<!-- Modal Content: Add New Transaction -->
+<div class="w-full max-w-2xl bg-surface-container-lowest rounded-xl shadow-[0px_12px_32px_rgba(25,28,30,0.04)] overflow-hidden">
+<!-- Modal Header -->
+<div class="px-8 pt-8 pb-4 flex justify-between items-center">
+<div>
+<h2 class="font-headline text-2xl font-bold text-primary tracking-tight">Add New Transaction</h2>
+<p class="font-body text-sm text-on-surface-variant mt-1">Record a new financial entry in your digital ledger.</p>
+</div>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Modal Form -->
+<form class="px-8 py-4 space-y-8">
+<!-- Bento Group: Transaction Essentials -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- Amount with Currency -->
+<div class="space-y-1">
+<label class="block font-label text-[0.6875rem] uppercase tracking-[0.05rem] text-on-surface-variant font-semibold">Amount</label>
+<div class="flex items-center border-b border-outline-variant focus-within:border-primary transition-all py-1">
+<span class="text-on-surface font-headline font-semibold mr-2">$</span>
+<input class="w-full border-none p-0 focus:ring-0 text-xl font-headline font-bold text-on-surface placeholder:text-outline-variant bg-transparent" placeholder="0.00" step="0.01" type="number"/>
+<select class="border-none p-0 focus:ring-0 text-xs font-label font-bold text-primary bg-transparent ml-2 cursor-pointer uppercase">
+<option>USD</option>
+<option>EUR</option>
+<option>GBP</option>
+</select>
+</div>
+</div>
+<!-- Date Picker -->
+<div class="space-y-1">
+<label class="block font-label text-[0.6875rem] uppercase tracking-[0.05rem] text-on-surface-variant font-semibold">Date</label>
+<div class="flex items-center border-b border-outline-variant focus-within:border-primary transition-all py-1">
+<input class="w-full border-none p-0 focus:ring-0 text-on-surface font-body bg-transparent" type="date" value="2023-11-20"/>
+<span class="material-symbols-outlined text-outline text-xl">calendar_today</span>
+</div>
+</div>
+</div>
+<!-- Bento Group: Classification -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- Category Dropdown -->
+<div class="space-y-1">
+<label class="block font-label text-[0.6875rem] uppercase tracking-[0.05rem] text-on-surface-variant font-semibold">Category</label>
+<div class="flex items-center border-b border-outline-variant focus-within:border-primary transition-all py-1">
+<span class="material-symbols-outlined text-outline mr-2">category</span>
+<select class="w-full border-none p-0 focus:ring-0 text-on-surface font-body bg-transparent cursor-pointer">
+<option>Select category</option>
+<option>Professional Services</option>
+<option>Infrastructure &amp; Hosting</option>
+<option>Marketing &amp; Ads</option>
+<option>Payroll &amp; Benefits</option>
+</select>
+</div>
+</div>
+<!-- Account Selector -->
+<div class="space-y-1">
+<label class="block font-label text-[0.6875rem] uppercase tracking-[0.05rem] text-on-surface-variant font-semibold">Account</label>
+<div class="flex items-center border-b border-outline-variant focus-within:border-primary transition-all py-1">
+<span class="material-symbols-outlined text-outline mr-2">account_balance</span>
+<select class="w-full border-none p-0 focus:ring-0 text-on-surface font-body bg-transparent cursor-pointer">
+<option>Business Checking (..4902)</option>
+<option>Operating Savings (..1182)</option>
+<option>Corporate Credit (..0034)</option>
+</select>
+</div>
+</div>
+</div>
+<!-- Bento Group: Ledger & Organization -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- Ledger Selector -->
+<div class="space-y-1">
+<label class="block font-label text-[0.6875rem] uppercase tracking-[0.05rem] text-on-surface-variant font-semibold">Ledger</label>
+<div class="flex items-center border-b border-outline-variant focus-within:border-primary transition-all py-1">
+<span class="material-symbols-outlined text-outline mr-2">account_tree</span>
+<select class="w-full border-none p-0 focus:ring-0 text-on-surface font-body bg-transparent cursor-pointer">
+<option>Operating Budget</option>
+<option>Capital Expenditures</option>
+<option>R&amp;D Reserves</option>
+</select>
+</div>
+</div>
+<!-- Description / Memo -->
+<div class="space-y-1">
+<label class="block font-label text-[0.6875rem] uppercase tracking-[0.05rem] text-on-surface-variant font-semibold">Memo</label>
+<div class="flex items-center border-b border-outline-variant focus-within:border-primary transition-all py-1">
+<input class="w-full border-none p-0 focus:ring-0 text-on-surface font-body bg-transparent placeholder:text-outline-variant" placeholder="Internal reference or notes" type="text"/>
+</div>
+</div>
+</div>
+<!-- Multi-select Chips: Tags -->
+<div class="space-y-3">
+<label class="block font-label text-[0.6875rem] uppercase tracking-[0.05rem] text-on-surface-variant font-semibold">Tags</label>
+<div class="flex flex-wrap gap-2">
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-container-high text-primary font-label text-xs font-semibold">
+                            Q4-Fiscal
+                            <button class="ml-1 leading-none hover:text-error transition-colors"><span class="material-symbols-outlined text-sm leading-none">close</span></button>
+</span>
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-container-high text-primary font-label text-xs font-semibold">
+                            SaaS-Project
+                            <button class="ml-1 leading-none hover:text-error transition-colors"><span class="material-symbols-outlined text-sm leading-none">close</span></button>
+</span>
+<button class="inline-flex items-center px-3 py-1 rounded-full border border-outline-variant border-dashed text-outline hover:border-primary hover:text-primary transition-all font-label text-xs">
+<span class="material-symbols-outlined text-sm mr-1">add</span>
+                            Add Tag
+                        </button>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="pt-6 pb-8 flex items-center justify-end gap-4">
+<button class="px-6 py-2.5 font-label font-semibold text-primary hover:bg-surface-container-low rounded-lg transition-colors active:scale-95 duration-150" type="button">
+                        Cancel
+                    </button>
+<button class="px-8 py-2.5 bg-gradient-to-br from-primary to-primary-container text-on-primary font-headline font-bold rounded-lg shadow-[0px_12px_32px_rgba(25,28,30,0.04)] hover:brightness-110 transition-all active:scale-[0.98] duration-150" type="submit">
+                        Save Transaction
+                    </button>
+</div>
+</form>
+</div>
+</div>
+</body></html>

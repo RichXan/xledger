@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "inverse-primary": "#b1c5ff",
+                        "primary-fixed": "#dae2ff",
+                        "on-primary-fixed-variant": "#00419e",
+                        "secondary-container": "#c1d1ff",
+                        "tertiary-container": "#005a19",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#002105",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#00400f",
+                        "on-tertiary-fixed-variant": "#005316",
+                        "primary-fixed-dim": "#b1c5ff",
+                        "surface-container-high": "#e6e8eb",
+                        "surface": "#f7f9fc",
+                        "outline": "#737784",
+                        "surface-dim": "#d8dadd",
+                        "on-secondary-fixed": "#081a3e",
+                        "on-secondary": "#ffffff",
+                        "on-background": "#191c1e",
+                        "tertiary-fixed-dim": "#77dc7a",
+                        "on-surface": "#191c1e",
+                        "surface-container-low": "#f2f4f7",
+                        "surface-container-highest": "#e0e3e6",
+                        "on-tertiary": "#ffffff",
+                        "outline-variant": "#c3c6d5",
+                        "inverse-surface": "#2d3133",
+                        "surface-tint": "#2559bd",
+                        "on-surface-variant": "#434653",
+                        "background": "#f7f9fc",
+                        "inverse-on-surface": "#eff1f4",
+                        "primary": "#00327d",
+                        "secondary-fixed-dim": "#b6c6f3",
+                        "surface-bright": "#f7f9fc",
+                        "error": "#ba1a1a",
+                        "surface-container": "#eceef1",
+                        "secondary": "#4e5e85",
+                        "secondary-fixed": "#dae2ff",
+                        "on-secondary-container": "#4a5980",
+                        "on-primary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed": "#93f993",
+                        "on-secondary-fixed-variant": "#37466c",
+                        "on-primary-fixed": "#001946",
+                        "surface-variant": "#e0e3e6",
+                        "on-primary-container": "#a5bdff",
+                        "primary-container": "#0047ab",
+                        "on-tertiary-container": "#6fd372"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-overlay {
+            backdrop-filter: blur(8px);
+            background-color: rgba(25, 28, 30, 0.4);
+        }
+        .glass-modal {
+            backdrop-filter: blur(12px);
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+        .cta-gradient {
+            background: linear-gradient(135deg, #00327d 0%, #0047ab 100%);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased">
+<!-- Underlying Page Mockup (Transactions) -->
+<div class="fixed inset-0 overflow-hidden flex">
+<!-- SideNavBar (Shared Component Integration) -->
+<aside class="fixed left-0 top-0 h-full w-64 border-r-0 bg-slate-50 flex flex-col p-4 space-y-2">
+<div class="mb-8 px-2">
+<h1 class="font-manrope font-extrabold text-blue-900 text-xl tracking-tight">xledger</h1>
+<p class="text-xs text-slate-500 font-manrope">Financial Precision</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-100 transition-transform duration-200 hover:translate-x-1 rounded-lg" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-manrope text-sm font-medium">Overview</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-100 transition-transform duration-200 hover:translate-x-1 rounded-lg" href="#">
+<span class="material-symbols-outlined">account_balance</span>
+<span class="font-manrope text-sm font-medium">Accounts</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-white text-blue-900 rounded-lg shadow-sm font-semibold transition-transform duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-manrope text-sm font-medium">Transactions</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-100 transition-transform duration-200 hover:translate-x-1 rounded-lg" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-manrope text-sm font-medium">Budgets</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-100 transition-transform duration-200 hover:translate-x-1 rounded-lg" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-manrope text-sm font-medium">Settings</span>
+</a>
+</nav>
+<button class="mt-4 cta-gradient text-white py-3 px-4 rounded-xl font-headline font-bold text-sm shadow-sm active:scale-95 transition-all">
+                Add Transaction
+            </button>
+<div class="mt-auto pt-4 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-100 rounded-lg text-sm" href="#">
+<span class="material-symbols-outlined">help</span>
+<span>Help Center</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-100 rounded-lg text-sm" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span>Log out</span>
+</a>
+</div>
+</aside>
+<!-- Content Canvas (Main Page Background) -->
+<main class="ml-64 flex-1 p-8 bg-surface overflow-y-auto">
+<header class="flex justify-between items-end mb-10">
+<div>
+<h2 class="font-headline text-3xl font-bold text-primary tracking-tight">Ledger Transactions</h2>
+<p class="text-on-surface-variant font-body mt-1">Review and manage your historical financial movements.</p>
+</div>
+</header>
+<!-- Bento Grid Content (Blurred behind modal) -->
+<div class="grid grid-cols-12 gap-6 opacity-40">
+<div class="col-span-12 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15">
+<div class="h-64 bg-surface-container-low rounded-lg animate-pulse"></div>
+</div>
+<div class="col-span-4 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15">
+<div class="h-32 bg-surface-container-low rounded-lg animate-pulse"></div>
+</div>
+<div class="col-span-8 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15">
+<div class="h-32 bg-surface-container-low rounded-lg animate-pulse"></div>
+</div>
+</div>
+</main>
+</div>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 glass-overlay">
+<!-- Modal Dialog -->
+<div class="glass-modal w-full max-w-2xl rounded-xl shadow-[0px_12px_32px_rgba(25,28,30,0.04)] overflow-hidden flex flex-col max-h-[921px]">
+<!-- Modal Header -->
+<div class="px-8 py-6 flex items-center justify-between">
+<div>
+<h3 class="font-headline text-2xl font-bold text-primary tracking-tight">Import Ledger Data</h3>
+<p class="text-on-surface-variant text-sm mt-1">Upload your financial statements to synchronize your ledger.</p>
+</div>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Modal Body -->
+<div class="px-8 pb-8 overflow-y-auto space-y-8">
+<!-- Drag and Drop Area -->
+<div class="relative group">
+<div class="border-2 border-dashed border-outline-variant rounded-xl p-10 flex flex-col items-center justify-center bg-surface-container-low/50 group-hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="w-16 h-16 bg-primary/5 rounded-full flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-primary text-3xl">cloud_upload</span>
+</div>
+<p class="font-headline font-semibold text-on-surface mb-1">Click to upload or drag and drop</p>
+<p class="text-on-surface-variant text-xs mb-6">Supported formats: .CSV, .XLSX (Max file size 10MB)</p>
+<button class="px-6 py-2 border border-primary text-primary rounded-lg font-headline font-bold text-sm hover:bg-primary/5 transition-colors">
+                            Select Files
+                        </button>
+</div>
+</div>
+<!-- Recent Imports Section -->
+<div>
+<div class="flex items-center justify-between mb-4">
+<h4 class="font-headline font-bold text-sm uppercase tracking-widest text-on-surface-variant">Recently Imported</h4>
+<span class="text-[10px] font-bold text-primary px-2 py-0.5 bg-primary/10 rounded-full">LIVE LOG</span>
+</div>
+<div class="space-y-3">
+<!-- File Row 1 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl border-l-4 border-tertiary-fixed transition-transform hover:translate-x-1 duration-200">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-surface-container-high rounded-lg flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div>
+<p class="font-headline font-bold text-sm text-on-surface">q3_revenue_statement.csv</p>
+<p class="text-[11px] text-on-surface-variant">Uploaded 2 mins ago • 4.2 MB</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-[11px] font-bold text-on-tertiary-fixed-variant uppercase tracking-tighter">Ready</span>
+</div>
+</div>
+<!-- File Row 2 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl border-l-4 border-secondary-container transition-transform hover:translate-x-1 duration-200">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-surface-container-high rounded-lg flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">table_chart</span>
+</div>
+<div>
+<p class="font-headline font-bold text-sm text-on-surface">operating_expenses_july.xlsx</p>
+<p class="text-[11px] text-on-surface-variant">Uploaded 1 hour ago • 1.8 MB</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-sm">schedule</span>
+<span class="text-[11px] font-bold text-on-secondary-fixed-variant uppercase tracking-tighter">In Progress</span>
+</div>
+</div>
+<!-- File Row 3 (Error State) -->
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl border-l-4 border-error-container transition-transform hover:translate-x-1 duration-200 opacity-75">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-surface-container-high rounded-lg flex items-center justify-center text-error">
+<span class="material-symbols-outlined">error</span>
+</div>
+<div>
+<p class="font-headline font-bold text-sm text-on-surface">payroll_export_v2.csv</p>
+<p class="text-[11px] text-on-surface-variant">Uploaded 4 hours ago • Invalid Column Mapping</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[11px] font-bold text-error uppercase tracking-tighter">Failed</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="px-8 py-6 bg-surface-container-low/50 flex items-center justify-between gap-4">
+<button class="px-6 py-2.5 text-on-surface-variant font-headline font-bold text-sm hover:text-on-surface transition-colors">
+                    Cancel
+                </button>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 bg-surface-container-high text-on-surface-variant rounded-lg font-headline font-bold text-sm hover:bg-surface-container-highest transition-colors">
+                        Clear All
+                    </button>
+<button class="px-8 py-2.5 cta-gradient text-white rounded-lg font-headline font-bold text-sm shadow-sm active:scale-95 transition-all flex items-center gap-2">
+                        Next: Map Fields
+                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

@@ -172,6 +172,9 @@ func (r slowTransactionRepo) ListByUser(string, accounting.TransactionQuery) ([]
 	time.Sleep(r.delay)
 	return []accounting.Transaction{{Type: accounting.TransactionTypeIncome, Amount: 1, OccurredAt: time.Now().UTC()}}, nil
 }
+func (r slowTransactionRepo) CountByUser(string, accounting.TransactionQuery) (int, error) {
+	return 0, nil
+}
 func (r slowTransactionRepo) ListByTransferPairForUser(string, string) ([]accounting.Transaction, error) {
 	panic("not used")
 }

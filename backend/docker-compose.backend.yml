@@ -1,14 +1,27 @@
 services:
-  xledger-backend:
-    image: golang:1.25
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: sh -lc "go test ./tests/integration -run TestE2E_CorePath_AuthToExport_WithoutN8N -count=1"
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      SMTP_HOST: smtp.example.com
-      SMTP_PORT: "587"
-      SMTP_USER: user@example.com
-      SMTP_PASS: replace-me
-      SMTP_FROM: notify@example.com
-      N8N_BASE_URL: http://127.0.0.1:9
+      POSTGRES_USER: xledger
+      POSTGRES_PASSWORD: xledger_secret
+      POSTGRES_DB: xledger
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xledger -d xledger"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
