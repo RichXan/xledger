@@ -8,7 +8,7 @@ export function AppShell({ children }: PropsWithChildren) {
       <SideNav />
       <div className="flex min-h-screen flex-1 flex-col">
         <TopBar />
-        <main className="flex-1 p-6 md:p-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1680px] flex-1 p-6 md:p-8">{children}</main>
       </div>
     </div>
   )

@@ -3,6 +3,7 @@ package accounting
 import (
 	"database/sql"
 	"errors"
+	"strconv"
 )
 
 type PostgresLedgerRepository struct {
@@ -429,12 +430,19 @@ func (r *PostgresTransactionRepository) UpdateTransferPairAmount(userID string, 
 	var accountID, categoryID, transferPairID, transferSide *string
 	var fromAccountID, toAccountID *string
 	err = tx.QueryRow(`
-		UPDATE transactions
-		SET amount = $3, version = version + 1
-		WHERE transfer_pair_id = $1 AND user_id = $2 AND deleted_at IS NULL
-		RETURNING id, user_id, ledger_id, account_id, category_id, category_name,
+		WITH updated AS (
+			UPDATE transactions
+			SET amount = $3, version = version + 1
+			WHERE transfer_pair_id = $1 AND user_id = $2 AND deleted_at IS NULL
+			RETURNING id, user_id, ledger_id, account_id, category_id, category_name,
+				from_account_id, to_account_id, transfer_pair_id, transfer_side,
+				type, amount, version, occurred_at
+		)
+		SELECT id, user_id, ledger_id, account_id, category_id, category_name,
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
 			type, amount, version, occurred_at
+		FROM updated
+		WHERE transfer_side = 'from'
 		LIMIT 1
 	`, pairID, userID, amount).Scan(
 		&updated.ID, &updated.UserID, &updated.LedgerID, &accountID, &categoryID, &updated.CategoryName,
@@ -713,5 +721,5 @@ func (r *PostgresTransactionRepository) MarkStatsInputRecalculated(userID string
 }
 
 func itoa(i int) string {
-	return string(rune('0' + i))
+	return strconv.Itoa(i)
 }

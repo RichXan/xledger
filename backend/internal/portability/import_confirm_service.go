@@ -15,6 +15,8 @@ type ImportRow struct {
 	Date        string  `json:"date"`
 	Amount      float64 `json:"amount"`
 	Description string  `json:"description"`
+	Type        string  `json:"type,omitempty"`
+	Category    string  `json:"category,omitempty"`
 }
 
 type ImportConfirmRequest struct {
@@ -61,6 +63,9 @@ func (s *ImportConfirmService) Confirm(userID string, idempotencyKey string, req
 		return job.Response, &contractError{code: IMPORT_DUPLICATE_REQUEST}
 	}
 	result := ImportConfirmResponse{Rows: make([]ImportConfirmRowResult, 0, len(req.Rows))}
+	txnWriter, hasTxnWriter := s.repo.(interface {
+		SaveImportedTransaction(userID string, row ImportRow) error
+	})
 	for idx, row := range req.Rows {
 		trimmedDate := strings.TrimSpace(row.Date)
 		trimmedDescription := strings.TrimSpace(row.Description)
@@ -76,6 +81,13 @@ func (s *ImportConfirmService) Confirm(userID string, idempotencyKey string, req
 			continue
 		}
 		s.repo.SaveRow(userID, stored)
+		if hasTxnWriter {
+			if err := txnWriter.SaveImportedTransaction(userID, row); err != nil {
+				result.FailCount++
+				result.Rows = append(result.Rows, ImportConfirmRowResult{RowIndex: idx, Status: "failed", Reason: "persist_failed"})
+				continue
+			}
+		}
 		result.SuccessCount++
 		result.Rows = append(result.Rows, ImportConfirmRowResult{RowIndex: idx, Status: "success"})
 	}

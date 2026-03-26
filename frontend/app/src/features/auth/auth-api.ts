@@ -11,6 +11,7 @@ export interface VerifyCodeResponse {
 
 export interface CurrentUserResponse {
   email: string
+  name?: string
 }
 
 export interface RefreshResponse {

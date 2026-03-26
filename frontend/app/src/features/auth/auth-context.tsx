@@ -16,6 +16,7 @@ interface AuthContextValue {
   isBootstrapping: boolean
   sendVerificationCode: (email: string) => Promise<void>
   verifyVerificationCode: (email: string, code: string) => Promise<void>
+  applyOAuthTokens: (accessToken: string, refreshToken: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -45,8 +46,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       try {
         const user = await getCurrentUser(session.accessToken)
-        if (isMounted && session.email !== user.email) {
-          persistSession({ ...session, email: user.email })
+        if (isMounted && (session.email !== user.email || session.name !== (user.name ?? null))) {
+          persistSession({ ...session, email: user.email, name: user.name ?? null })
         }
       } catch {
         if (!session.refreshToken) {
@@ -64,6 +65,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
               accessToken: tokens.access_token,
               refreshToken: tokens.refresh_token,
               email: user.email,
+              name: user.name ?? null,
             })
           }
         } catch {
@@ -97,6 +99,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         email: user.email,
+        name: user.name ?? null,
+      })
+    },
+    [persistSession],
+  )
+
+  const applyOAuthTokens = useCallback(
+    async (accessToken: string, refreshToken: string) => {
+      const user = await getCurrentUser(accessToken)
+      persistSession({
+        accessToken,
+        refreshToken,
+        email: user.email,
+        name: user.name ?? null,
       })
     },
     [persistSession],
@@ -120,9 +136,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isBootstrapping,
       sendVerificationCode,
       verifyVerificationCode,
+      applyOAuthTokens,
       logout,
     }),
-    [isBootstrapping, logout, sendVerificationCode, session, verifyVerificationCode],
+    [applyOAuthTokens, isBootstrapping, logout, sendVerificationCode, session, verifyVerificationCode],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
