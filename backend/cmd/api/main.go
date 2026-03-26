@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 
 	"xledger/backend/internal/bootstrap/config"
@@ -18,6 +19,8 @@ import (
 )
 
 func main() {
+	_ = godotenv.Load(".env")
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config error: %v", err)
@@ -36,6 +39,9 @@ func main() {
 		})
 		if err != nil {
 			log.Fatalf("database connection error: %v", err)
+		}
+		if err := infrastructure.ApplyMigrations(ctx, db, "migrations"); err != nil {
+			log.Fatalf("database migration error: %v", err)
 		}
 		defer db.Close()
 		log.Println("Connected to PostgreSQL")

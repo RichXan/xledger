@@ -26,10 +26,12 @@ type Dependencies struct {
 	ClassificationHandler *classification.Handler
 	PortabilityHandler    *portability.Handler
 	ReportingHandler      *reporting.Handler
+	UserIDResolver        userIDResolver
 }
 
 func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin.Engine, error) {
 	r := gin.New()
+	r.Use(gin.Logger())
 	if err := r.SetTrustedProxies(trustedProxies); err != nil {
 		return nil, fmt.Errorf("set trusted proxies: %w", err)
 	}
@@ -55,6 +57,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 	authGroup.GET("/me", handler.Me)
 	if handler.HasOAuthService() {
+		authGroup.GET("/google", handler.GoogleStart)
 		authGroup.GET("/google/callback", handler.GoogleCallback)
 	}
 	if handler.HasSessionService() {
@@ -75,7 +78,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 	if accountingHandler != nil {
 		accountingGroup := r.Group("/api")
-		accountingGroup.Use(accountingAuthMiddleware())
+		accountingGroup.Use(accountingAuthMiddleware(deps.UserIDResolver))
 		accountingGroup.GET("/ledgers", accountingHandler.ListLedgers)
 		accountingGroup.POST("/ledgers", accountingHandler.CreateLedger)
 		accountingGroup.PATCH("/ledgers/:id", accountingHandler.UpdateLedger)
@@ -98,7 +101,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 	if classificationHandler != nil {
 		classificationGroup := r.Group("/api")
-		classificationGroup.Use(accountingAuthMiddleware())
+		classificationGroup.Use(accountingAuthMiddleware(deps.UserIDResolver))
 		classificationGroup.GET("/categories", classificationHandler.ListCategories)
 		classificationGroup.POST("/categories", classificationHandler.CreateCategory)
 		classificationGroup.PATCH("/categories/:id", classificationHandler.UpdateCategory)
@@ -115,15 +118,15 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 	if portabilityHandler != nil {
 		portabilityGroup := r.Group("/api")
-		portabilityGroup.Use(accountingAuthMiddleware())
+		portabilityGroup.Use(accountingAuthMiddleware(deps.UserIDResolver))
 		portabilityGroup.POST("/import/csv", portabilityHandler.ImportPreview)
 		portabilityGroup.POST("/import/csv/confirm", portabilityHandler.ImportConfirm)
 		portabilityGroup.GET("/export", portabilityHandler.Export)
 		patGroup := r.Group("/api/personal-access-tokens")
-		patGroup.Use(accountingAuthMiddleware(), accessOnlyMiddleware())
+		patGroup.Use(accountingAuthMiddleware(deps.UserIDResolver), accessOnlyMiddleware())
 		patGroup.GET("", portabilityHandler.ListPATs)
 		patGroup.POST("", portabilityHandler.CreatePAT)
-		patGroup.DELETE(":id", portabilityHandler.RevokePAT)
+		patGroup.DELETE("/:id", portabilityHandler.RevokePAT)
 	}
 
 	if reportingHandler == nil {
@@ -131,7 +134,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 	if reportingHandler != nil {
 		reportingGroup := r.Group("/api")
-		reportingGroup.Use(accountingAuthMiddleware())
+		reportingGroup.Use(accountingAuthMiddleware(deps.UserIDResolver))
 		reportingGroup.GET("/stats/overview", reportingHandler.Overview)
 		reportingGroup.GET("/stats/trend", reportingHandler.Trend)
 		reportingGroup.GET("/stats/category", reportingHandler.Category)
@@ -142,13 +145,26 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 
 func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config) *gin.Engine {
 	authRepo := auth.NewPostgresRepository(db)
+	smtpSender := auth.NewSMTPMailSender(auth.SMTPConfig{
+		Host:     cfg.SMTPHost,
+		Port:     cfg.SMTPPort,
+		Username: cfg.SMTPUser,
+		Password: cfg.SMTPPass,
+		From:     cfg.SMTPFrom,
+	})
 	templateService := classification.NewTemplateService(classification.NewPostgresTemplateRepository(db))
 	sessionService := auth.NewSessionService(authRepo, &auth.SessionServiceOptions{
 		PostLoginBootstrap: templateService.EnsureUserDefaults,
 	}, time.Now)
-	codeService := auth.NewCodeService(authRepo, nil, auth.NewSessionTokenIssuer(sessionService), time.Now, nil)
+	codeService := auth.NewCodeService(authRepo, smtpSender, auth.NewSessionTokenIssuer(sessionService), time.Now, nil)
 	oauthService := auth.NewOAuthService(authRepo, sessionService, time.Now)
+	oauthService.SetGoogleProvider(auth.NewGoogleOAuthProvider(auth.GoogleOAuthConfig{
+		ClientID:     cfg.GoogleAuthClientID,
+		ClientSecret: cfg.GoogleAuthClientSecret,
+		RedirectURL:  cfg.GoogleAuthRedirectURL,
+	}))
 	authHandler := auth.NewHandlerWithServices(codeService, oauthService, sessionService)
+	authHandler.SetGoogleFrontendReturnURL(cfg.GoogleAuthFrontendReturn)
 
 	ledgerRepo := accounting.NewPostgresLedgerRepository(db)
 	accountRepo := accounting.NewPostgresAccountRepository(db)
@@ -185,6 +201,7 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config) *gin.Engine {
 		ClassificationHandler: classificationHandler,
 		PortabilityHandler:    portabilityHandler,
 		ReportingHandler:      reportingHandler,
+		UserIDResolver:        postgresUserIDResolver(db),
 	}
 
 	r, err := NewRouterWithDependencies(cfg.TrustedProxies, deps)

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -111,4 +112,63 @@ type PostgresImportJob struct {
 
 func (r *PostgresRepository) Now() time.Time {
 	return time.Now().UTC()
+}
+
+func (r *PostgresRepository) SaveImportedTransaction(userID string, row ImportRow) error {
+	trimmedUserID := strings.TrimSpace(userID)
+	trimmedDate := strings.TrimSpace(row.Date)
+	trimmedDescription := strings.TrimSpace(row.Description)
+	if trimmedUserID == "" || trimmedDate == "" || trimmedDescription == "" || row.Amount <= 0 || math.IsNaN(row.Amount) || math.IsInf(row.Amount, 0) {
+		return errors.New("invalid import row")
+	}
+
+	var ledgerID string
+	err := r.db.QueryRow(`
+		SELECT id::text
+		FROM ledgers
+		WHERE user_id = $1
+		ORDER BY is_default DESC, created_at ASC, id ASC
+		LIMIT 1
+	`, trimmedUserID).Scan(&ledgerID)
+	if err != nil {
+		return err
+	}
+
+	occurredAt, err := parseImportOccurredAt(trimmedDate)
+	if err != nil {
+		return err
+	}
+
+	txnType := strings.TrimSpace(strings.ToLower(row.Type))
+	if txnType != "income" && txnType != "expense" {
+		txnType = "expense"
+	}
+	amount := math.Abs(row.Amount)
+	categoryName := strings.TrimSpace(row.Category)
+
+	_, err = r.db.Exec(`
+		INSERT INTO transactions (
+			id, user_id, ledger_id, type, amount, occurred_at, category_name, created_at
+		)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW())
+	`, trimmedUserID, ledgerID, txnType, amount, occurredAt.UTC(), categoryName)
+	return err
+}
+
+func parseImportOccurredAt(value string) (time.Time, error) {
+	layouts := []string{
+		"2006/01/02 15:04",
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+		time.RFC3339,
+		"2006/01/02",
+		"2006-01-02",
+	}
+	trimmed := strings.TrimSpace(value)
+	for _, layout := range layouts {
+		if parsed, err := time.ParseInLocation(layout, trimmed, time.Local); err == nil {
+			return parsed, nil
+		}
+	}
+	return time.Time{}, errors.New("invalid occurred_at")
 }

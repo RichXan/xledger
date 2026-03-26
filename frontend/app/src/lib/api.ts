@@ -24,9 +24,10 @@ async function parseJson<T>(response: Response): Promise<T> {
 }
 
 export async function requestEnvelope<T>(input: string, init?: RequestInit): Promise<T> {
+  const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData
   const response = await fetch(`${API_BASE_URL}${input}`, {
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(init?.headers ?? {}),
     },
     ...init,
@@ -41,9 +42,10 @@ export async function requestEnvelope<T>(input: string, init?: RequestInit): Pro
 }
 
 export async function requestRaw<T>(input: string, init?: RequestInit): Promise<T> {
+  const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData
   const response = await fetch(`${API_BASE_URL}${input}`, {
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(init?.headers ?? {}),
     },
     ...init,

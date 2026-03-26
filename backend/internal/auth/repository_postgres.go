@@ -192,12 +192,36 @@ func (r *PostgresRepository) ReleaseSendLock(ctx context.Context, email string) 
 }
 
 func (r *PostgresRepository) CreateSession(ctx context.Context, email string) error {
+	return r.UpsertUser(ctx, email, "")
+}
+
+func (r *PostgresRepository) UpsertUser(ctx context.Context, email string, displayName string) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO users (id, email, created_at)
-		VALUES (gen_random_uuid(), $1, NOW())
-		ON CONFLICT (email) DO NOTHING
-	`, email)
+		INSERT INTO users (id, email, display_name, created_at)
+		VALUES (gen_random_uuid(), $1, $2, NOW())
+		ON CONFLICT (email) DO UPDATE SET
+			display_name = CASE
+				WHEN EXCLUDED.display_name = '' THEN users.display_name
+				ELSE EXCLUDED.display_name
+			END
+	`, email, displayName)
 	return err
+}
+
+func (r *PostgresRepository) GetUserDisplayName(ctx context.Context, email string) (string, bool, error) {
+	var displayName string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COALESCE(display_name, '')
+		FROM users
+		WHERE email = $1
+	`, email).Scan(&displayName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return displayName, true, nil
 }
 
 func (r *PostgresRepository) SaveOAuthStateNonce(ctx context.Context, state string, nonce string, ttl time.Duration) error {
@@ -216,6 +240,29 @@ func (r *PostgresRepository) SaveOAuthStateNonceForEmail(ctx context.Context, st
 func (r *PostgresRepository) ConsumeOAuthStateNonce(ctx context.Context, state string, nonce string) (bool, error) {
 	_, ok, err := r.ConsumeOAuthStateNonceForEmail(ctx, state, nonce)
 	return ok, err
+}
+
+func (r *PostgresRepository) CheckOAuthStateNonce(ctx context.Context, state string, nonce string) (bool, error) {
+	var storedNonce string
+	var expiresAt time.Time
+	err := r.db.QueryRowContext(ctx, `
+		SELECT nonce, expires_at
+		FROM oauth_states
+		WHERE state = $1
+	`, state).Scan(&storedNonce, &expiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if time.Now().UTC().After(expiresAt) {
+		return false, nil
+	}
+	if storedNonce != nonce {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (r *PostgresRepository) ConsumeOAuthStateNonceForEmail(ctx context.Context, state string, nonce string) (string, bool, error) {

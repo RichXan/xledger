@@ -14,6 +14,18 @@ export function LoginPage() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  function handleGoogleSignIn() {
+    const configuredBackendOrigin = (
+      (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env?.VITE_BACKEND_ORIGIN
+    )?.trim()
+    const fallbackOrigin =
+      window.location.port === '4173'
+        ? `${window.location.protocol}//${window.location.hostname}:8080`
+        : window.location.origin
+    const backendOrigin = configuredBackendOrigin || fallbackOrigin
+    window.location.href = `${backendOrigin}/api/auth/google`
+  }
+
   async function handleSendCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setPending(true)
@@ -112,7 +124,7 @@ export function LoginPage() {
               <Button className="w-full" type="submit" disabled={pending || !email || (codeSent && !code)}>
                 {codeSent ? 'Verify and Continue' : 'Send Verification Code'}
               </Button>
-              <Button className="w-full" type="button" variant="secondary">
+              <Button className="w-full" type="button" variant="secondary" onClick={handleGoogleSignIn}>
                 Continue with Google
               </Button>
             </div>

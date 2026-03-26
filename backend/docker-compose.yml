@@ -10,7 +10,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U xledger"]
       interval: 5s
@@ -36,6 +35,8 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "8080:8080"
     depends_on:
@@ -55,6 +56,19 @@ services:
       GIN_MODE: release
       AUTH_TOKEN_SECRET: change-me-in-production
       AUTH_CODE_PEPPER: change-me-in-production
+
+  xledger-frontend:
+    build:
+      context: ../frontend/app
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "4173:4173"
+    depends_on:
+      xledger-backend:
+        condition: service_started
+    environment:
+      VITE_API_PROXY_TARGET: "http://xledger-backend:8080"
 
 volumes:
   postgres_data:

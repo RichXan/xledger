@@ -3,8 +3,7 @@ CREATE TABLE categories (
     user_id UUID NOT NULL,
     name TEXT NOT NULL,
     parent_id UUID,
-    archived_at TIMESTAMPTZ,
-    CONSTRAINT fk_categories_parent_user FOREIGN KEY (parent_id, user_id) REFERENCES categories (id, user_id)
+    archived_at TIMESTAMPTZ
 );
 
 CREATE UNIQUE INDEX idx_categories_id_user
@@ -12,6 +11,10 @@ CREATE UNIQUE INDEX idx_categories_id_user
 
 CREATE INDEX idx_categories_user_parent
     ON categories (user_id, parent_id);
+
+ALTER TABLE categories
+    ADD CONSTRAINT fk_categories_parent_user
+    FOREIGN KEY (parent_id, user_id) REFERENCES categories (id, user_id);
 
 ALTER TABLE transactions
     ADD COLUMN category_id UUID,

@@ -11,8 +11,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -45,8 +46,6 @@ type SessionService struct {
 	postLoginBootstrap  func(ctx context.Context, userID string) error
 }
 
-var globalSessionTokenCounter int64
-
 func NewSessionService(repo CodeRepository, opts *SessionServiceOptions, now func() time.Time) *SessionService {
 	if now == nil {
 		now = time.Now
@@ -69,6 +68,10 @@ func NewSessionService(repo CodeRepository, opts *SessionServiceOptions, now fun
 }
 
 func (s *SessionService) IssueSession(ctx context.Context, email string) (TokenPair, error) {
+	return s.IssueSessionWithProfile(ctx, email, "")
+}
+
+func (s *SessionService) IssueSessionWithProfile(ctx context.Context, email string, displayName string) (TokenPair, error) {
 	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
 	if normalizedEmail == "" {
 		return TokenPair{}, &authError{code: AUTH_BAD_REQUEST, err: errors.New("email is required")}
@@ -80,11 +83,11 @@ func (s *SessionService) IssueSession(ctx context.Context, email string) (TokenP
 	if err != nil {
 		return TokenPair{}, fmt.Errorf("parse generated refresh token: %w", err)
 	}
+	if err := s.repo.UpsertUser(ctx, normalizedEmail, strings.TrimSpace(displayName)); err != nil {
+		return TokenPair{}, fmt.Errorf("create session: %w", err)
+	}
 	if err := s.repo.StoreRefreshToken(ctx, parsedRefresh.ID, parsedRefresh.Email, parsedRefresh.ExpiresAt); err != nil {
 		return TokenPair{}, fmt.Errorf("store refresh token: %w", err)
-	}
-	if err := s.repo.CreateSession(ctx, normalizedEmail); err != nil {
-		return TokenPair{}, fmt.Errorf("create session: %w", err)
 	}
 	if _, err := s.repo.EnsureDefaultLedger(ctx, normalizedEmail); err != nil {
 		return TokenPair{}, fmt.Errorf("bootstrap default ledger: %w", err)
@@ -99,6 +102,13 @@ func (s *SessionService) IssueSession(ctx context.Context, email string) (TokenP
 		AccessToken:  s.nextToken("access", normalizedEmail, now.Add(s.accessTTL)),
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func (s *SessionService) GetUserDisplayName(ctx context.Context, email string) (string, bool, error) {
+	if s == nil || s.repo == nil {
+		return "", false, nil
+	}
+	return s.repo.GetUserDisplayName(ctx, strings.TrimSpace(strings.ToLower(email)))
 }
 
 func (s *SessionService) Refresh(ctx context.Context, refreshToken string) (TokenPair, error) {
@@ -198,8 +208,7 @@ func ParseSessionToken(raw string) (SessionToken, error) {
 }
 
 func (s *SessionService) nextToken(tokenType string, email string, expiresAt time.Time) string {
-	next := atomic.AddInt64(&globalSessionTokenCounter, 1)
-	id := strconv.FormatInt(s.now().UnixNano(), 10) + "-" + strconv.FormatInt(next, 10)
+	id := uuid.NewString()
 	payload := tokenType + ":" + email + ":" + strconv.FormatInt(expiresAt.UTC().Unix(), 10) + ":" + id
 	return payload + ":" + signSessionToken(payload)
 }

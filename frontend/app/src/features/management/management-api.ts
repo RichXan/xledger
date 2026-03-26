@@ -54,8 +54,39 @@ export function createAccount(accessToken: string, input: { name: string; type: 
   })
 }
 
+export function updateAccount(accessToken: string, id: string, input: { name?: string; type?: string }) {
+  return requestEnvelope<AccountItem>(`/accounts/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(input),
+  })
+}
+
 export function getLedgers(accessToken: string) {
   return requestEnvelope<PaginatedResponse<LedgerItem>>('/ledgers', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+}
+
+export function createLedger(accessToken: string, input: { name: string; is_default?: boolean }) {
+  return requestEnvelope<LedgerItem>('/ledgers', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateLedger(accessToken: string, id: string, input: { name: string }) {
+  return requestEnvelope<LedgerItem>(`/ledgers/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(input),
+  })
+}
+
+export function deleteLedger(accessToken: string, id: string) {
+  return requestEnvelope<{ deleted: boolean }>(`/ledgers/${id}`, {
+    method: 'DELETE',
     headers: { Authorization: `Bearer ${accessToken}` },
   })
 }

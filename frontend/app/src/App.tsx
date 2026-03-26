@@ -7,6 +7,7 @@ import { AccountsPage } from '@/pages/accounts-page'
 import { LoginPage } from '@/pages/login-page'
 import { SettingsPage } from '@/pages/settings-page'
 import { TransactionsPage } from '@/pages/transactions-page'
+import { GoogleCallbackPage } from '@/pages/google-callback-page'
 
 function ProtectedLayout({ children }: { children: JSX.Element }) {
   return <RequireAuth>{children}</RequireAuth>
@@ -16,6 +17,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
       <Route
         path="/dashboard"
         element={
