@@ -2,6 +2,7 @@ export interface AuthSession {
   accessToken: string
   refreshToken: string
   email: string | null
+  name?: string | null
 }
 
 const STORAGE_KEY = 'xledger.auth'

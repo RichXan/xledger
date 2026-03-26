@@ -1,6 +1,8 @@
 package portability
 
 import (
+	"errors"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -88,6 +90,15 @@ func (r *Repository) StoredRowCount(userID string) int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return len(r.rows[userID])
+}
+
+func (r *Repository) SaveImportedTransaction(userID string, row ImportRow) error {
+	trimmedDate := strings.TrimSpace(row.Date)
+	trimmedDesc := strings.TrimSpace(row.Description)
+	if trimmedDate == "" || trimmedDesc == "" || row.Amount <= 0 || math.IsNaN(row.Amount) || math.IsInf(row.Amount, 0) {
+		return errors.New("invalid import row")
+	}
+	return nil
 }
 
 func (r *Repository) Now() time.Time {

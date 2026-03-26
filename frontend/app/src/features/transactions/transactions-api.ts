@@ -57,8 +57,46 @@ export interface ImportPreviewResponse {
   mappingCandidates: string[]
 }
 
-export function getTransactions(accessToken: string) {
-  const params = new URLSearchParams({ page: '1', page_size: '20' })
+export interface ImportConfirmResultRow {
+  row_index: number
+  status: string
+  reason?: string
+}
+
+export interface ImportConfirmResponse {
+  success_count: number
+  skip_count: number
+  fail_count: number
+  rows: ImportConfirmResultRow[]
+}
+
+export function getTransactions(
+  accessToken: string,
+  options?: {
+    page?: number
+    pageSize?: number
+    dateFrom?: string
+    dateTo?: string
+    accountId?: string
+    ledgerId?: string
+  },
+) {
+  const params = new URLSearchParams({
+    page: String(options?.page ?? 1),
+    page_size: String(options?.pageSize ?? 20),
+  })
+  if (options?.dateFrom) {
+    params.set('date_from', options.dateFrom)
+  }
+  if (options?.dateTo) {
+    params.set('date_to', options.dateTo)
+  }
+  if (options?.accountId) {
+    params.set('account_id', options.accountId)
+  }
+  if (options?.ledgerId) {
+    params.set('ledger_id', options.ledgerId)
+  }
   return requestEnvelope<PaginatedResponse<TransactionRecord>>(`/transactions?${params.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
@@ -103,6 +141,20 @@ export function previewImport(accessToken: string, file: File) {
   return requestEnvelope<ImportPreviewResponse>('/import/csv', {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}` },
+    body: formData,
+  })
+}
+
+export function confirmImport(accessToken: string, file: File, idempotencyKey: string) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return requestEnvelope<ImportConfirmResponse>('/import/csv/confirm', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'X-Idempotency-Key': idempotencyKey,
+    },
     body: formData,
   })
 }

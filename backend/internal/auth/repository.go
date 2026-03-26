@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 )
@@ -22,8 +23,11 @@ type CodeRepository interface {
 	AcquireSendLock(ctx context.Context, email string, at time.Time, ttl time.Duration) (bool, error)
 	ReleaseSendLock(ctx context.Context, email string) error
 	CreateSession(ctx context.Context, email string) error
+	UpsertUser(ctx context.Context, email string, displayName string) error
+	GetUserDisplayName(ctx context.Context, email string) (string, bool, error)
 	SaveOAuthStateNonce(ctx context.Context, state string, nonce string, ttl time.Duration) error
 	SaveOAuthStateNonceForEmail(ctx context.Context, state string, nonce string, email string, ttl time.Duration) error
+	CheckOAuthStateNonce(ctx context.Context, state string, nonce string) (bool, error)
 	ConsumeOAuthStateNonce(ctx context.Context, state string, nonce string) (bool, error)
 	ConsumeOAuthStateNonceForEmail(ctx context.Context, state string, nonce string) (string, bool, error)
 	StoreRefreshToken(ctx context.Context, tokenID string, email string, expiresAt time.Time) error
@@ -92,6 +96,7 @@ type InMemoryRepository struct {
 	blacklist  map[string]inMemoryTimestamp
 	alerts     map[string]int
 	ledgers    map[string]int
+	userNames  map[string]string
 	forcedLag  time.Duration
 	sessionCnt int
 }
@@ -112,6 +117,7 @@ func NewInMemoryRepository(now func() time.Time) *InMemoryRepository {
 		blacklist:  make(map[string]inMemoryTimestamp),
 		alerts:     make(map[string]int),
 		ledgers:    make(map[string]int),
+		userNames:  make(map[string]string),
 	}
 }
 
@@ -250,13 +256,34 @@ func (r *InMemoryRepository) ReleaseSendLock(_ context.Context, email string) er
 	return nil
 }
 
-func (r *InMemoryRepository) CreateSession(_ context.Context, _ string) error {
+func (r *InMemoryRepository) CreateSession(ctx context.Context, email string) error {
+	return r.UpsertUser(ctx, email, "")
+}
+
+func (r *InMemoryRepository) UpsertUser(_ context.Context, email string, displayName string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.cleanupExpiredLocked(r.now())
 
+	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
+	if normalizedEmail != "" {
+		trimmedName := strings.TrimSpace(displayName)
+		if trimmedName != "" {
+			r.userNames[normalizedEmail] = trimmedName
+		}
+	}
 	r.sessionCnt++
 	return nil
+}
+
+func (r *InMemoryRepository) GetUserDisplayName(_ context.Context, email string) (string, bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
+
+	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
+	name, ok := r.userNames[normalizedEmail]
+	return name, ok, nil
 }
 
 func (r *InMemoryRepository) SaveOAuthStateNonce(_ context.Context, state string, nonce string, ttl time.Duration) error {
@@ -275,6 +302,21 @@ func (r *InMemoryRepository) SaveOAuthStateNonceForEmail(_ context.Context, stat
 func (r *InMemoryRepository) ConsumeOAuthStateNonce(_ context.Context, state string, nonce string) (bool, error) {
 	_, ok, err := r.ConsumeOAuthStateNonceForEmail(context.Background(), state, nonce)
 	return ok, err
+}
+
+func (r *InMemoryRepository) CheckOAuthStateNonce(_ context.Context, state string, nonce string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
+
+	record, ok := r.oauthState[state]
+	if !ok {
+		return false, nil
+	}
+	if !secureCodeEqual(record.nonce, nonce) {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (r *InMemoryRepository) ConsumeOAuthStateNonceForEmail(_ context.Context, state string, nonce string) (string, bool, error) {

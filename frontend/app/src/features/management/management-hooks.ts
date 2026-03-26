@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/auth-context'
 import {
   createAccount,
+  createLedger,
   createPAT,
+  deleteLedger,
   exportCsv,
   getAccounts,
   getCategories,
@@ -10,6 +12,8 @@ import {
   getPATs,
   getTags,
   revokePAT,
+  updateLedger,
+  updateAccount,
 } from './management-api'
 
 export function useManagementOverview() {
@@ -50,6 +54,58 @@ export function useCreateAccount() {
     mutationFn: (input: { name: string; type: string; initial_balance: number }) => createAccount(session!.accessToken, input),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['management', 'accounts'] })
+    },
+  })
+}
+
+export function useCreateLedger() {
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: { name: string; is_default?: boolean }) => createLedger(session!.accessToken, input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['management', 'ledgers'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'ledgers'] })
+    },
+  })
+}
+
+export function useUpdateLedger() {
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: { id: string; name: string }) => updateLedger(session!.accessToken, input.id, { name: input.name }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['management', 'ledgers'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'ledgers'] })
+    },
+  })
+}
+
+export function useDeleteLedger() {
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => deleteLedger(session!.accessToken, id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['management', 'ledgers'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'ledgers'] })
+    },
+  })
+}
+
+export function useUpdateAccount() {
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: { id: string; name?: string; type?: string }) => updateAccount(session!.accessToken, input.id, { name: input.name, type: input.type }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['management', 'accounts'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'accounts'] })
     },
   })
 }

@@ -3,6 +3,8 @@ package classification
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"strings"
 )
 
 type PostgresTemplateRepository struct {
@@ -20,10 +22,24 @@ func (r *PostgresTemplateRepository) CopyDefaultTemplateToUser(ctx context.Conte
 	}
 	defer tx.Rollback()
 
+	var resolvedUserID string
+	err = tx.QueryRowContext(ctx, `
+		SELECT id::text
+		FROM users
+		WHERE id::text = $1 OR email = $1
+		LIMIT 1
+	`, strings.TrimSpace(strings.ToLower(userID))).Scan(&resolvedUserID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
 	var exists bool
 	err = tx.QueryRowContext(ctx, `
 		SELECT EXISTS(SELECT 1 FROM user_category_templates WHERE user_id = $1)
-	`, userID).Scan(&exists)
+	`, resolvedUserID).Scan(&exists)
 	if err != nil {
 		return false, err
 	}
@@ -69,7 +85,7 @@ func (r *PostgresTemplateRepository) CopyDefaultTemplateToUser(ctx context.Conte
 			INSERT INTO categories (id, user_id, name, parent_id, created_at)
 			VALUES (gen_random_uuid(), $1, $2, $3, NOW())
 			RETURNING id
-		`, userID, dc.Name, parentID).Scan(&newID)
+		`, resolvedUserID, dc.Name, parentID).Scan(&newID)
 		if err != nil {
 			return false, err
 		}
@@ -79,7 +95,7 @@ func (r *PostgresTemplateRepository) CopyDefaultTemplateToUser(ctx context.Conte
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO user_category_templates (user_id, copied_at)
 		VALUES ($1, NOW())
-	`, userID)
+	`, resolvedUserID)
 	if err != nil {
 		return false, err
 	}

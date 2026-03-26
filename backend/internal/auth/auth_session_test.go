@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func TestGoogleCallback_ValidatesStateNonce(t *testing.T) {
@@ -188,6 +189,25 @@ func TestRefresh_ExpiryIsSevenDays(t *testing.T) {
 	}
 	if parsed.ExpiresAt.Sub(now) != 7*24*time.Hour {
 		t.Fatalf("expected refresh expiry to be 7 days, got %s", parsed.ExpiresAt.Sub(now))
+	}
+}
+
+func TestIssueSession_RefreshTokenIDIsUUID(t *testing.T) {
+	now := time.Date(2026, 3, 20, 12, 27, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	svc := NewSessionService(repo, nil, func() time.Time { return now })
+
+	pair, err := svc.IssueSession(context.Background(), "uuid-refresh@example.com")
+	if err != nil {
+		t.Fatalf("issue session: %v", err)
+	}
+
+	parsed, err := ParseSessionToken(pair.RefreshToken)
+	if err != nil {
+		t.Fatalf("parse refresh token: %v", err)
+	}
+	if _, err := uuid.Parse(parsed.ID); err != nil {
+		t.Fatalf("expected refresh token id to be uuid, got %q", parsed.ID)
 	}
 }
 

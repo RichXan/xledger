@@ -35,11 +35,17 @@ export function getOverviewStats(accessToken: string) {
   })
 }
 
-export function getTrendStats(accessToken: string, from: string, to: string, timezone: string) {
+export function getTrendStats(
+  accessToken: string,
+  from: string,
+  to: string,
+  timezone: string,
+  granularity: 'day' | 'month' = 'day',
+) {
   const params = new URLSearchParams({
     from,
     to,
-    granularity: 'day',
+    granularity,
     timezone,
   })
 

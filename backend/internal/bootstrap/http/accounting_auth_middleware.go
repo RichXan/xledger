@@ -1,8 +1,11 @@
 package http
 
 import (
+	"context"
 	"crypto/sha1"
+	"database/sql"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -12,7 +15,9 @@ import (
 	"xledger/backend/internal/auth"
 )
 
-func accountingAuthMiddleware() gin.HandlerFunc {
+type userIDResolver func(ctx context.Context, email string) (string, error)
+
+func accountingAuthMiddleware(resolver userIDResolver) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := strings.TrimSpace(c.GetHeader("Authorization"))
 		if strings.HasPrefix(strings.ToLower(token), "bearer ") {
@@ -30,7 +35,21 @@ func accountingAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("user_id", stableUserIDFromEmail(email))
+		resolvedUserID := stableUserIDFromEmail(email)
+		if resolver != nil {
+			value, err := resolver(c.Request.Context(), email)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+				return
+			}
+			resolvedUserID = strings.TrimSpace(value)
+			if resolvedUserID == "" {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+				return
+			}
+		}
+
+		c.Set("user_id", resolvedUserID)
 		c.Next()
 	}
 }
@@ -67,4 +86,21 @@ func stableUserIDFromEmail(email string) string {
 	bytes[8] = (bytes[8] & 0x3f) | 0x80
 	hexID := hex.EncodeToString(bytes)
 	return hexID[0:8] + "-" + hexID[8:12] + "-" + hexID[12:16] + "-" + hexID[16:20] + "-" + hexID[20:32]
+}
+
+func postgresUserIDResolver(db *sql.DB) userIDResolver {
+	if db == nil {
+		return nil
+	}
+	return func(ctx context.Context, email string) (string, error) {
+		var userID string
+		err := db.QueryRowContext(ctx, `SELECT id::text FROM users WHERE email = $1`, strings.TrimSpace(strings.ToLower(email))).Scan(&userID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", err
+		}
+		if err != nil {
+			return "", err
+		}
+		return userID, nil
+	}
 }
