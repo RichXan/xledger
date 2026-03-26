@@ -2,6 +2,7 @@ package portability
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -33,11 +34,19 @@ func (r *PostgresRepository) FindJob(userID string, path string, idempotencyKey 
 	if err != nil {
 		return importJob{}, false
 	}
+	if strings.TrimSpace(responseJSON) != "" {
+		if err := json.Unmarshal([]byte(responseJSON), &job.Response); err != nil {
+			return importJob{}, false
+		}
+	}
 	return job, true
 }
 
 func (r *PostgresRepository) SaveJob(job importJob) {
-	responseJSON := "{}"
+	responseJSON, err := json.Marshal(job.Response)
+	if err != nil {
+		responseJSON = []byte("{}")
+	}
 	r.db.Exec(`
 		INSERT INTO import_jobs (user_id, path, idempotency_key, created_at, response_json, error_code)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -45,7 +54,7 @@ func (r *PostgresRepository) SaveJob(job importJob) {
 			response_json = EXCLUDED.response_json,
 			error_code = EXCLUDED.error_code,
 			created_at = EXCLUDED.created_at
-	`, job.UserID, job.Path, job.IdempotencyKey, job.CreatedAt, responseJSON, job.ErrorCode)
+	`, job.UserID, job.Path, job.IdempotencyKey, job.CreatedAt, string(responseJSON), job.ErrorCode)
 }
 
 func (r *PostgresRepository) HasTriple(userID string, row storedImportRow) bool {

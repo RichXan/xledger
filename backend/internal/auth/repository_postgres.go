@@ -357,7 +357,7 @@ func (r *PostgresRepository) EnsureDefaultLedger(ctx context.Context, email stri
 
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO ledgers (id, user_id, name, is_default)
-		SELECT gen_random_uuid(), u.id, '总账本', true
+		SELECT gen_random_uuid(), u.id, 'Default Ledger', true
 		FROM users u WHERE u.email = $1
 	`, email)
 	if err != nil {
