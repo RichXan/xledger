@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronLeft, ChevronRight, Search, Upload } from 'lucide-react'
+﻿import { ChevronLeft, ChevronRight, Search, Upload } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/ui/dialog-shell'
@@ -46,6 +46,7 @@ export function TransactionsPage() {
   const [memo, setMemo] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [importFile, setImportFile] = useState<File | null>(null)
+  const [dateRangePreset, setDateRangePreset] = useState<'7' | '30' | '120' | '365'>('120')
 
   const monthCells = useMemo(() => getMonthGrid(activeMonth), [activeMonth])
   const monthRange = useMemo(() => {
@@ -59,12 +60,13 @@ export function TransactionsPage() {
   const listRange = useMemo(() => {
     const now = new Date()
     const start = new Date(now)
-    start.setDate(now.getDate() - 120)
+    const days = Number(dateRangePreset)
+    start.setDate(now.getDate() - days)
     return {
       from: start.toISOString(),
       to: now.toISOString(),
     }
-  }, [])
+  }, [dateRangePreset])
 
   const calendarTransactionsQuery = useTransactionsWithOptions({
     page: 1,
@@ -128,6 +130,7 @@ export function TransactionsPage() {
       category_id: categoryId || undefined,
       type: transactionType,
       amount: Number(amount),
+      memo: memo || undefined,
     })
     setShowAddDialog(false)
     setAmount('')
@@ -149,22 +152,22 @@ export function TransactionsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-[28px] bg-surface-container-lowest p-6 shadow-ambient md:p-8">
+    <div className="space-y-5">
+      <section className="rounded-[28px] border border-outline/15 bg-surface-container-lowest p-6 shadow-ambient md:p-7">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <h2 className="font-headline text-4xl font-extrabold tracking-tight text-primary">Transactions</h2>
-            <div className="inline-flex rounded-xl bg-surface-container p-1">
+            <h2 className="font-headline text-[48px] font-extrabold leading-none tracking-tight text-primary">Transactions</h2>
+            <div className="inline-flex rounded-xl border border-outline/15 bg-surface-container p-1">
               <button
                 type="button"
-                className={`rounded-lg px-4 py-2 text-xs font-semibold ${view === 'list' ? 'bg-white text-primary' : 'text-on-surface-variant'}`}
+                className={`rounded-lg px-4 py-2 text-xs font-semibold ${view === 'list' ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant hover:text-primary'}`}
                 onClick={() => setView('list')}
               >
                 List View
               </button>
               <button
                 type="button"
-                className={`rounded-lg px-4 py-2 text-xs font-semibold ${view === 'calendar' ? 'bg-white text-primary' : 'text-on-surface-variant'}`}
+                className={`rounded-lg px-4 py-2 text-xs font-semibold ${view === 'calendar' ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant hover:text-primary'}`}
                 onClick={() => setView('calendar')}
               >
                 Calendar View
@@ -182,24 +185,24 @@ export function TransactionsPage() {
 
         {view === 'list' ? (
           <div className="mt-6 space-y-4">
-            <article className="rounded-2xl border border-outline/15 bg-surface-container-low p-5">
+            <article className="rounded-2xl border border-outline/10 bg-surface-container-low p-5">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <label className="space-y-2">
                   <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Search Ledger</span>
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
-                    <input className="h-10 w-full rounded-lg border border-outline/20 bg-white pl-9 pr-3 text-sm" placeholder="Transaction ID, vendor, or note..." />
+                    <input className="h-11 w-full rounded-xl border border-outline/20 bg-white pl-9 pr-3 text-sm" placeholder="Transaction ID, vendor, or note..." />
                   </div>
                 </label>
                 <label className="space-y-2">
                   <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Account</span>
-                  <select className="h-10 w-full rounded-lg border border-outline/20 bg-white px-3 text-sm">
+                  <select className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm">
                     <option>All Accounts</option>
                   </select>
                 </label>
                 <label className="space-y-2">
                   <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Ledger</span>
-                  <select className="h-10 w-full rounded-lg border border-outline/20 bg-white px-3 text-sm">
+                  <select className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm">
                     {ledgers.slice(0, 1).map((ledger) => (
                       <option key={ledger.id}>{ledger.name}</option>
                     ))}
@@ -207,27 +210,34 @@ export function TransactionsPage() {
                 </label>
                 <label className="space-y-2">
                   <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Date Range</span>
-                  <button type="button" className="flex h-10 w-full items-center justify-between rounded-lg border border-outline/20 bg-white px-3 text-sm">
-                    <span>Last 120 Days</span>
-                    <CalendarDays className="h-4 w-4 text-on-surface-variant" />
-                  </button>
+                  <select
+                    className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm"
+                    value={dateRangePreset}
+                    onChange={(event) => setDateRangePreset(event.target.value as '7' | '30' | '120' | '365')}
+                  >
+                    <option value="7">Last 7 Days</option>
+                    <option value="30">Last 30 Days</option>
+                    <option value="120">Last 120 Days</option>
+                    <option value="365">Last 365 Days</option>
+                  </select>
                 </label>
               </div>
             </article>
 
             <article className="overflow-hidden rounded-2xl border border-outline/15 bg-white">
-              <div className="grid grid-cols-[2fr_1.2fr_1fr_0.8fr_1fr] bg-surface-container-low px-5 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+              <div className="grid grid-cols-[1.7fr_1fr_1fr_1fr_0.8fr_1fr] bg-surface-container-low px-5 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
                 <p>Transaction & Category</p>
                 <p>Account / Ledger</p>
                 <p>Date & Time</p>
+                <p>Income / Expense Note</p>
                 <p>Tags</p>
                 <p className="text-right">Amount</p>
               </div>
               {listTransactions.map((tx) => (
-                <div key={tx.id} className="grid grid-cols-[2fr_1.2fr_1fr_0.8fr_1fr] items-center border-t border-outline/10 px-5 py-4">
+                <div key={tx.id} className="grid grid-cols-[1.7fr_1fr_1fr_1fr_0.8fr_1fr] items-center border-t border-outline/10 px-5 py-4">
                   <div>
                     <p className="font-semibold text-on-surface">{tx.category_name ?? 'Uncategorized'}</p>
-                    <p className="text-xs text-on-surface-variant">Transaction {tx.id.slice(0, 8)}</p>
+                    <p className="text-xs text-on-surface-variant">备注：{tx.memo?.trim() || '暂无备注'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-on-surface">{accounts[0]?.name ?? 'Account'}</p>
@@ -238,26 +248,35 @@ export function TransactionsPage() {
                     <p className="text-xs text-on-surface-variant">{new Date(tx.occurred_at).toLocaleTimeString()}</p>
                   </div>
                   <div>
+                    <p className="text-xs font-semibold uppercase text-on-surface">{tx.type === 'income' ? 'Income' : tx.type === 'expense' ? 'Expense' : 'Transfer'}</p>
+                    <p className="mt-1 text-xs text-on-surface-variant">{tx.memo?.trim() || (tx.type === 'income' ? 'Incoming flow' : tx.type === 'expense' ? 'Outgoing payment' : 'Internal transfer')}</p>
+                  </div>
+                  <div>
                     <span className="rounded-full bg-surface-container-low px-2 py-1 text-[10px] font-semibold uppercase text-on-surface-variant">
                       {tx.type}
                     </span>
                   </div>
-                  <p className={`text-right text-2xl font-extrabold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  <p className={`text-right text-4xl font-extrabold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {tx.type === 'income' ? '+' : '-'}
                     {formatCurrency(Math.abs(tx.amount))}
                   </p>
                 </div>
               ))}
+              {listTransactions.length === 0 ? (
+                <div className="border-t border-outline/10 px-5 py-8 text-center text-sm text-on-surface-variant">
+                  No transactions yet.
+                </div>
+              ) : null}
             </article>
           </div>
         ) : (
-          <div className="mt-6 grid gap-4 xl:grid-cols-[1.45fr_0.85fr]">
+          <div className="mt-6 grid gap-4 xl:grid-cols-[1.5fr_0.85fr]">
             <article className="rounded-2xl border border-outline/15 bg-white p-5">
               <div className="mb-4 flex items-center gap-3">
                 <button type="button" onClick={() => setActiveMonth(new Date(activeMonth.getFullYear(), activeMonth.getMonth() - 1, 1))}>
                   <ChevronLeft className="h-4 w-4 text-primary" />
                 </button>
-                <h3 className="font-headline text-3xl font-bold text-on-surface">
+                <h3 className="font-headline text-4xl font-bold text-on-surface">
                   {activeMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
                 </h3>
                 <button type="button" onClick={() => setActiveMonth(new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 1))}>
@@ -291,7 +310,7 @@ export function TransactionsPage() {
                       key={key}
                       type="button"
                       className={`min-h-[112px] border border-outline/10 p-2 text-left transition ${
-                        selected ? 'bg-blue-50 ring-1 ring-primary' : inMonth ? 'bg-white' : 'bg-surface-container-low'
+                        selected ? 'bg-blue-50 ring-1 ring-primary' : inMonth ? 'bg-white hover:bg-surface-container-low' : 'bg-surface-container-low'
                       }`}
                       onClick={() => setSelectedDay(key)}
                     >
@@ -307,19 +326,19 @@ export function TransactionsPage() {
             </article>
 
             <div className="space-y-4">
-              <article className="rounded-2xl border border-primary/60 bg-white p-5">
+              <article className="rounded-2xl border border-primary/45 bg-white p-5">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Daily Summary</p>
-                <h4 className="mt-2 font-headline text-3xl font-bold text-on-surface">
+                <h4 className="mt-2 font-headline text-5xl font-bold text-on-surface">
                   {new Date(effectiveSelectedDay).toLocaleDateString()}
                 </h4>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-surface-container-low p-3">
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">Total Out</p>
-                    <p className="mt-2 font-headline text-3xl font-extrabold text-rose-700">-{formatCurrency(selectedTotals.out)}</p>
+                    <p className="mt-2 font-headline text-4xl font-extrabold text-rose-700">-{formatCurrency(selectedTotals.out)}</p>
                   </div>
                   <div className="rounded-xl bg-surface-container-low p-3">
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">Total In</p>
-                    <p className="mt-2 font-headline text-3xl font-extrabold text-emerald-700">+{formatCurrency(selectedTotals.in)}</p>
+                    <p className="mt-2 font-headline text-4xl font-extrabold text-emerald-700">+{formatCurrency(selectedTotals.in)}</p>
                   </div>
                 </div>
                 <div className="mt-5 space-y-3">
@@ -340,7 +359,7 @@ export function TransactionsPage() {
               </article>
               <article className="rounded-2xl bg-primary p-5 text-white">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-fixed">Month Projection</p>
-                <p className="mt-3 font-headline text-4xl font-extrabold">{formatCurrency(selectedTotals.in - selectedTotals.out)}</p>
+                <p className="mt-3 font-headline text-5xl font-extrabold">{formatCurrency(selectedTotals.in - selectedTotals.out)}</p>
                 <p className="mt-2 text-xs text-primary-fixed">Based on selected day flow</p>
               </article>
             </div>
@@ -370,14 +389,14 @@ export function TransactionsPage() {
               className="flex min-h-60 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-outline-variant bg-surface-container-low p-8 text-center"
             >
               <Upload className="h-10 w-10 text-primary" />
-              <p className="mt-4 text-2xl font-semibold text-on-surface">Click to upload or drag and drop</p>
+              <p className="mt-4 text-3xl font-semibold text-on-surface">Click to upload or drag and drop</p>
               <p className="mt-2 text-sm text-on-surface-variant">Supported formats: .CSV (max file size 10MB)</p>
               <span className="mt-6 rounded-lg border border-primary px-6 py-2 text-sm font-semibold text-primary">Select Files</span>
               <input id="csv-file" type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => setImportFile(event.target.files?.[0] ?? null)} />
             </label>
             {importFile ? <p className="text-sm text-on-surface">Selected: {importFile.name}</p> : null}
             {importPreviewMutation.data ? (
-              <div className="rounded-xl bg-surface-container-low p-4">
+              <div className="rounded-xl border border-outline/10 bg-surface-container-low p-4">
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">Detected Columns</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {importPreviewMutation.data.columns.map((column) => (
@@ -411,7 +430,7 @@ export function TransactionsPage() {
             </>
           }
         >
-          <form id="add-transaction-form" className="grid gap-6 md:grid-cols-2" onSubmit={(event) => void handleCreateTransaction(event)}>
+          <form id="add-transaction-form" className="grid gap-5 md:grid-cols-2" onSubmit={(event) => void handleCreateTransaction(event)}>
             <TextField label="Amount" type="number" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" />
             <TextField label="Date" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
             <SelectField label="Category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
@@ -460,3 +479,4 @@ export function TransactionsPage() {
     </div>
   )
 }
+

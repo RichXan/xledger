@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -52,6 +53,12 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	authGroup.Use(rejectPATOnAuthEndpoints())
 	authGroup.POST("/send-code", handler.SendCode)
 	authGroup.POST("/verify-code", handler.VerifyCode)
+	if handler.HasSessionService() {
+		authGroup.POST("/register", handler.RegisterWithPassword)
+		authGroup.POST("/login", handler.LoginWithPassword)
+		authGroup.POST("/change-password", handler.ChangePassword)
+		authGroup.PATCH("/profile", handler.UpdateProfile)
+	}
 	if gin.Mode() != gin.ReleaseMode && handler.HasSessionService() {
 		authGroup.POST("/dev-login", handler.DevLogin)
 	}
@@ -145,18 +152,21 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 
 func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config) *gin.Engine {
 	authRepo := auth.NewPostgresRepository(db)
-	smtpSender := auth.NewSMTPMailSender(auth.SMTPConfig{
+	var mailSender auth.SMTPSender = auth.NewSMTPMailSender(auth.SMTPConfig{
 		Host:     cfg.SMTPHost,
 		Port:     cfg.SMTPPort,
 		Username: cfg.SMTPUser,
 		Password: cfg.SMTPPass,
 		From:     cfg.SMTPFrom,
 	})
+	if isPlaceholderSMTP(cfg.SMTPHost, cfg.SMTPPass) {
+		mailSender = auth.NewDevMailSender()
+	}
 	templateService := classification.NewTemplateService(classification.NewPostgresTemplateRepository(db))
 	sessionService := auth.NewSessionService(authRepo, &auth.SessionServiceOptions{
 		PostLoginBootstrap: templateService.EnsureUserDefaults,
 	}, time.Now)
-	codeService := auth.NewCodeService(authRepo, smtpSender, auth.NewSessionTokenIssuer(sessionService), time.Now, nil)
+	codeService := auth.NewCodeService(authRepo, mailSender, auth.NewSessionTokenIssuer(sessionService), time.Now, nil)
 	oauthService := auth.NewOAuthService(authRepo, sessionService, time.Now)
 	oauthService.SetGoogleProvider(auth.NewGoogleOAuthProvider(auth.GoogleOAuthConfig{
 		ClientID:     cfg.GoogleAuthClientID,
@@ -164,6 +174,7 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config) *gin.Engine {
 		RedirectURL:  cfg.GoogleAuthRedirectURL,
 	}))
 	authHandler := auth.NewHandlerWithServices(codeService, oauthService, sessionService)
+	authHandler.SetPasswordService(auth.NewPasswordService(authRepo))
 	authHandler.SetGoogleFrontendReturnURL(cfg.GoogleAuthFrontendReturn)
 
 	ledgerRepo := accounting.NewPostgresLedgerRepository(db)
@@ -209,4 +220,16 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config) *gin.Engine {
 		panic(fmt.Sprintf("failed to create router: %v", err))
 	}
 	return r
+}
+
+func isPlaceholderSMTP(host string, password string) bool {
+	host = strings.TrimSpace(strings.ToLower(host))
+	password = strings.TrimSpace(strings.ToLower(password))
+	if host == "" {
+		return true
+	}
+	if strings.Contains(host, "example.com") || strings.Contains(host, "localhost") {
+		return true
+	}
+	return password == "" || password == "replace-me"
 }

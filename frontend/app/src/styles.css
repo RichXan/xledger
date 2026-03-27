@@ -3,25 +3,31 @@
 @tailwind utilities;
 
 :root {
-  color: #191c1e;
-  background: #f7f9fc;
-  font-family: 'Inter', sans-serif;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  background: #f7f9fc;
-  color: #191c1e;
+  color: #161b26;
+  background: #eef2f8;
+  font-family: 'Manrope', 'Inter', sans-serif;
+  text-rendering: geometricPrecision;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
+body,
 #root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
   min-height: 100vh;
+  color: #161b26;
+  background:
+    radial-gradient(circle at 14% 0%, rgba(0, 70, 171, 0.08), transparent 34%),
+    radial-gradient(circle at 88% 8%, rgba(23, 178, 106, 0.08), transparent 28%),
+    #eef2f8;
 }
 
 button,
@@ -35,4 +41,31 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
+}
+
+::selection {
+  color: #fff;
+  background: #00327d;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(115, 119, 132, 0.12);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: rgba(0, 50, 125, 0.35);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 50, 125, 0.55);
+  background-clip: content-box;
 }

@@ -26,8 +26,8 @@ export function SelectField({
       <select
         id={selectId}
         className={cn(
-          'w-full border-0 border-b bg-transparent px-0 py-3 text-sm text-on-surface outline-none transition',
-          error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary',
+          'h-11 w-full rounded-lg border bg-surface-container-low px-3 text-sm text-on-surface outline-none transition focus:bg-white',
+          error ? 'border-error focus:border-error' : 'border-outline/25 focus:border-primary',
           className,
         )}
         {...props}

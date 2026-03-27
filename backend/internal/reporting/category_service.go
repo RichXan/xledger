@@ -4,11 +4,15 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"time"
 
 	"xledger/backend/internal/accounting"
 )
 
-type CategoryQuery struct{}
+type CategoryQuery struct {
+	From time.Time
+	To   time.Time
+}
 
 type CategoryStatItem struct {
 	CategoryName string  `json:"category_name"`
@@ -23,12 +27,20 @@ type CategoryService struct{ repo *Repository }
 
 func NewCategoryService(repo *Repository) *CategoryService { return &CategoryService{repo: repo} }
 
-func (s *CategoryService) GetCategoryStats(ctx context.Context, userID string, _ CategoryQuery) (CategoryResult, error) {
+func (s *CategoryService) GetCategoryStats(ctx context.Context, userID string, query CategoryQuery) (CategoryResult, error) {
 	userID = strings.TrimSpace(userID)
 	if userID == "" {
 		return CategoryResult{}, &contractError{code: STAT_QUERY_INVALID}
 	}
-	txns, err := s.repo.ListTransactions(userID, accounting.TransactionQuery{})
+	if (!query.From.IsZero() && query.To.IsZero()) || (query.From.IsZero() && !query.To.IsZero()) || (!query.From.IsZero() && query.From.After(query.To)) {
+		return CategoryResult{}, &contractError{code: STAT_QUERY_INVALID}
+	}
+	txnQuery := accounting.TransactionQuery{}
+	if !query.From.IsZero() {
+		txnQuery.OccurredFrom = query.From
+		txnQuery.OccurredTo = query.To
+	}
+	txns, err := s.repo.ListTransactions(userID, txnQuery)
 	if err != nil {
 		return CategoryResult{}, err
 	}

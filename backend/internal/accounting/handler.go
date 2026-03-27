@@ -49,6 +49,7 @@ type createTransactionRequest struct {
 	ToAccountID   *string    `json:"to_account_id"`
 	Type          string     `json:"type"`
 	Amount        float64    `json:"amount"`
+	Memo          *string    `json:"memo"`
 	OccurredAt    *time.Time `json:"occurred_at"`
 }
 
@@ -56,6 +57,7 @@ type updateTransactionRequest struct {
 	Amount     float64  `json:"amount"`
 	Version    *int     `json:"version"`
 	CategoryID *string  `json:"category_id"`
+	Memo       *string  `json:"memo"`
 	TagIDs     []string `json:"tag_ids"`
 }
 
@@ -95,7 +97,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		httpx.JSON(c, http.StatusCreated, "OK", "成功", txn)
 		return
 	}
-	txn, err := h.transactionService.CreateTransaction(c.Request.Context(), userID, TransactionCreateInput{LedgerID: req.LedgerID, AccountID: req.AccountID, CategoryID: req.CategoryID, TagIDs: req.TagIDs, Type: req.Type, Amount: req.Amount, OccurredAt: occurredAt})
+	txn, err := h.transactionService.CreateTransaction(c.Request.Context(), userID, TransactionCreateInput{LedgerID: req.LedgerID, AccountID: req.AccountID, CategoryID: req.CategoryID, TagIDs: req.TagIDs, Memo: ptrString(req.Memo), Type: req.Type, Amount: req.Amount, OccurredAt: occurredAt})
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -118,7 +120,7 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
-	txn, err := h.transactionService.EditTransaction(c.Request.Context(), userID, c.Param("id"), TransactionEditInput{Amount: req.Amount, Version: req.Version, HasCategory: req.CategoryID != nil, CategoryID: req.CategoryID, HasTagIDs: req.TagIDs != nil, TagIDs: req.TagIDs})
+	txn, err := h.transactionService.EditTransaction(c.Request.Context(), userID, c.Param("id"), TransactionEditInput{Amount: req.Amount, Version: req.Version, HasCategory: req.CategoryID != nil, CategoryID: req.CategoryID, HasMemo: req.Memo != nil, Memo: req.Memo, HasTagIDs: req.TagIDs != nil, TagIDs: req.TagIDs})
 	if err != nil {
 		h.writeError(c, err)
 		return

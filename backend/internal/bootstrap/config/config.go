@@ -24,10 +24,7 @@ type Config struct {
 }
 
 func Load() (Config, error) {
-	smtpHost := os.Getenv("SMTP_HOST")
-	if smtpHost == "" {
-		return Config{}, errors.New("missing required env var: SMTP_HOST")
-	}
+	smtpHost := strings.TrimSpace(os.Getenv("SMTP_HOST"))
 
 	authCodePepper := strings.TrimSpace(os.Getenv("AUTH_CODE_PEPPER"))
 	if authCodePepper == "" {

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { useAuth } from '@/features/auth/auth-context'
 import { getCategoryStats, getOverviewStats, getTrendStats } from './reporting-api'
 
@@ -14,12 +15,20 @@ function getDefaultRange(days = 365) {
   }
 }
 
-export function useOverviewStats() {
+type RangeOptions = {
+  from?: string
+  to?: string
+}
+
+export function useOverviewStats(options?: RangeOptions & { ledgerId?: string }) {
   const { session } = useAuth()
+  const from = options?.from ?? ''
+  const to = options?.to ?? ''
+  const ledgerId = options?.ledgerId ?? ''
 
   return useQuery({
-    queryKey: ['reporting', 'overview'],
-    queryFn: () => getOverviewStats(session!.accessToken),
+    queryKey: ['reporting', 'overview', from, to, ledgerId],
+    queryFn: () => getOverviewStats(session!.accessToken, { from: options?.from, to: options?.to, ledgerId: options?.ledgerId }),
     enabled: Boolean(session?.accessToken),
   })
 }
@@ -35,7 +44,7 @@ export function useTrendStatsRange(options?: {
   granularity?: 'day' | 'month'
 }) {
   const { session } = useAuth()
-  const fallbackRange = getDefaultRange(options?.days ?? 365)
+  const fallbackRange = useMemo(() => getDefaultRange(options?.days ?? 365), [options?.days])
   const from = options?.from ?? fallbackRange.from
   const to = options?.to ?? fallbackRange.to
   const timezone = fallbackRange.timezone
@@ -48,12 +57,14 @@ export function useTrendStatsRange(options?: {
   })
 }
 
-export function useCategoryStats() {
+export function useCategoryStats(options?: RangeOptions) {
   const { session } = useAuth()
+  const from = options?.from ?? ''
+  const to = options?.to ?? ''
 
   return useQuery({
-    queryKey: ['reporting', 'category'],
-    queryFn: () => getCategoryStats(session!.accessToken),
+    queryKey: ['reporting', 'category', from, to],
+    queryFn: () => getCategoryStats(session!.accessToken, { from: options?.from, to: options?.to }),
     enabled: Boolean(session?.accessToken),
   })
 }
