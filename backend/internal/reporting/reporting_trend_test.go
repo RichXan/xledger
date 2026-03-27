@@ -42,6 +42,55 @@ func TestTrend_BasicWindowAggregation(t *testing.T) {
 	}
 }
 
+func TestTrend_MonthAggregation(t *testing.T) {
+	ctx := context.Background()
+	ledgerRepo, accountRepo, txnRepo, categoryService, txnService := newTrendFixture(t)
+	repo := NewRepository(accountRepo, txnRepo, categoryService)
+	trend := NewTrendService(repo)
+
+	ledger, err := ledgerRepo.Create("user-1", accounting.LedgerCreateInput{Name: "Main", IsDefault: true})
+	if err != nil {
+		t.Fatalf("seed ledger: %v", err)
+	}
+	if _, err := txnService.CreateTransaction(ctx, "user-1", accounting.TransactionCreateInput{
+		LedgerID:   ledger.ID,
+		Type:       accounting.TransactionTypeIncome,
+		Amount:     100,
+		OccurredAt: time.Date(2026, 1, 10, 10, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("seed jan income: %v", err)
+	}
+	if _, err := txnService.CreateTransaction(ctx, "user-1", accounting.TransactionCreateInput{
+		LedgerID:   ledger.ID,
+		Type:       accounting.TransactionTypeExpense,
+		Amount:     30,
+		OccurredAt: time.Date(2026, 2, 5, 10, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("seed feb expense: %v", err)
+	}
+
+	result, err := trend.GetTrend(ctx, "user-1", TrendQuery{
+		From:        time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:          time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		Granularity: "month",
+	})
+	if err != nil {
+		t.Fatalf("month trend query: %v", err)
+	}
+	if len(result.Points) != 3 {
+		t.Fatalf("expected 3 monthly buckets, got %d", len(result.Points))
+	}
+	if result.Points[0].Income != 100 || result.Points[0].Expense != 0 {
+		t.Fatalf("expected january bucket, got %#v", result.Points[0])
+	}
+	if result.Points[1].Income != 0 || result.Points[1].Expense != 30 {
+		t.Fatalf("expected february bucket, got %#v", result.Points[1])
+	}
+	if result.Points[2].Income != 0 || result.Points[2].Expense != 0 {
+		t.Fatalf("expected march zero bucket, got %#v", result.Points[2])
+	}
+}
+
 func TestTrend_UsesUserTimezoneOrUTC8Default(t *testing.T) {
 	ctx := context.Background()
 	ledgerRepo, accountRepo, txnRepo, categoryService, txnService := newTrendFixture(t)

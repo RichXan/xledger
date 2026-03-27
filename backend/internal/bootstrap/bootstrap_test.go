@@ -25,17 +25,16 @@ func TestRouter_Healthz(t *testing.T) {
 	}
 }
 
-func TestConfig_RequiresSMTPEnv(t *testing.T) {
+func TestConfig_AllowsMissingSMTPEnv(t *testing.T) {
 	t.Setenv("SMTP_HOST", "")
 	t.Setenv("AUTH_CODE_PEPPER", "test-pepper")
 
-	_, err := config.Load()
-	if err == nil {
-		t.Fatal("expected error when SMTP_HOST is missing")
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("expected config load to succeed with empty SMTP host, got %v", err)
 	}
-
-	if !strings.Contains(err.Error(), "SMTP_HOST") {
-		t.Fatalf("expected error to mention SMTP_HOST, got %q", err.Error())
+	if cfg.SMTPHost != "" {
+		t.Fatalf("expected empty SMTP host, got %q", cfg.SMTPHost)
 	}
 }
 

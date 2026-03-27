@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/smtp"
 	"strings"
@@ -37,6 +38,15 @@ type SMTPTransport interface {
 }
 
 type smtpTransport struct{}
+
+type DevMailSender struct{}
+
+func NewDevMailSender() SMTPSender { return DevMailSender{} }
+
+func (DevMailSender) Send(to string, subject string, body string) error {
+	log.Printf("[DEV MAIL] to=%s subject=%s body=%s", strings.TrimSpace(to), strings.TrimSpace(subject), strings.TrimSpace(body))
+	return nil
+}
 
 func NewSMTPMailSender(config SMTPConfig) *SMTPMailSender {
 	if config.Port == "" {

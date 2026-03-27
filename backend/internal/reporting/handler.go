@@ -25,7 +25,17 @@ func (h *Handler) Overview(c *gin.Context) {
 		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-	result, err := h.overview.GetOverview(c.Request.Context(), userID, OverviewQuery{LedgerID: c.Query("ledger_id")})
+
+	from, to, ok := parseTimeRange(c)
+	if !ok {
+		return
+	}
+
+	result, err := h.overview.GetOverview(c.Request.Context(), userID, OverviewQuery{
+		LedgerID: c.Query("ledger_id"),
+		From:     from,
+		To:       to,
+	})
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -39,23 +49,12 @@ func (h *Handler) Trend(c *gin.Context) {
 		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-	from := time.Time{}
-	to := time.Time{}
-	var err error
-	if raw := c.Query("from"); raw != "" {
-		from, err = time.Parse(time.RFC3339, raw)
-		if err != nil {
-			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
-			return
-		}
+
+	from, to, ok := parseTimeRange(c)
+	if !ok {
+		return
 	}
-	if raw := c.Query("to"); raw != "" {
-		to, err = time.Parse(time.RFC3339, raw)
-		if err != nil {
-			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
-			return
-		}
-	}
+
 	timeout := time.Duration(0)
 	if raw := c.Query("timeout_ms"); raw != "" {
 		ms, convErr := time.ParseDuration(raw + "ms")
@@ -65,7 +64,14 @@ func (h *Handler) Trend(c *gin.Context) {
 		}
 		timeout = ms
 	}
-	result, err := h.trend.GetTrend(c.Request.Context(), userID, TrendQuery{From: from, To: to, Granularity: c.DefaultQuery("granularity", "day"), Timezone: c.Query("timezone"), Timeout: timeout})
+
+	result, err := h.trend.GetTrend(c.Request.Context(), userID, TrendQuery{
+		From:        from,
+		To:          to,
+		Granularity: c.DefaultQuery("granularity", "day"),
+		Timezone:    c.Query("timezone"),
+		Timeout:     timeout,
+	})
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -79,7 +85,13 @@ func (h *Handler) Category(c *gin.Context) {
 		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-	result, err := h.category.GetCategoryStats(c.Request.Context(), userID, CategoryQuery{})
+
+	from, to, ok := parseTimeRange(c)
+	if !ok {
+		return
+	}
+
+	result, err := h.category.GetCategoryStats(c.Request.Context(), userID, CategoryQuery{From: from, To: to})
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -105,4 +117,28 @@ func userIDFromContext(c *gin.Context) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func parseTimeRange(c *gin.Context) (time.Time, time.Time, bool) {
+	from := time.Time{}
+	to := time.Time{}
+	var err error
+
+	if raw := c.Query("from"); raw != "" {
+		from, err = time.Parse(time.RFC3339, raw)
+		if err != nil {
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return time.Time{}, time.Time{}, false
+		}
+	}
+
+	if raw := c.Query("to"); raw != "" {
+		to, err = time.Parse(time.RFC3339, raw)
+		if err != nil {
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return time.Time{}, time.Time{}, false
+		}
+	}
+
+	return from, to, true
 }

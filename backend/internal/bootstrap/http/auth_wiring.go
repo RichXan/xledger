@@ -11,13 +11,16 @@ import (
 
 func newDefaultAuthHandlerFromEnv() *auth.Handler {
 	repo := auth.NewInMemoryRepository(time.Now)
-	sender := auth.NewSMTPMailSender(auth.SMTPConfig{
+	var sender auth.SMTPSender = auth.NewSMTPMailSender(auth.SMTPConfig{
 		Host:     os.Getenv("SMTP_HOST"),
 		Port:     os.Getenv("SMTP_PORT"),
 		Username: os.Getenv("SMTP_USER"),
 		Password: os.Getenv("SMTP_PASS"),
 		From:     os.Getenv("SMTP_FROM"),
 	})
+	if isPlaceholderSMTP(os.Getenv("SMTP_HOST"), os.Getenv("SMTP_PASS")) {
+		sender = auth.NewDevMailSender()
+	}
 	templateService := classification.NewTemplateService(classification.NewInMemoryTemplateRepository())
 	sessionService := auth.NewSessionService(repo, &auth.SessionServiceOptions{
 		PostLoginBootstrap: templateService.EnsureUserDefaults,
@@ -35,6 +38,7 @@ func newDefaultAuthHandlerFromEnv() *auth.Handler {
 	}))
 
 	handler := auth.NewHandlerWithServices(codeService, oauthService, sessionService)
+	handler.SetPasswordService(auth.NewPasswordService(repo))
 	frontendReturn := strings.TrimSpace(os.Getenv("GOOGLE_AUTH_FRONTEND_RETURN"))
 	if frontendReturn == "" {
 		frontendReturn = "http://127.0.0.1:4173/auth/google/callback"

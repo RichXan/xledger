@@ -148,10 +148,10 @@ func (r *PostgresRepository) SaveImportedTransaction(userID string, row ImportRo
 
 	_, err = r.db.Exec(`
 		INSERT INTO transactions (
-			id, user_id, ledger_id, type, amount, occurred_at, category_name, created_at
+			id, user_id, ledger_id, type, amount, occurred_at, category_name, memo, created_at
 		)
-		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW())
-	`, trimmedUserID, ledgerID, txnType, amount, occurredAt.UTC(), categoryName)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, NOW())
+	`, trimmedUserID, ledgerID, txnType, amount, occurredAt.UTC(), categoryName, trimmedDescription)
 	return err
 }
 

@@ -10,6 +10,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /xledger ./cmd/api
 
 FROM alpine:3.19
 
+RUN apk add --no-cache tzdata
+
 WORKDIR /app
 
 COPY --from=builder /xledger /app/xledger

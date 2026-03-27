@@ -18,6 +18,7 @@ type Handler struct {
 	codeService             *CodeService
 	oauthService            *OAuthService
 	sessionService          *SessionService
+	passwordService         *PasswordService
 	googleFrontendReturnURL string
 }
 
@@ -38,6 +39,26 @@ type logoutRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type registerRequest struct {
+	Email       string `json:"email" binding:"required,email"`
+	Password    string `json:"password" binding:"required"`
+	DisplayName string `json:"display_name"`
+}
+
+type passwordLoginRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+type changePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
+type updateProfileRequest struct {
+	DisplayName string `json:"display_name" binding:"required"`
+}
+
 func NewHandler(service *CodeService) *Handler {
 	return &Handler{codeService: service}
 }
@@ -48,6 +69,13 @@ func NewHandlerWithServices(codeService *CodeService, oauthService *OAuthService
 		oauthService:   oauthService,
 		sessionService: sessionService,
 	}
+}
+
+func (h *Handler) SetPasswordService(service *PasswordService) {
+	if h == nil {
+		return
+	}
+	h.passwordService = service
 }
 
 func (h *Handler) SetGoogleFrontendReturnURL(returnURL string) {
@@ -187,11 +215,7 @@ func (h *Handler) GoogleStart(c *gin.Context) {
 }
 
 func (h *Handler) Me(c *gin.Context) {
-	authorization := strings.TrimSpace(c.GetHeader("Authorization"))
-	if strings.HasPrefix(strings.ToLower(authorization), "bearer ") {
-		authorization = strings.TrimSpace(authorization[len("Bearer "):])
-	}
-	token, err := ParseSessionToken(authorization)
+	token, err := h.requireAccessToken(c)
 	if err != nil || token.Type != "access" || !time.Now().UTC().Before(token.ExpiresAt) {
 		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
@@ -204,6 +228,145 @@ func (h *Handler) Me(c *gin.Context) {
 		}
 	}
 	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"email": token.Email, "name": displayName})
+}
+
+func (h *Handler) RegisterWithPassword(c *gin.Context) {
+	if h.passwordService == nil || h.sessionService == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		return
+	}
+
+	var req registerRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+		return
+	}
+
+	record, err := h.passwordService.Register(c.Request.Context(), req.Email, req.Password, req.DisplayName)
+	if err != nil {
+		switch ErrorCode(err) {
+		case AUTH_USER_EXISTS:
+			httpx.JSON(c, http.StatusConflict, "VALIDATION_ERROR", "用户已存在", nil)
+			return
+		case AUTH_PASSWORD_WEAK, AUTH_PROFILE_BAD_INPUT:
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return
+		default:
+			httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+			return
+		}
+	}
+
+	tokens, issueErr := h.sessionService.IssueSessionWithProfile(c.Request.Context(), record.Email, record.DisplayName)
+	if issueErr != nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		return
+	}
+
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{
+		"access_token":  tokens.AccessToken,
+		"refresh_token": tokens.RefreshToken,
+	})
+}
+
+func (h *Handler) LoginWithPassword(c *gin.Context) {
+	if h.passwordService == nil || h.sessionService == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		return
+	}
+
+	var req passwordLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+		return
+	}
+
+	record, err := h.passwordService.Login(c.Request.Context(), req.Email, req.Password)
+	if err != nil {
+		switch ErrorCode(err) {
+		case AUTH_USER_NOT_FOUND, AUTH_PASSWORD_INVALID:
+			httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
+			return
+		default:
+			httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+			return
+		}
+	}
+
+	tokens, issueErr := h.sessionService.IssueSessionWithProfile(c.Request.Context(), record.Email, record.DisplayName)
+	if issueErr != nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		return
+	}
+
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{
+		"access_token":  tokens.AccessToken,
+		"refresh_token": tokens.RefreshToken,
+	})
+}
+
+func (h *Handler) ChangePassword(c *gin.Context) {
+	if h.passwordService == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		return
+	}
+
+	token, err := h.requireAccessToken(c)
+	if err != nil || token.Type != "access" || !time.Now().UTC().Before(token.ExpiresAt) {
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
+		return
+	}
+
+	var req changePasswordRequest
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+		return
+	}
+
+	if changeErr := h.passwordService.ChangePassword(c.Request.Context(), token.Email, req.OldPassword, req.NewPassword); changeErr != nil {
+		switch ErrorCode(changeErr) {
+		case AUTH_PASSWORD_INVALID:
+			httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
+			return
+		case AUTH_PASSWORD_WEAK, AUTH_PROFILE_BAD_INPUT:
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return
+		default:
+			httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+			return
+		}
+	}
+
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"changed": true})
+}
+
+func (h *Handler) UpdateProfile(c *gin.Context) {
+	if h.passwordService == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		return
+	}
+
+	token, err := h.requireAccessToken(c)
+	if err != nil || token.Type != "access" || !time.Now().UTC().Before(token.ExpiresAt) {
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
+		return
+	}
+
+	var req updateProfileRequest
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+		return
+	}
+
+	if updateErr := h.passwordService.UpdateDisplayName(c.Request.Context(), token.Email, req.DisplayName); updateErr != nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		return
+	}
+
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{
+		"email": token.Email,
+		"name":  strings.TrimSpace(req.DisplayName),
+	})
 }
 
 func (h *Handler) Refresh(c *gin.Context) {
@@ -300,4 +463,12 @@ func (h *Handler) Logout(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"logged_out": true})
+}
+
+func (h *Handler) requireAccessToken(c *gin.Context) (SessionToken, error) {
+	authorization := strings.TrimSpace(c.GetHeader("Authorization"))
+	if strings.HasPrefix(strings.ToLower(authorization), "bearer ") {
+		authorization = strings.TrimSpace(authorization[len("Bearer "):])
+	}
+	return ParseSessionToken(authorization)
 }

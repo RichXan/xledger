@@ -40,7 +40,7 @@ func (s *TrendService) GetTrend(ctx context.Context, userID string, query TrendQ
 	if strings.TrimSpace(query.Granularity) == "" {
 		query.Granularity = "day"
 	}
-	if query.Granularity != "day" {
+	if query.Granularity != "day" && query.Granularity != "month" {
 		return TrendResult{}, &contractError{code: STAT_QUERY_INVALID}
 	}
 	if query.To.Sub(query.From) > 370*24*time.Hour {
@@ -113,6 +113,8 @@ func (s *TrendService) listTransactions(ctx context.Context, userID string, quer
 func truncateTrendBucket(value time.Time, granularity string, loc *time.Location) time.Time {
 	value = value.In(loc)
 	switch granularity {
+	case "month":
+		return time.Date(value.Year(), value.Month(), 1, 0, 0, 0, 0, loc)
 	case "day":
 		return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, loc)
 	default:
@@ -122,6 +124,8 @@ func truncateTrendBucket(value time.Time, granularity string, loc *time.Location
 
 func advanceTrendBucket(value time.Time, granularity string) time.Time {
 	switch granularity {
+	case "month":
+		return value.AddDate(0, 1, 0)
 	case "day":
 		return value.Add(24 * time.Hour)
 	default:

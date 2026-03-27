@@ -54,6 +54,7 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, userID strin
 	input.AccountID = normalizeOptionalID(input.AccountID)
 	input.CategoryID = normalizeOptionalID(input.CategoryID)
 	input.TagIDs = normalizeTagIDs(input.TagIDs)
+	input.Memo = strings.TrimSpace(input.Memo)
 	input.FromAccountID = normalizeOptionalID(input.FromAccountID)
 	input.ToAccountID = normalizeOptionalID(input.ToAccountID)
 	if userID == "" || input.LedgerID == "" {
@@ -219,6 +220,10 @@ func (s *TransactionService) EditTransaction(ctx context.Context, userID string,
 	if input.HasCategory {
 		input.CategoryID = normalizeOptionalID(input.CategoryID)
 	}
+	if input.HasMemo {
+		trimmed := strings.TrimSpace(ptrString(input.Memo))
+		input.Memo = &trimmed
+	}
 	if input.HasTagIDs {
 		input.TagIDs = normalizeTagIDs(input.TagIDs)
 	}
@@ -257,6 +262,9 @@ func (s *TransactionService) EditTransaction(ctx context.Context, userID string,
 	txn.Amount = input.Amount
 	if input.HasCategory {
 		txn.CategoryID = cloneStringPtr(input.CategoryID)
+	}
+	if input.HasMemo {
+		txn.Memo = strings.TrimSpace(ptrString(input.Memo))
 	}
 	if input.Version != nil && txn.Version != *input.Version {
 		return Transaction{}, &contractError{code: TXN_CONFLICT}
