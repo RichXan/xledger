@@ -1,9 +1,11 @@
-import { Bell, CircleHelp, Search } from 'lucide-react'
+import { Bell, CircleHelp, Download, RefreshCcw, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/ui/dialog-shell'
 import { TextField } from '@/components/ui/text-field'
 import { useAuth } from '@/features/auth/auth-context'
+import { usePwaInstall } from '@/features/pwa/use-pwa-install'
+import { usePwaUpdate } from '@/features/pwa/use-pwa-update'
 import { ApiError } from '@/lib/api'
 
 export function TopBar() {
@@ -16,6 +18,8 @@ export function TopBar() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const { canInstall, install } = usePwaInstall()
+  const { updateAvailable, updating, updateNow } = usePwaUpdate()
 
   useEffect(() => {
     setDisplayNameInput(displayName)
@@ -88,6 +92,24 @@ export function TopBar() {
             >
               <CircleHelp className="h-4 w-4" />
             </button>
+            {canInstall ? (
+              <Button
+                variant="secondary"
+                className="h-10 px-3"
+                onClick={() => {
+                  void install()
+                }}
+              >
+                <Download className="mr-1 h-4 w-4" />
+                Install App
+              </Button>
+            ) : null}
+            {updateAvailable ? (
+              <Button variant="secondary" className="h-10 px-3" onClick={() => void updateNow()} disabled={updating}>
+                <RefreshCcw className="mr-1 h-4 w-4" />
+                {updating ? 'Updating...' : 'Update App'}
+              </Button>
+            ) : null}
             <button
               type="button"
               className="hidden items-center gap-3 rounded-xl bg-surface-container-low px-3 py-2 sm:flex"
