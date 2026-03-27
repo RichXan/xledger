@@ -31,6 +31,7 @@ type Transaction struct {
 	AccountID      *string    `json:"account_id,omitempty"`
 	CategoryID     *string    `json:"category_id,omitempty"`
 	CategoryName   string     `json:"category_name,omitempty"`
+	Memo           string     `json:"memo,omitempty"`
 	FromAccountID  *string    `json:"from_account_id,omitempty"`
 	ToAccountID    *string    `json:"to_account_id,omitempty"`
 	TransferPairID *string    `json:"transfer_pair_id,omitempty"`
@@ -47,6 +48,7 @@ type TransactionCreateInput struct {
 	AccountID     *string
 	CategoryID    *string
 	TagIDs        []string
+	Memo          string
 	FromAccountID *string
 	ToAccountID   *string
 	Type          string
@@ -69,6 +71,8 @@ type TransactionEditInput struct {
 	Version     *int
 	HasCategory bool
 	CategoryID  *string
+	HasMemo     bool
+	Memo        *string
 	HasTagIDs   bool
 	TagIDs      []string
 }
@@ -135,6 +139,7 @@ func (r *InMemoryTransactionRepository) Create(userID string, input TransactionC
 		LedgerID:      input.LedgerID,
 		AccountID:     cloneStringPtr(input.AccountID),
 		CategoryID:    cloneStringPtr(input.CategoryID),
+		Memo:          strings.TrimSpace(input.Memo),
 		FromAccountID: cloneStringPtr(input.FromAccountID),
 		ToAccountID:   cloneStringPtr(input.ToAccountID),
 		Version:       1,

@@ -7,7 +7,17 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react'
-import { getCurrentUser, logout as logoutRequest, refreshSession, sendCode, verifyCode } from './auth-api'
+import {
+  changePassword as changePasswordRequest,
+  getCurrentUser,
+  loginWithPassword,
+  logout as logoutRequest,
+  refreshSession,
+  registerWithPassword,
+  sendCode,
+  updateProfile,
+  verifyCode,
+} from './auth-api'
 import { clearAuthSession, readAuthSession, writeAuthSession, type AuthSession } from './auth-storage'
 
 interface AuthContextValue {
@@ -16,6 +26,10 @@ interface AuthContextValue {
   isBootstrapping: boolean
   sendVerificationCode: (email: string) => Promise<void>
   verifyVerificationCode: (email: string, code: string) => Promise<void>
+  loginWithPassword: (email: string, password: string) => Promise<void>
+  registerWithPassword: (email: string, password: string, displayName?: string) => Promise<void>
+  updateDisplayName: (displayName: string) => Promise<void>
+  changePassword: (oldPassword: string, newPassword: string) => Promise<void>
   applyOAuthTokens: (accessToken: string, refreshToken: string) => Promise<void>
   logout: () => Promise<void>
 }
@@ -105,6 +119,56 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [persistSession],
   )
 
+  const loginWithPasswordFn = useCallback(
+    async (email: string, password: string) => {
+      const tokens = await loginWithPassword(email, password)
+      const user = await getCurrentUser(tokens.access_token)
+      persistSession({
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        email: user.email,
+        name: user.name ?? null,
+      })
+    },
+    [persistSession],
+  )
+
+  const registerWithPasswordFn = useCallback(
+    async (email: string, password: string, displayName?: string) => {
+      const tokens = await registerWithPassword({ email, password, displayName })
+      const user = await getCurrentUser(tokens.access_token)
+      persistSession({
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        email: user.email,
+        name: user.name ?? null,
+      })
+    },
+    [persistSession],
+  )
+
+  const updateDisplayNameFn = useCallback(
+    async (displayName: string) => {
+      if (!session?.accessToken) throw new Error('Missing access token')
+      const user = await updateProfile(session.accessToken, displayName)
+      persistSession({
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        email: user.email,
+        name: user.name ?? null,
+      })
+    },
+    [persistSession, session?.accessToken, session?.refreshToken],
+  )
+
+  const changePasswordFn = useCallback(
+    async (oldPassword: string, newPassword: string) => {
+      if (!session?.accessToken) throw new Error('Missing access token')
+      await changePasswordRequest(session.accessToken, oldPassword, newPassword)
+    },
+    [session?.accessToken],
+  )
+
   const applyOAuthTokens = useCallback(
     async (accessToken: string, refreshToken: string) => {
       const user = await getCurrentUser(accessToken)
@@ -136,10 +200,25 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isBootstrapping,
       sendVerificationCode,
       verifyVerificationCode,
+      loginWithPassword: loginWithPasswordFn,
+      registerWithPassword: registerWithPasswordFn,
+      updateDisplayName: updateDisplayNameFn,
+      changePassword: changePasswordFn,
       applyOAuthTokens,
       logout,
     }),
-    [applyOAuthTokens, isBootstrapping, logout, sendVerificationCode, session, verifyVerificationCode],
+    [
+      applyOAuthTokens,
+      changePasswordFn,
+      isBootstrapping,
+      loginWithPasswordFn,
+      logout,
+      registerWithPasswordFn,
+      sendVerificationCode,
+      session,
+      updateDisplayNameFn,
+      verifyVerificationCode,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -97,6 +97,7 @@ type InMemoryRepository struct {
 	alerts     map[string]int
 	ledgers    map[string]int
 	userNames  map[string]string
+	passwords  map[string]string
 	forcedLag  time.Duration
 	sessionCnt int
 }
@@ -118,6 +119,7 @@ func NewInMemoryRepository(now func() time.Time) *InMemoryRepository {
 		alerts:     make(map[string]int),
 		ledgers:    make(map[string]int),
 		userNames:  make(map[string]string),
+		passwords:  make(map[string]string),
 	}
 }
 
@@ -284,6 +286,76 @@ func (r *InMemoryRepository) GetUserDisplayName(_ context.Context, email string)
 	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
 	name, ok := r.userNames[normalizedEmail]
 	return name, ok, nil
+}
+
+func (r *InMemoryRepository) CreateUserWithPassword(_ context.Context, email string, displayName string, passwordHash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
+
+	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
+	if normalizedEmail == "" {
+		return nil
+	}
+	if _, exists := r.passwords[normalizedEmail]; exists {
+		return ErrAuthUserAlreadyExists
+	}
+	r.passwords[normalizedEmail] = strings.TrimSpace(passwordHash)
+	if strings.TrimSpace(displayName) != "" {
+		r.userNames[normalizedEmail] = strings.TrimSpace(displayName)
+	}
+	return nil
+}
+
+func (r *InMemoryRepository) GetUserCredential(_ context.Context, email string) (UserCredentialRecord, bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
+
+	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
+	name := r.userNames[normalizedEmail]
+	hash := r.passwords[normalizedEmail]
+	if normalizedEmail == "" {
+		return UserCredentialRecord{}, false, nil
+	}
+	if name == "" && hash == "" {
+		_, hasName := r.userNames[normalizedEmail]
+		_, hasHash := r.passwords[normalizedEmail]
+		if !hasName && !hasHash {
+			return UserCredentialRecord{}, false, nil
+		}
+	}
+	return UserCredentialRecord{
+		Email:        normalizedEmail,
+		DisplayName:  name,
+		PasswordHash: hash,
+	}, true, nil
+}
+
+func (r *InMemoryRepository) UpdateUserPassword(_ context.Context, email string, passwordHash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
+
+	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
+	if normalizedEmail == "" {
+		return nil
+	}
+	r.passwords[normalizedEmail] = strings.TrimSpace(passwordHash)
+	return nil
+}
+
+func (r *InMemoryRepository) UpdateUserDisplayName(_ context.Context, email string, displayName string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cleanupExpiredLocked(r.now())
+
+	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
+	if normalizedEmail == "" {
+		return nil
+	}
+	r.userNames[normalizedEmail] = strings.TrimSpace(displayName)
+	return nil
 }
 
 func (r *InMemoryRepository) SaveOAuthStateNonce(_ context.Context, state string, nonce string, ttl time.Duration) error {

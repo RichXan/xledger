@@ -22,8 +22,8 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
         ref={ref}
         id={inputId}
         className={cn(
-          'w-full border-0 border-b bg-transparent px-0 py-3 text-sm text-on-surface outline-none transition placeholder:text-outline',
-          error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary',
+          'h-11 w-full rounded-lg border bg-surface-container-low px-3 text-sm text-on-surface outline-none transition placeholder:text-outline focus:bg-white',
+          error ? 'border-error focus:border-error' : 'border-outline/25 focus:border-primary',
           className,
         )}
         {...props}

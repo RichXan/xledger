@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"strconv"
+	"strings"
 )
 
 type PostgresLedgerRepository struct {
@@ -205,21 +206,21 @@ func (r *PostgresTransactionRepository) Create(userID string, input TransactionC
 
 	err := r.db.QueryRow(`
 		INSERT INTO transactions (
-			id, user_id, ledger_id, account_id, category_id, category_name,
+			id, user_id, ledger_id, account_id, category_id, category_name, memo,
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
 			type, amount, version, occurred_at, created_at
 		) VALUES (
-			gen_random_uuid(), $1, $2, $3, $4, $5,
-			$6, $7, $8, $9,
-			$10, $11, 1, $12, NOW()
+			gen_random_uuid(), $1, $2, $3, $4, $5, $6,
+			$7, $8, $9, $10,
+			$11, $12, 1, $13, NOW()
 		)
-		RETURNING id, user_id, ledger_id, account_id, category_id, category_name,
+		RETURNING id, user_id, ledger_id, account_id, category_id, category_name, memo,
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
 			type, amount, version, occurred_at
-	`, userID, input.LedgerID, input.AccountID, input.CategoryID, nil,
+	`, userID, input.LedgerID, input.AccountID, input.CategoryID, nil, strings.TrimSpace(input.Memo),
 		input.FromAccountID, input.ToAccountID, nil, nil,
 		input.Type, input.Amount, input.OccurredAt).Scan(
-		&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName,
+		&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName, &txn.Memo,
 		&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 		&txn.Type, &txn.Amount, &txn.Version, &txn.OccurredAt,
 	)
@@ -242,15 +243,16 @@ func (r *PostgresTransactionRepository) GetByIDForUser(userID string, txnID stri
 	var txn Transaction
 	var accountID, categoryID, transferPairID, transferSide *string
 	var fromAccountID, toAccountID *string
+	var memo sql.NullString
 
 	err := r.db.QueryRow(`
-		SELECT id, user_id, ledger_id, account_id, category_id, category_name,
+		SELECT id, user_id, ledger_id, account_id, category_id, category_name, memo,
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
 			type, amount, version, occurred_at
 		FROM transactions
 		WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
 	`, txnID, userID).Scan(
-		&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName,
+		&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName, &memo,
 		&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 		&txn.Type, &txn.Amount, &txn.Version, &txn.OccurredAt,
 	)
@@ -263,6 +265,9 @@ func (r *PostgresTransactionRepository) GetByIDForUser(userID string, txnID stri
 
 	txn.AccountID = accountID
 	txn.CategoryID = categoryID
+	if memo.Valid {
+		txn.Memo = memo.String
+	}
 	txn.FromAccountID = fromAccountID
 	txn.ToAccountID = toAccountID
 	txn.TransferPairID = transferPairID
@@ -279,13 +284,13 @@ func (r *PostgresTransactionRepository) SaveByIDForUser(userID string, txnID str
 
 	err := r.db.QueryRow(`
 		UPDATE transactions
-		SET amount = $3, category_id = $4, category_name = $5, version = $6
+		SET amount = $3, category_id = $4, category_name = $5, memo = $6, version = $7
 		WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
-		RETURNING id, user_id, ledger_id, account_id, category_id, category_name,
+		RETURNING id, user_id, ledger_id, account_id, category_id, category_name, memo,
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
 			type, amount, version, occurred_at
-	`, txnID, userID, txn.Amount, txn.CategoryID, txn.CategoryName, txn.Version).Scan(
-		&updated.ID, &updated.UserID, &updated.LedgerID, &accountID, &categoryID, &updated.CategoryName,
+	`, txnID, userID, txn.Amount, txn.CategoryID, txn.CategoryName, strings.TrimSpace(txn.Memo), txn.Version).Scan(
+		&updated.ID, &updated.UserID, &updated.LedgerID, &accountID, &categoryID, &updated.CategoryName, &updated.Memo,
 		&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 		&updated.Type, &updated.Amount, &updated.Version, &updated.OccurredAt,
 	)
@@ -367,7 +372,7 @@ func (r *PostgresTransactionRepository) CreateTransferPair(userID string, pairID
 
 func (r *PostgresTransactionRepository) GetTransferPairByTxnID(userID string, txnID string) ([]Transaction, error) {
 	rows, err := r.db.Query(`
-		SELECT t.id, t.user_id, t.ledger_id, t.account_id, t.category_id, t.category_name,
+		SELECT t.id, t.user_id, t.ledger_id, t.account_id, t.category_id, t.category_name, t.memo,
 			t.from_account_id, t.to_account_id, t.transfer_pair_id, t.transfer_side,
 			t.type, t.amount, t.version, t.occurred_at
 		FROM transactions t
@@ -386,8 +391,9 @@ func (r *PostgresTransactionRepository) GetTransferPairByTxnID(userID string, tx
 		var txn Transaction
 		var accountID, categoryID, transferPairID, transferSide *string
 		var fromAccountID, toAccountID *string
+		var memo sql.NullString
 		if err := rows.Scan(
-			&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName,
+			&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName, &memo,
 			&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 			&txn.Type, &txn.Amount, &txn.Version, &txn.OccurredAt,
 		); err != nil {
@@ -395,6 +401,9 @@ func (r *PostgresTransactionRepository) GetTransferPairByTxnID(userID string, tx
 		}
 		txn.AccountID = accountID
 		txn.CategoryID = categoryID
+		if memo.Valid {
+			txn.Memo = memo.String
+		}
 		txn.FromAccountID = fromAccountID
 		txn.ToAccountID = toAccountID
 		txn.TransferPairID = transferPairID
@@ -429,23 +438,24 @@ func (r *PostgresTransactionRepository) UpdateTransferPairAmount(userID string, 
 	var updated Transaction
 	var accountID, categoryID, transferPairID, transferSide *string
 	var fromAccountID, toAccountID *string
+	var memo sql.NullString
 	err = tx.QueryRow(`
 		WITH updated AS (
 			UPDATE transactions
 			SET amount = $3, version = version + 1
 			WHERE transfer_pair_id = $1 AND user_id = $2 AND deleted_at IS NULL
-			RETURNING id, user_id, ledger_id, account_id, category_id, category_name,
+			RETURNING id, user_id, ledger_id, account_id, category_id, category_name, memo,
 				from_account_id, to_account_id, transfer_pair_id, transfer_side,
 				type, amount, version, occurred_at
 		)
-		SELECT id, user_id, ledger_id, account_id, category_id, category_name,
+		SELECT id, user_id, ledger_id, account_id, category_id, category_name, memo,
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
 			type, amount, version, occurred_at
 		FROM updated
 		WHERE transfer_side = 'from'
 		LIMIT 1
 	`, pairID, userID, amount).Scan(
-		&updated.ID, &updated.UserID, &updated.LedgerID, &accountID, &categoryID, &updated.CategoryName,
+		&updated.ID, &updated.UserID, &updated.LedgerID, &accountID, &categoryID, &updated.CategoryName, &memo,
 		&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 		&updated.Type, &updated.Amount, &updated.Version, &updated.OccurredAt,
 	)
@@ -455,6 +465,9 @@ func (r *PostgresTransactionRepository) UpdateTransferPairAmount(userID string, 
 
 	updated.AccountID = accountID
 	updated.CategoryID = categoryID
+	if memo.Valid {
+		updated.Memo = memo.String
+	}
 	updated.FromAccountID = fromAccountID
 	updated.ToAccountID = toAccountID
 	updated.TransferPairID = transferPairID
@@ -538,7 +551,7 @@ func (r *PostgresTransactionRepository) WithTransferPairLock(userID string, pair
 
 func (r *PostgresTransactionRepository) ListByUser(userID string, query TransactionQuery) ([]Transaction, error) {
 	sqlQuery := `
-		SELECT id, user_id, ledger_id, account_id, category_id, category_name,
+		SELECT id, user_id, ledger_id, account_id, category_id, category_name, memo,
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
 			type, amount, version, occurred_at
 		FROM transactions
@@ -597,8 +610,9 @@ func (r *PostgresTransactionRepository) ListByUser(userID string, query Transact
 		var txn Transaction
 		var accountID, categoryID, transferPairID, transferSide *string
 		var fromAccountID, toAccountID *string
+		var memo sql.NullString
 		if err := rows.Scan(
-			&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName,
+			&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName, &memo,
 			&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 			&txn.Type, &txn.Amount, &txn.Version, &txn.OccurredAt,
 		); err != nil {
@@ -606,6 +620,9 @@ func (r *PostgresTransactionRepository) ListByUser(userID string, query Transact
 		}
 		txn.AccountID = accountID
 		txn.CategoryID = categoryID
+		if memo.Valid {
+			txn.Memo = memo.String
+		}
 		txn.FromAccountID = fromAccountID
 		txn.ToAccountID = toAccountID
 		txn.TransferPairID = transferPairID
@@ -667,7 +684,7 @@ func (r *PostgresTransactionRepository) CountByUser(userID string, query Transac
 
 func (r *PostgresTransactionRepository) ListByTransferPairForUser(userID string, pairID string) ([]Transaction, error) {
 	rows, err := r.db.Query(`
-		SELECT id, user_id, ledger_id, account_id, category_id, category_name,
+		SELECT id, user_id, ledger_id, account_id, category_id, category_name, memo,
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
 			type, amount, version, occurred_at
 		FROM transactions
@@ -684,8 +701,9 @@ func (r *PostgresTransactionRepository) ListByTransferPairForUser(userID string,
 		var txn Transaction
 		var accountID, categoryID, transferPairID, transferSide *string
 		var fromAccountID, toAccountID *string
+		var memo sql.NullString
 		if err := rows.Scan(
-			&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName,
+			&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName, &memo,
 			&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 			&txn.Type, &txn.Amount, &txn.Version, &txn.OccurredAt,
 		); err != nil {
@@ -693,6 +711,9 @@ func (r *PostgresTransactionRepository) ListByTransferPairForUser(userID string,
 		}
 		txn.AccountID = accountID
 		txn.CategoryID = categoryID
+		if memo.Valid {
+			txn.Memo = memo.String
+		}
 		txn.FromAccountID = fromAccountID
 		txn.ToAccountID = toAccountID
 		txn.TransferPairID = transferPairID

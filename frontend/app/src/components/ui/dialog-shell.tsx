@@ -26,18 +26,18 @@ export function DialogShell({ title, description, footer, className, children, o
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-on-background/10 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f172a]/20 p-4 backdrop-blur-sm"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClose?.()
         }
       }}
     >
-      <div className={cn('relative w-full max-w-3xl rounded-[32px] bg-surface-container-lowest p-8 shadow-ambient', className)}>
+      <div className={cn('relative w-full max-w-3xl rounded-[28px] border border-outline/15 bg-surface-container-lowest p-7 shadow-ambient md:p-8', className)}>
         {onClose ? (
           <button
             type="button"
-            className="absolute right-6 top-6 grid h-8 w-8 place-items-center rounded-full text-on-surface-variant transition hover:bg-surface-container-low"
+            className="absolute right-5 top-5 grid h-8 w-8 place-items-center rounded-full border border-transparent text-on-surface-variant transition hover:border-outline/15 hover:bg-surface-container-low"
             onClick={onClose}
             aria-label="Close dialog"
           >
@@ -45,10 +45,10 @@ export function DialogShell({ title, description, footer, className, children, o
           </button>
         ) : null}
         <div>
-          <h2 className="font-headline text-3xl font-extrabold tracking-tight text-primary">{title}</h2>
+          <h2 className="font-headline text-[42px] font-extrabold leading-none tracking-tight text-primary">{title}</h2>
           {description ? <p className="mt-2 text-sm text-on-surface-variant">{description}</p> : null}
         </div>
-        <div className="mt-8">{children}</div>
+        <div className="mt-7">{children}</div>
         {footer ? <div className="mt-8 flex items-center justify-end gap-3">{footer}</div> : null}
       </div>
     </div>

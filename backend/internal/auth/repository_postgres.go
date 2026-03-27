@@ -11,6 +11,8 @@ type PostgresRepository struct {
 	db *sql.DB
 }
 
+var ErrAuthUserAlreadyExists = errors.New("auth user already exists")
+
 func NewPostgresRepository(db *sql.DB) *PostgresRepository {
 	return &PostgresRepository{db: db}
 }
@@ -222,6 +224,59 @@ func (r *PostgresRepository) GetUserDisplayName(ctx context.Context, email strin
 		return "", false, err
 	}
 	return displayName, true, nil
+}
+
+func (r *PostgresRepository) CreateUserWithPassword(ctx context.Context, email string, displayName string, passwordHash string) error {
+	result, err := r.db.ExecContext(ctx, `
+		INSERT INTO users (id, email, display_name, password_hash, created_at, updated_at)
+		VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW())
+		ON CONFLICT (email) DO NOTHING
+	`, email, displayName, passwordHash)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrAuthUserAlreadyExists
+	}
+	return nil
+}
+
+func (r *PostgresRepository) GetUserCredential(ctx context.Context, email string) (UserCredentialRecord, bool, error) {
+	var record UserCredentialRecord
+	err := r.db.QueryRowContext(ctx, `
+		SELECT email, COALESCE(display_name, ''), COALESCE(password_hash, '')
+		FROM users
+		WHERE email = $1
+	`, email).Scan(&record.Email, &record.DisplayName, &record.PasswordHash)
+	if errors.Is(err, sql.ErrNoRows) {
+		return UserCredentialRecord{}, false, nil
+	}
+	if err != nil {
+		return UserCredentialRecord{}, false, err
+	}
+	return record, true, nil
+}
+
+func (r *PostgresRepository) UpdateUserPassword(ctx context.Context, email string, passwordHash string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET password_hash = $2, updated_at = NOW()
+		WHERE email = $1
+	`, email, passwordHash)
+	return err
+}
+
+func (r *PostgresRepository) UpdateUserDisplayName(ctx context.Context, email string, displayName string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET display_name = $2, updated_at = NOW()
+		WHERE email = $1
+	`, email, displayName)
+	return err
 }
 
 func (r *PostgresRepository) SaveOAuthStateNonce(ctx context.Context, state string, nonce string, ttl time.Duration) error {

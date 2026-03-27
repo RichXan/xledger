@@ -3,6 +3,7 @@ package reporting
 import (
 	"context"
 	"strings"
+	"time"
 
 	"xledger/backend/internal/accounting"
 )
@@ -28,6 +29,8 @@ func ErrorCode(err error) string {
 
 type OverviewQuery struct {
 	LedgerID string
+	From     time.Time
+	To       time.Time
 }
 
 type OverviewResult struct {
@@ -46,11 +49,19 @@ func (s *OverviewService) GetOverview(ctx context.Context, userID string, query 
 	if userID == "" {
 		return OverviewResult{}, &contractError{code: STAT_QUERY_INVALID}
 	}
+	if (!query.From.IsZero() && query.To.IsZero()) || (query.From.IsZero() && !query.To.IsZero()) || (!query.From.IsZero() && query.From.After(query.To)) {
+		return OverviewResult{}, &contractError{code: STAT_QUERY_INVALID}
+	}
 	accounts, err := s.repo.ListAccounts(userID)
 	if err != nil {
 		return OverviewResult{}, err
 	}
-	txns, err := s.repo.ListTransactions(userID, accounting.TransactionQuery{LedgerID: strings.TrimSpace(query.LedgerID)})
+	txnQuery := accounting.TransactionQuery{LedgerID: strings.TrimSpace(query.LedgerID)}
+	if !query.From.IsZero() {
+		txnQuery.OccurredFrom = query.From
+		txnQuery.OccurredTo = query.To
+	}
+	txns, err := s.repo.ListTransactions(userID, txnQuery)
 	if err != nil {
 		return OverviewResult{}, err
 	}

@@ -16,6 +16,7 @@ export interface TransactionRecord {
   amount: number
   category_name?: string
   occurred_at: string
+  memo?: string
 }
 
 export interface AccountRecord {
@@ -48,6 +49,7 @@ export interface CreateTransactionInput {
   tag_ids?: string[]
   type: 'income' | 'expense' | 'transfer'
   amount: number
+  memo?: string
 }
 
 export interface ImportPreviewResponse {
@@ -158,3 +160,4 @@ export function confirmImport(accessToken: string, file: File, idempotencyKey: s
     body: formData,
   })
 }
+
