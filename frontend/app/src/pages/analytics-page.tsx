@@ -203,8 +203,9 @@ export function AnalyticsPage() {
             <p className="mt-3 font-headline text-5xl font-extrabold text-on-surface">{formatCurrency(expense)}</p>
           </article>
           <article className="rounded-2xl bg-primary p-5 text-white">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-fixed">Liquidity Ratio</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-fixed">Savings Rate</p>
             <p className="mt-3 font-headline text-5xl font-extrabold">{liquidityRatio}</p>
+            <p className="mt-2 text-xs text-primary-fixed">Income / Expense Ratio</p>
           </article>
         </div>
 

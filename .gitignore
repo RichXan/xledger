@@ -6,3 +6,4 @@ frontend/app/dist/
 frontend/app/manual-qa.mjs
 frontend/app/test-results/
 frontend/app/playwright-report/
+backend/.env

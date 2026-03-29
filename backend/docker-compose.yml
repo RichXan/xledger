@@ -1,6 +1,8 @@
+# Base images default to DaoCloud mirror of Docker Hub when vars unset (avoids auth.docker.io timeouts in some regions).
+# Override in shell or .env, e.g. POSTGRES_IMAGE=postgres:16-alpine
 services:
   postgres:
-    image: postgres:16-alpine
+    image: ${POSTGRES_IMAGE:-docker.m.daocloud.io/library/postgres:16-alpine}
     restart: unless-stopped
     environment:
       POSTGRES_USER: xledger
@@ -17,7 +19,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: ${REDIS_IMAGE:-docker.m.daocloud.io/library/redis:7-alpine}
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -34,6 +36,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GOLANG_IMAGE: ${GOLANG_IMAGE:-docker.m.daocloud.io/library/golang:1.22-alpine}
     restart: unless-stopped
     env_file:
       - .env
@@ -61,6 +65,8 @@ services:
     build:
       context: ../frontend/app
       dockerfile: Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-docker.m.daocloud.io/library/node:20-alpine}
     restart: unless-stopped
     ports:
       - "4173:4173"

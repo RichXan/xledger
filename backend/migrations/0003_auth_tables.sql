@@ -28,8 +28,6 @@ CREATE TABLE IF NOT EXISTS oauth_states (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS consumed BOOLEAN NOT NULL DEFAULT false;
-
 CREATE TABLE IF NOT EXISTS refresh_token_blacklist (
     token_id TEXT PRIMARY KEY,
     blacklisted_at TIMESTAMPTZ NOT NULL,

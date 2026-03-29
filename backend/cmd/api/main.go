@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -21,6 +22,98 @@ import (
 func main() {
 	_ = godotenv.Load(".env")
 
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "migrate":
+			handleMigrateCommand()
+			return
+		case "serve":
+		default:
+			printUsage()
+			return
+		}
+	}
+
+	startServer()
+}
+
+func printUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  go run ./cmd/api serve          - Start the HTTP server")
+	fmt.Println("  go run ./cmd/api migrate up     - Run all pending migrations")
+	fmt.Println("  go run ./cmd/api migrate down   - Rollback the last migration")
+	fmt.Println("  go run ./cmd/api migrate down N - Rollback the last N migrations")
+	fmt.Println("  go run ./cmd/api migrate status - Show migration status")
+}
+
+func handleMigrateCommand() {
+	if len(os.Args) < 3 {
+		printUsage()
+		return
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("config error: %v", err)
+	}
+
+	if cfg.DatabaseURL == "" {
+		log.Fatal("DATABASE_URL is required for migration commands")
+	}
+
+	ctx := context.Background()
+	db, err := infrastructure.ConnectPostgres(ctx, infrastructure.PostgresConfig{
+		URL:             cfg.DatabaseURL,
+		MaxOpenConns:    5,
+		MaxIdleConns:    2,
+		ConnMaxLifetime: 5 * time.Minute,
+		PingTimeout:     5 * time.Second,
+	})
+	if err != nil {
+		log.Fatalf("database connection error: %v", err)
+	}
+	defer db.Close()
+
+	switch os.Args[2] {
+	case "up":
+		if err := infrastructure.ApplyMigrations(ctx, db, "migrations"); err != nil {
+			log.Fatalf("migration up error: %v", err)
+		}
+		log.Println("All migrations applied successfully")
+
+	case "down":
+		steps := 1
+		if len(os.Args) > 3 {
+			if _, err := fmt.Sscanf(os.Args[3], "%d", &steps); err != nil {
+				log.Fatalf("invalid steps value: %v", err)
+			}
+		}
+		n, err := infrastructure.RollbackMigrations(ctx, db, "migrations", steps)
+		if err != nil {
+			log.Fatalf("migration down error: %v", err)
+		}
+		log.Printf("Rolled back %d migration(s) successfully", n)
+
+	case "status":
+		statuses, err := infrastructure.GetMigrationStatus(ctx, db)
+		if err != nil {
+			log.Fatalf("migration status error: %v", err)
+		}
+		if len(statuses) == 0 {
+			log.Println("No migrations applied")
+			return
+		}
+		log.Println("Applied migrations:")
+		for _, status := range statuses {
+			log.Printf("  %s (applied at %s)", status.Filename, status.AppliedAt.Format(time.RFC3339))
+		}
+
+	default:
+		printUsage()
+	}
+}
+
+func startServer() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config error: %v", err)

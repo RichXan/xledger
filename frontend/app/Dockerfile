@@ -1,4 +1,6 @@
-FROM node:20-alpine
+# Override via build-arg when Docker Hub is unreachable (e.g. docker.m.daocloud.io/library/node:20-alpine).
+ARG NODE_IMAGE=node:20-alpine
+FROM ${NODE_IMAGE}
 
 WORKDIR /app
 

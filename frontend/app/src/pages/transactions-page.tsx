@@ -103,6 +103,24 @@ export function TransactionsPage() {
     return map
   }, [calendarTransactions])
 
+  const monthTotals = useMemo(() => {
+    const currentMonth = activeMonth.getMonth()
+    const currentYear = activeMonth.getFullYear()
+    return calendarTransactions
+      .filter((tx) => {
+        const dt = new Date(tx.occurred_at)
+        return dt.getMonth() === currentMonth && dt.getFullYear() === currentYear
+      })
+      .reduce(
+        (acc, tx) => {
+          if (tx.type === 'income') acc.in += tx.amount
+          if (tx.type === 'expense') acc.out += tx.amount
+          return acc
+        },
+        { in: 0, out: 0 },
+      )
+  }, [calendarTransactions, activeMonth])
+
   const fallbackSelectedDay = useMemo(() => {
     const first = calendarTransactions[0]
     if (!first) return toLocalDateKey(new Date())
@@ -149,6 +167,8 @@ export function TransactionsPage() {
     if (!importFile) return
     const idempotencyKey = `ui-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     await importConfirmMutation.mutateAsync({ file: importFile, idempotencyKey })
+    setShowImportDialog(false)
+    setImportFile(null)
   }
 
   return (
@@ -351,16 +371,28 @@ export function TransactionsPage() {
                           {formatCurrency(Math.abs(tx.amount))}
                         </p>
                       </div>
-                      <p className="mt-1 text-xs text-on-surface-variant">{tx.type}</p>
+                      <p className="mt-1 text-xs text-on-surface-variant">{tx.memo?.trim() || tx.type}</p>
                     </div>
                   ))}
                   {selectedDayTx.length === 0 ? <p className="text-sm text-on-surface-variant">No transactions on this date.</p> : null}
                 </div>
               </article>
               <article className="rounded-2xl bg-primary p-5 text-white">
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-fixed">Month Projection</p>
-                <p className="mt-3 font-headline text-5xl font-extrabold">{formatCurrency(selectedTotals.in - selectedTotals.out)}</p>
-                <p className="mt-2 text-xs text-primary-fixed">Based on selected day flow</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-fixed">Month Summary</p>
+                <div className="mt-3 grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-primary-fixed">Income</p>
+                    <p className="font-headline text-3xl font-extrabold">+{formatCurrency(monthTotals.in)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-primary-fixed">Expense</p>
+                    <p className="font-headline text-3xl font-extrabold">-{formatCurrency(monthTotals.out)}</p>
+                  </div>
+                </div>
+                <div className="mt-4 border-t border-white/20 pt-4">
+                  <p className="text-xs text-primary-fixed">Net</p>
+                  <p className="font-headline text-4xl font-extrabold">{formatCurrency(monthTotals.in - monthTotals.out)}</p>
+                </div>
               </article>
             </div>
           </div>
@@ -395,6 +427,13 @@ export function TransactionsPage() {
               <input id="csv-file" type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => setImportFile(event.target.files?.[0] ?? null)} />
             </label>
             {importFile ? <p className="text-sm text-on-surface">Selected: {importFile.name}</p> : null}
+            {importPreviewMutation.isError ? (
+              <div className="rounded-xl border border-error bg-error-container p-4">
+                <p className="text-sm text-on-error-container">
+                  Preview failed: {(importPreviewMutation.error as Error)?.message ?? 'Unknown error'}
+                </p>
+              </div>
+            ) : null}
             {importPreviewMutation.data ? (
               <div className="rounded-xl border border-outline/10 bg-surface-container-low p-4">
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">Detected Columns</p>
@@ -405,8 +444,18 @@ export function TransactionsPage() {
                     </span>
                   ))}
                 </div>
-                <div className="mt-4">
-                  <Button onClick={() => void handleConfirmImport()}>Confirm Import</Button>
+                <div className="mt-4 flex items-center gap-3">
+                  <Button onClick={() => void handleConfirmImport()} disabled={importConfirmMutation.isPending}>
+                    {importConfirmMutation.isPending ? 'Importing...' : 'Confirm Import'}
+                  </Button>
+                  {importConfirmMutation.isError ? (
+                    <span className="text-sm text-error">
+                      Import failed: {(importConfirmMutation.error as Error)?.message ?? 'Unknown error'}
+                    </span>
+                  ) : null}
+                  {importConfirmMutation.isSuccess ? (
+                    <span className="text-sm text-emerald-600">Import successful!</span>
+                  ) : null}
                 </div>
               </div>
             ) : null}

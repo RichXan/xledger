@@ -1,9 +1,3 @@
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-ALTER TABLE transactions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-ALTER TABLE categories ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-ALTER TABLE categories ADD COLUMN IF NOT EXISTS usage_count INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE tags ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
 CREATE TABLE IF NOT EXISTS balance_recalc_log (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID NOT NULL,
@@ -57,3 +51,19 @@ CREATE TABLE IF NOT EXISTS import_dedup (
     triple_key TEXT NOT NULL,
     PRIMARY KEY (user_id, triple_key)
 );
+
+CREATE TABLE IF NOT EXISTS default_categories (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    parent_id TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_category_templates (
+    user_id UUID PRIMARY KEY,
+    copied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_transactions_user_deleted_at
+    ON transactions (user_id, deleted_at);
