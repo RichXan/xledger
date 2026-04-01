@@ -10,6 +10,7 @@ import (
 
 	"xledger/backend/internal/auth"
 	bootstraphttp "xledger/backend/internal/bootstrap/http"
+	"xledger/backend/internal/portability"
 )
 
 func TestAPIContract_AuthSendCode_UsesUnifiedEnvelope(t *testing.T) {
@@ -66,7 +67,10 @@ func newContractRouter(t *testing.T) http.Handler {
 	repo := auth.NewInMemoryRepository(now)
 	sessionService := auth.NewSessionService(repo, nil, now)
 	authHandler := auth.NewHandler(auth.NewCodeService(repo, contractNoopSender{}, auth.NewSessionTokenIssuer(sessionService), now, func() string { return "123456" }))
-	r, err := bootstraphttp.NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, bootstraphttp.Dependencies{AuthHandler: authHandler})
+	r, err := bootstraphttp.NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, bootstraphttp.Dependencies{
+		AuthHandler:  authHandler,
+		PATService:  portability.NewPATService(nil),
+	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
 	}

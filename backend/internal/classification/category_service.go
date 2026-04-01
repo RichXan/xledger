@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"xledger/backend/internal/common/text"
 )
 
 const (
@@ -78,6 +80,24 @@ func (s *CategoryService) ListCategories(_ context.Context, userID string) ([]Ca
 		return nil, &contractError{code: CAT_INVALID}
 	}
 	return s.repo.ListCategoriesByUser(normalizedUserID)
+}
+
+func (s *CategoryService) FindByName(_ context.Context, userID string, name string) (string, error) {
+	normalizedUserID := strings.TrimSpace(userID)
+	normalizedName := strings.TrimSpace(name)
+	if normalizedUserID == "" || normalizedName == "" {
+		return "", &contractError{code: CAT_INVALID}
+	}
+	categories, err := s.repo.ListCategoriesByUser(normalizedUserID)
+	if err != nil {
+		return "", err
+	}
+	for _, cat := range categories {
+		if cat.Name == normalizedName || text.StripEmojiPrefix(cat.Name) == normalizedName {
+			return cat.ID, nil
+		}
+	}
+	return "", nil
 }
 
 func (s *CategoryService) UpdateCategory(_ context.Context, userID string, categoryID string, input CategoryUpdateInput) (Category, error) {

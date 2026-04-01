@@ -10,6 +10,7 @@ import (
 	"xledger/backend/internal/auth"
 	bootstraphttp "xledger/backend/internal/bootstrap/http"
 	"xledger/backend/internal/classification"
+	"xledger/backend/internal/portability"
 )
 
 func TestDeleteReferencedCategory_Archives_ReturnsCAT_IN_USE_ARCHIVED(t *testing.T) {
@@ -136,6 +137,7 @@ func TestCategoriesAndTags_AcceptsAccessAndPAT(t *testing.T) {
 	r, err := bootstraphttp.NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, bootstraphttp.Dependencies{
 		AuthHandler:           authHandler,
 		ClassificationHandler: classificationHandler,
+		PATService:            portability.NewPATService(nil),
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)

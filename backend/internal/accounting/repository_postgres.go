@@ -7,190 +7,6 @@ import (
 	"strings"
 )
 
-type PostgresLedgerRepository struct {
-	db *sql.DB
-}
-
-func NewPostgresLedgerRepository(db *sql.DB) *PostgresLedgerRepository {
-	return &PostgresLedgerRepository{db: db}
-}
-
-func (r *PostgresLedgerRepository) Create(userID string, input LedgerCreateInput) (Ledger, error) {
-	var ledger Ledger
-	err := r.db.QueryRow(`
-		INSERT INTO ledgers (id, user_id, name, is_default, created_at)
-		VALUES (gen_random_uuid(), $1, $2, $3, NOW())
-		RETURNING id, user_id, name, is_default
-	`, userID, input.Name, input.IsDefault).Scan(&ledger.ID, &ledger.UserID, &ledger.Name, &ledger.IsDefault)
-	return ledger, err
-}
-
-func (r *PostgresLedgerRepository) ListByUser(userID string) ([]Ledger, error) {
-	rows, err := r.db.Query(`
-		SELECT id, user_id, name, is_default
-		FROM ledgers
-		WHERE user_id = $1
-		ORDER BY is_default DESC, created_at ASC
-	`, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	ledgers := make([]Ledger, 0)
-	for rows.Next() {
-		var ledger Ledger
-		if err := rows.Scan(&ledger.ID, &ledger.UserID, &ledger.Name, &ledger.IsDefault); err != nil {
-			return nil, err
-		}
-		ledgers = append(ledgers, ledger)
-	}
-	return ledgers, rows.Err()
-}
-
-func (r *PostgresLedgerRepository) GetByIDForUser(userID string, ledgerID string) (Ledger, bool, error) {
-	var ledger Ledger
-	err := r.db.QueryRow(`
-		SELECT id, user_id, name, is_default
-		FROM ledgers
-		WHERE id = $1 AND user_id = $2
-	`, ledgerID, userID).Scan(&ledger.ID, &ledger.UserID, &ledger.Name, &ledger.IsDefault)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Ledger{}, false, nil
-	}
-	if err != nil {
-		return Ledger{}, false, err
-	}
-	return ledger, true, nil
-}
-
-func (r *PostgresLedgerRepository) SaveByIDForUser(userID string, ledgerID string, ledger Ledger) (Ledger, bool, error) {
-	var updated Ledger
-	err := r.db.QueryRow(`
-		UPDATE ledgers
-		SET name = $3
-		WHERE id = $1 AND user_id = $2
-		RETURNING id, user_id, name, is_default
-	`, ledgerID, userID, ledger.Name).Scan(&updated.ID, &updated.UserID, &updated.Name, &updated.IsDefault)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Ledger{}, false, nil
-	}
-	if err != nil {
-		return Ledger{}, false, err
-	}
-	return updated, true, nil
-}
-
-func (r *PostgresLedgerRepository) DeleteByIDForUser(userID string, ledgerID string) (bool, error) {
-	result, err := r.db.Exec(`
-		DELETE FROM ledgers
-		WHERE id = $1 AND user_id = $2 AND is_default = false
-	`, ledgerID, userID)
-	if err != nil {
-		return false, err
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-	return rows > 0, nil
-}
-
-type PostgresAccountRepository struct {
-	db *sql.DB
-}
-
-func NewPostgresAccountRepository(db *sql.DB) *PostgresAccountRepository {
-	return &PostgresAccountRepository{db: db}
-}
-
-func (r *PostgresAccountRepository) Create(userID string, input AccountCreateInput) (Account, error) {
-	var account Account
-	err := r.db.QueryRow(`
-		INSERT INTO accounts (id, user_id, name, type, initial_balance, created_at)
-		VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
-		RETURNING id, user_id, name, type, initial_balance, archived_at
-	`, userID, input.Name, input.Type, input.InitialBalance).Scan(
-		&account.ID, &account.UserID, &account.Name, &account.Type, &account.InitialBalance, &account.ArchivedAt,
-	)
-	return account, err
-}
-
-func (r *PostgresAccountRepository) ListByUser(userID string) ([]Account, error) {
-	rows, err := r.db.Query(`
-		SELECT id, user_id, name, type, initial_balance, archived_at
-		FROM accounts
-		WHERE user_id = $1
-		ORDER BY created_at ASC
-	`, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	accounts := make([]Account, 0)
-	for rows.Next() {
-		var account Account
-		if err := rows.Scan(&account.ID, &account.UserID, &account.Name, &account.Type, &account.InitialBalance, &account.ArchivedAt); err != nil {
-			return nil, err
-		}
-		accounts = append(accounts, account)
-	}
-	return accounts, rows.Err()
-}
-
-func (r *PostgresAccountRepository) GetByIDForUser(userID string, accountID string) (Account, bool, error) {
-	var account Account
-	err := r.db.QueryRow(`
-		SELECT id, user_id, name, type, initial_balance, archived_at
-		FROM accounts
-		WHERE id = $1 AND user_id = $2
-	`, accountID, userID).Scan(
-		&account.ID, &account.UserID, &account.Name, &account.Type, &account.InitialBalance, &account.ArchivedAt,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Account{}, false, nil
-	}
-	if err != nil {
-		return Account{}, false, err
-	}
-	return account, true, nil
-}
-
-func (r *PostgresAccountRepository) SaveByIDForUser(userID string, accountID string, account Account) (Account, bool, error) {
-	var updated Account
-	err := r.db.QueryRow(`
-		UPDATE accounts
-		SET name = $3, type = $4, archived_at = $5
-		WHERE id = $1 AND user_id = $2
-		RETURNING id, user_id, name, type, initial_balance, archived_at
-	`, accountID, userID, account.Name, account.Type, account.ArchivedAt).Scan(
-		&updated.ID, &updated.UserID, &updated.Name, &updated.Type, &updated.InitialBalance, &updated.ArchivedAt,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Account{}, false, nil
-	}
-	if err != nil {
-		return Account{}, false, err
-	}
-	return updated, true, nil
-}
-
-func (r *PostgresAccountRepository) DeleteByIDForUser(userID string, accountID string) (bool, error) {
-	result, err := r.db.Exec(`
-		DELETE FROM accounts
-		WHERE id = $1 AND user_id = $2
-	`, accountID, userID)
-	if err != nil {
-		return false, err
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-	return rows > 0, nil
-}
-
 type PostgresTransactionRepository struct {
 	db *sql.DB
 }
@@ -210,9 +26,9 @@ func (r *PostgresTransactionRepository) Create(userID string, input TransactionC
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
 			type, amount, version, occurred_at, created_at
 		) VALUES (
-			gen_random_uuid(), $1, $2, $3, $4, $5, $6,
-			$7, $8, $9, $10,
-			$11, $12, 1, $13, NOW()
+				gen_random_uuid(), $1, $2, $3, $4, $5, $6,
+				$7, $8, $9, $10,
+				$11, $12, 1, $13, NOW()
 		)
 		RETURNING id, user_id, ledger_id, account_id, category_id, category_name, memo,
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
@@ -360,7 +176,7 @@ func (r *PostgresTransactionRepository) CreateTransferPair(userID string, pairID
 			id, user_id, ledger_id, from_account_id, to_account_id,
 			transfer_pair_id, transfer_side, type, amount, version, occurred_at, created_at
 		) VALUES (
-			gen_random_uuid(), $1, $2, $3, $4, $5, 'to', 'transfer', $6, 1, $7, NOW()
+				gen_random_uuid(), $1, $2, $3, $4, $5, 'to', 'transfer', $6, 1, $7, NOW()
 		)
 	`, userID, toInput.LedgerID, toInput.FromAccountID, toInput.ToAccountID, pairID, toInput.Amount, toInput.OccurredAt)
 	if err != nil {
@@ -422,10 +238,18 @@ func (r *PostgresTransactionRepository) UpdateTransferPairAmount(userID string, 
 	}
 	defer tx.Rollback()
 
+	// Acquire advisory lock BEFORE reading version to prevent race condition
+	_, err = tx.Exec(`
+		SELECT pg_advisory_xact_lock(hashtext($1 || '|' || $2))
+	`, userID, pairID)
+	if err != nil {
+		return Transaction{}, err
+	}
+
 	var currentVersion int
 	err = tx.QueryRow(`
 		SELECT version FROM transactions
-		WHERE transfer_pair_id = $1 AND user_id = $2 AND transfer_side = 'from' AND deleted_at IS NULL
+			WHERE transfer_pair_id = $1 AND user_id = $2 AND transfer_side = 'from' AND deleted_at IS NULL
 	`, pairID, userID).Scan(&currentVersion)
 	if err != nil {
 		return Transaction{}, err
@@ -497,8 +321,8 @@ func (r *PostgresTransactionRepository) DeleteTransferPairByTxnID(userID string,
 		var currentVersion int
 		err = tx.QueryRow(`
 			SELECT version FROM transactions
-			WHERE transfer_pair_id = $1 AND user_id = $2 AND deleted_at IS NULL
-			LIMIT 1
+				WHERE transfer_pair_id = $1 AND user_id = $2 AND deleted_at IS NULL
+				LIMIT 1
 		`, pairID, userID).Scan(&currentVersion)
 		if err != nil {
 			return nil, err
@@ -555,7 +379,7 @@ func (r *PostgresTransactionRepository) ListByUser(userID string, query Transact
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
 			type, amount, version, occurred_at
 		FROM transactions
-		WHERE user_id = $1 AND deleted_at IS NULL
+			WHERE user_id = $1 AND deleted_at IS NULL
 	`
 	args := []interface{}{userID}
 	argIdx := 2
@@ -685,11 +509,11 @@ func (r *PostgresTransactionRepository) CountByUser(userID string, query Transac
 func (r *PostgresTransactionRepository) ListByTransferPairForUser(userID string, pairID string) ([]Transaction, error) {
 	rows, err := r.db.Query(`
 		SELECT id, user_id, ledger_id, account_id, category_id, category_name, memo,
-			from_account_id, to_account_id, transfer_pair_id, transfer_side,
-			type, amount, version, occurred_at
-		FROM transactions
-		WHERE transfer_pair_id = $1 AND user_id = $2 AND deleted_at IS NULL
-		ORDER BY transfer_side ASC
+				from_account_id, to_account_id, transfer_pair_id, transfer_side,
+				type, amount, version, occurred_at
+			FROM transactions
+			WHERE transfer_pair_id = $1 AND user_id = $2 AND deleted_at IS NULL
+			ORDER BY transfer_side ASC
 	`, pairID, userID)
 	if err != nil {
 		return nil, err

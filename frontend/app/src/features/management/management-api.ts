@@ -135,3 +135,22 @@ export async function exportCsv(accessToken: string) {
 
   return response.text()
 }
+
+export interface GenerateShortcutResponse {
+  pat_token: string
+  api_endpoint: string
+  shortcut_url?: string
+  expires_at?: string
+}
+
+export function generateShortcut(accessToken: string, name: string = '快捷记账', expiresIn?: number) {
+  const body: { name: string; expires_in?: number } = { name }
+  if (expiresIn) {
+    body.expires_in = expiresIn
+  }
+  return requestEnvelope<GenerateShortcutResponse>('/shortcuts/generate', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(body),
+  })
+}

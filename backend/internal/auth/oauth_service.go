@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -17,12 +18,19 @@ type GoogleCallbackInput struct {
 	Email string
 }
 
+type exchangeCode struct {
+	Tokens TokenPair
+	Expiry time.Time
+}
+
 type OAuthService struct {
-	repo     CodeRepository
-	sessions *SessionService
-	now      func() time.Time
-	ttl      time.Duration
-	google   GoogleOAuthProvider
+	repo          CodeRepository
+	sessions      *SessionService
+	now           func() time.Time
+	ttl           time.Duration
+	google        GoogleOAuthProvider
+	exchangeCodes map[string]exchangeCode
+	exchangeMu    sync.Mutex
 }
 
 func NewOAuthService(repo CodeRepository, sessions *SessionService, now func() time.Time) *OAuthService {
@@ -148,4 +156,31 @@ func randomHex(nBytes int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(buf), nil
+}
+
+func (s *OAuthService) StoreExchangeCode(code string, tokens TokenPair) {
+	s.exchangeMu.Lock()
+	defer s.exchangeMu.Unlock()
+	if s.exchangeCodes == nil {
+		s.exchangeCodes = make(map[string]exchangeCode)
+	}
+	s.exchangeCodes[code] = exchangeCode{Tokens: tokens, Expiry: s.now().Add(10 * time.Minute)}
+}
+
+func (s *OAuthService) ConsumeExchangeCode(code string) (TokenPair, bool) {
+	s.exchangeMu.Lock()
+	defer s.exchangeMu.Unlock()
+	if s.exchangeCodes == nil {
+		return TokenPair{}, false
+	}
+	record, ok := s.exchangeCodes[code]
+	if !ok {
+		return TokenPair{}, false
+	}
+	if s.now().After(record.Expiry) {
+		delete(s.exchangeCodes, code)
+		return TokenPair{}, false
+	}
+	delete(s.exchangeCodes, code)
+	return record.Tokens, true
 }

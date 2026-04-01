@@ -28,6 +28,7 @@ func TestRouter_Healthz(t *testing.T) {
 func TestConfig_AllowsMissingSMTPEnv(t *testing.T) {
 	t.Setenv("SMTP_HOST", "")
 	t.Setenv("AUTH_CODE_PEPPER", "test-pepper")
+	t.Setenv("AUTH_TOKEN_SECRET", "test-token-secret")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -55,6 +56,7 @@ func TestConfig_RequiresAuthCodePepperEnv(t *testing.T) {
 func TestConfig_DefaultsAPIAddr(t *testing.T) {
 	t.Setenv("SMTP_HOST", "smtp.example.com")
 	t.Setenv("AUTH_CODE_PEPPER", "test-pepper")
+	t.Setenv("AUTH_TOKEN_SECRET", "test-token-secret")
 	t.Setenv("API_ADDR", "")
 
 	cfg, err := config.Load()
@@ -70,6 +72,7 @@ func TestConfig_DefaultsAPIAddr(t *testing.T) {
 func TestConfig_DefaultsTrustedProxies(t *testing.T) {
 	t.Setenv("SMTP_HOST", "smtp.example.com")
 	t.Setenv("AUTH_CODE_PEPPER", "test-pepper")
+	t.Setenv("AUTH_TOKEN_SECRET", "test-token-secret")
 	t.Setenv("TRUSTED_PROXIES", "")
 
 	cfg, err := config.Load()
@@ -89,6 +92,7 @@ func TestConfig_DefaultsTrustedProxies(t *testing.T) {
 func TestConfig_ParsesTrustedProxiesFromEnv(t *testing.T) {
 	t.Setenv("SMTP_HOST", "smtp.example.com")
 	t.Setenv("AUTH_CODE_PEPPER", "test-pepper")
+	t.Setenv("AUTH_TOKEN_SECRET", "test-token-secret")
 	t.Setenv("TRUSTED_PROXIES", "10.0.0.0/8, 192.168.0.0/16")
 
 	cfg, err := config.Load()

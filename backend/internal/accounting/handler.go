@@ -1,20 +1,81 @@
 package accounting
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
-	"xledger/backend/internal/classification"
 	"xledger/backend/internal/common/httpx"
 )
 
+// classificationError is the contract error from the classification package.
+// It is detected via errors.As using the error unwrapping chain.
+type classificationError = interface{ ErrorCode() string }
+
+func (h *Handler) writeError(c *gin.Context, err error) {
+	switch ErrorCode(err) {
+	case ACCOUNT_INVALID, LEDGER_INVALID, TXN_VALIDATION_FAILED:
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+	case ACCOUNT_NOT_FOUND, LEDGER_NOT_FOUND, TXN_NOT_FOUND:
+		httpx.JSON(c, http.StatusNotFound, "RESOURCE_NOT_FOUND", "资源不存在", nil)
+	case LEDGER_DEFAULT_IMMUTABLE, TXN_CONFLICT:
+		httpx.JSON(c, http.StatusConflict, "BUSINESS_RULE_VIOLATION", "业务规则不满足", nil)
+	default:
+		// Handle cross-domain classification/tag errors via error chain
+		var catErr classificationError
+		if errors.As(err, &catErr) {
+			switch catErr.ErrorCode() {
+			case "CAT_INVALID", "CAT_ARCHIVED", "TAG_INVALID":
+				httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			case "CAT_NOT_FOUND", "TAG_NOT_FOUND":
+				httpx.JSON(c, http.StatusNotFound, "RESOURCE_NOT_FOUND", "资源不存在", nil)
+			default:
+				httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+			}
+			return
+		}
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+	}
+}
+
+// userIDFromContext is kept for backward compatibility with internal calls.
+// External callers should use httpx.UserIDFromContext.
+func userIDFromContext(c *gin.Context) (string, bool) {
+	return httpx.UserIDFromContext(c)
+}
+
+// Interface definitions for handler dependencies (dependency inversion)
+type ledgerServicer interface {
+	ListLedgers(ctx context.Context, userID string) ([]Ledger, error)
+	CreateLedger(ctx context.Context, userID string, input LedgerCreateInput) (Ledger, error)
+	UpdateLedger(ctx context.Context, userID string, ledgerID string, input LedgerCreateInput) (Ledger, error)
+	DeleteLedger(ctx context.Context, userID string, ledgerID string) error
+}
+
+type accountServicer interface {
+	CreateAccount(ctx context.Context, userID string, input AccountCreateInput) (Account, error)
+	ListAccounts(ctx context.Context, userID string) ([]Account, error)
+	GetAccount(ctx context.Context, userID string, accountID string) (Account, error)
+	UpdateAccount(ctx context.Context, userID string, accountID string, input AccountUpdateInput) (Account, error)
+	DeleteAccount(ctx context.Context, userID string, accountID string) error
+}
+
+type transactionServicer interface {
+	CreateTransaction(ctx context.Context, userID string, input TransactionCreateInput) (Transaction, error)
+	CreateTransfer(ctx context.Context, userID string, input TransactionTransferInput) (Transaction, error)
+	EditTransaction(ctx context.Context, userID string, txnID string, input TransactionEditInput) (Transaction, error)
+	DeleteTransaction(ctx context.Context, userID string, txnID string, version *int) error
+	ListTransactionsWithTotal(ctx context.Context, userID string, query TransactionQuery) ([]Transaction, int, error)
+}
+
 type Handler struct {
-	ledgerService      *LedgerService
-	accountService     *AccountService
-	transactionService *TransactionService
+	ledgerService      ledgerServicer
+	accountService     accountServicer
+	transactionService transactionServicer
 }
 
 type createAccountRequest struct {
@@ -257,13 +318,19 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 	}
 	page, pageSize := 1, len(accounts)
 	if rawPage := c.Query("page"); rawPage != "" {
-		if parsed, err := strconv.Atoi(rawPage); err == nil {
+		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {
 			page = parsed
+		} else if err != nil || parsed <= 0 {
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return
 		}
 	}
 	if rawPageSize := c.Query("page_size"); rawPageSize != "" {
-		if parsed, err := strconv.Atoi(rawPageSize); err == nil {
+		if parsed, err := strconv.Atoi(rawPageSize); err == nil && parsed > 0 {
 			pageSize = parsed
+		} else if err != nil || parsed <= 0 {
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return
 		}
 	}
 	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"items": accounts, "pagination": gin.H{"page": page, "page_size": pageSize, "total": len(accounts), "total_pages": 1}})
@@ -421,31 +488,16 @@ func (h *Handler) DeleteLedger(c *gin.Context) {
 	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"deleted": true})
 }
 
-func (h *Handler) writeError(c *gin.Context, err error) {
-	switch ErrorCode(err) {
-	case ACCOUNT_INVALID, LEDGER_INVALID, TXN_VALIDATION_FAILED:
-		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
-	case ACCOUNT_NOT_FOUND, LEDGER_NOT_FOUND, TXN_NOT_FOUND:
-		httpx.JSON(c, http.StatusNotFound, "RESOURCE_NOT_FOUND", "资源不存在", nil)
-	case LEDGER_DEFAULT_IMMUTABLE, TXN_CONFLICT:
-		httpx.JSON(c, http.StatusConflict, "BUSINESS_RULE_VIOLATION", "业务规则不满足", nil)
-	default:
-		switch classification.ErrorCode(err) {
-		case classification.CAT_INVALID, classification.CAT_ARCHIVED, classification.TAG_INVALID:
-			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
-		case classification.CAT_NOT_FOUND, classification.TAG_NOT_FOUND:
-			httpx.JSON(c, http.StatusNotFound, "RESOURCE_NOT_FOUND", "资源不存在", nil)
-		default:
-			httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
-		}
+func (h *Handler) GetTransactionService() *TransactionService {
+	if h.transactionService == nil {
+		return nil
 	}
+	return h.transactionService.(*TransactionService)
 }
 
-func userIDFromContext(c *gin.Context) (string, bool) {
-	if value, exists := c.Get("user_id"); exists {
-		if userID, ok := value.(string); ok && userID != "" {
-			return userID, true
-		}
+func (h *Handler) GetLedgerService() *LedgerService {
+	if h.ledgerService == nil {
+		return nil
 	}
-	return "", false
+	return h.ledgerService.(*LedgerService)
 }

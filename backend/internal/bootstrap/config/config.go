@@ -13,6 +13,7 @@ type Config struct {
 	SMTPPass                 string
 	SMTPFrom                 string
 	AuthCodePepper           string
+	AuthTokenSecret          string
 	APIAddr                  string
 	TrustedProxies           []string
 	DatabaseURL              string
@@ -29,6 +30,11 @@ func Load() (Config, error) {
 	authCodePepper := strings.TrimSpace(os.Getenv("AUTH_CODE_PEPPER"))
 	if authCodePepper == "" {
 		return Config{}, errors.New("missing required env var: AUTH_CODE_PEPPER")
+	}
+
+	authTokenSecret := strings.TrimSpace(os.Getenv("AUTH_TOKEN_SECRET"))
+	if authTokenSecret == "" {
+		return Config{}, errors.New("missing required env var: AUTH_TOKEN_SECRET")
 	}
 
 	apiAddr := os.Getenv("API_ADDR")
@@ -58,6 +64,7 @@ func Load() (Config, error) {
 		SMTPPass:                 strings.TrimSpace(os.Getenv("SMTP_PASS")),
 		SMTPFrom:                 strings.TrimSpace(os.Getenv("SMTP_FROM")),
 		AuthCodePepper:           authCodePepper,
+		AuthTokenSecret:          authTokenSecret,
 		APIAddr:                  apiAddr,
 		TrustedProxies:           trustedProxies,
 		DatabaseURL:              databaseURL,

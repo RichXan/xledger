@@ -17,6 +17,7 @@ const (
 	PAT_FORBIDDEN_ON_AUTH = "PAT_FORBIDDEN_ON_AUTH"
 	defaultPATTTL         = 90 * 24 * time.Hour
 	defaultPATPrefix      = "pat:"
+	maxExpiryYear         = 10
 )
 
 type PATRecord struct {
@@ -24,7 +25,7 @@ type PATRecord struct {
 	Name      string     `json:"name"`
 	TokenHash string     `json:"-"`
 	CreatedAt time.Time  `json:"created_at"`
-	ExpiresAt time.Time  `json:"expires_at"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 }
 
@@ -34,6 +35,7 @@ type PATService struct {
 	items         map[string]PATRecord
 	tokenToID     map[string]string
 	tokenToUser   map[string]string
+	revokedTokens map[string]bool // immediate revocation blacklist, checked before lag
 	strictMode    bool
 	alertEvents   []string
 	revocationLag time.Duration
@@ -43,7 +45,7 @@ func NewPATService(now func() time.Time) *PATService {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	return &PATService{now: now, items: map[string]PATRecord{}, tokenToID: map[string]string{}, tokenToUser: map[string]string{}}
+	return &PATService{now: now, items: map[string]PATRecord{}, tokenToID: map[string]string{}, tokenToUser: map[string]string{}, revokedTokens: map[string]bool{}}
 }
 
 func (s *PATService) SetNow(now func() time.Time) {
@@ -77,11 +79,28 @@ func (s *PATService) CreatePAT(_ context.Context, userID string, name string, ex
 	defer s.mu.Unlock()
 	now := s.now()
 	plain := defaultPATPrefix + strings.TrimSpace(userID) + ":" + nextPATID()
-	ttl := now.Add(defaultPATTTL)
+
+	var expiresAtPtr *time.Time
 	if expiresAt != nil {
-		ttl = expiresAt.UTC()
+		t := expiresAt.UTC()
+		maxExpiry := now.Add(maxExpiryYear * 365 * 24 * time.Hour)
+		if !t.After(maxExpiry) {
+			expiresAtPtr = &t
+		}
+		// If nil or exceeds max, leave as nil (no expiry)
+	} else {
+		// Default TTL: 90 days
+		defaultExpiry := now.Add(defaultPATTTL)
+		expiresAtPtr = &defaultExpiry
 	}
-	record := PATRecord{ID: nextPATID(), Name: strings.TrimSpace(name), TokenHash: hashPAT(plain), CreatedAt: now, ExpiresAt: ttl}
+
+	record := PATRecord{
+		ID:        nextPATID(),
+		Name:      strings.TrimSpace(name),
+		TokenHash: hashPAT(plain),
+		CreatedAt: now,
+		ExpiresAt: expiresAtPtr,
+	}
 	s.items[record.ID] = record
 	s.tokenToID[record.TokenHash] = record.ID
 	s.tokenToUser[record.TokenHash] = strings.TrimSpace(userID)
@@ -95,10 +114,15 @@ func (s *PATService) RevokePAT(_ context.Context, userID string, patID string) e
 	if !ok {
 		return &contractError{code: PAT_REVOKED}
 	}
+	// Validate that the PAT belongs to the user requesting revocation
+	if s.tokenToUser[record.TokenHash] != strings.TrimSpace(userID) {
+		return &contractError{code: PAT_REVOKED}
+	}
 	now := s.now()
 	record.RevokedAt = &now
 	s.items[patID] = record
-	_ = userID
+	// Add to immediate revocation blacklist
+	s.revokedTokens[record.TokenHash] = true
 	return nil
 }
 
@@ -108,13 +132,27 @@ func (s *PATService) ValidatePAT(_ context.Context, token string, path string) (
 	if !s.CanUsePATOnPath(token, path) {
 		return "", &contractError{code: PAT_FORBIDDEN_ON_AUTH}
 	}
-	id, ok := s.tokenToID[hashPAT(token)]
+	tokenHash := hashPAT(token)
+	// Check immediate revocation blacklist first
+	if s.revokedTokens[tokenHash] {
+		// Still detect breach even on immediate rejection
+		if id, ok := s.tokenToID[tokenHash]; ok {
+			if record, ok := s.items[id]; ok && record.RevokedAt != nil {
+				if s.revocationLag > 5*time.Second {
+					s.strictMode = true
+					s.alertEvents = append(s.alertEvents, "pat.revoke.blacklist_sla_exceeded")
+				}
+			}
+		}
+		return "", &contractError{code: PAT_REVOKED}
+	}
+	id, ok := s.tokenToID[tokenHash]
 	if !ok {
 		return "", &contractError{code: PAT_REVOKED}
 	}
 	record := s.items[id]
 	now := s.now()
-	if now.After(record.ExpiresAt) {
+	if record.ExpiresAt != nil && now.After(*record.ExpiresAt) {
 		return "", &contractError{code: PAT_EXPIRED}
 	}
 	if record.RevokedAt != nil {

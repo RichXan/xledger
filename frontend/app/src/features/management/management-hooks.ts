@@ -6,6 +6,7 @@ import {
   createPAT,
   deleteLedger,
   exportCsv,
+  generateShortcut,
   getAccounts,
   getCategories,
   getLedgers,
@@ -149,5 +150,18 @@ export function useExportCsv() {
 
   return useMutation({
     mutationFn: () => exportCsv(session!.accessToken),
+  })
+}
+
+export function useGenerateShortcut() {
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (params: { name?: string; expiresIn?: number }) =>
+      generateShortcut(session!.accessToken, params.name, params.expiresIn),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['management', 'pats'] })
+    },
   })
 }

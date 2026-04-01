@@ -1,8 +1,11 @@
 package http
 
 import (
+	"database/sql"
+
 	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/classification"
+	"xledger/backend/internal/portability"
 )
 
 type defaultBusinessDeps struct {
@@ -12,25 +15,67 @@ type defaultBusinessDeps struct {
 	classificationRepo classification.Repository
 	categoryService    *classification.CategoryService
 	tagService         *classification.TagService
+	txnService         *accounting.TransactionService
+	ledgerService      *accounting.LedgerService
+	patService         *portability.PATService
 }
 
 func newDefaultBusinessDeps() *defaultBusinessDeps {
 	classificationRepo := classification.NewInMemoryRepository()
 	categoryService := classification.NewCategoryService(classificationRepo)
 	tagService := classification.NewTagService(classificationRepo)
+	ledgerRepo := accounting.NewInMemoryLedgerRepository()
+	accountRepo := accounting.NewInMemoryAccountRepository()
+	transactionRepo := accounting.NewInMemoryTransactionRepository()
+	ledgerService := accounting.NewLedgerService(ledgerRepo)
+	txnService := accounting.NewTransactionService(transactionRepo, ledgerRepo, accountRepo, categoryService, tagService)
+	patService := portability.NewPATService(nil)
 	return &defaultBusinessDeps{
-		ledgerRepo:         accounting.NewInMemoryLedgerRepository(),
-		accountRepo:        accounting.NewInMemoryAccountRepository(),
-		transactionRepo:    accounting.NewInMemoryTransactionRepository(),
+		ledgerRepo:         ledgerRepo,
+		accountRepo:        accountRepo,
+		transactionRepo:    transactionRepo,
 		classificationRepo: classificationRepo,
 		categoryService:    categoryService,
 		tagService:         tagService,
+		txnService:         txnService,
+		ledgerService:      ledgerService,
+		patService:         patService,
 	}
 }
 
 func newDefaultAccountingHandler(deps *defaultBusinessDeps) *accounting.Handler {
-	ledgerService := accounting.NewLedgerService(deps.ledgerRepo)
-	accountService := accounting.NewAccountService(deps.accountRepo)
-	transactionService := accounting.NewTransactionService(deps.transactionRepo, deps.ledgerRepo, deps.accountRepo, deps.categoryService, deps.tagService)
-	return accounting.NewHandler(ledgerService, accountService, transactionService)
+	return accounting.NewHandler(deps.ledgerService, deps.accountService(), deps.txnService)
+}
+
+func (d *defaultBusinessDeps) accountService() *accounting.AccountService {
+	return accounting.NewAccountService(d.accountRepo)
+}
+
+// AccountingHandlerWithPostgreSQL holds the accounting domain components
+// needed by both the accounting handler and other domains (e.g., reporting, portability).
+type AccountingHandlerWithPostgreSQL struct {
+	AccountingHandler  *accounting.Handler
+	CategoryService   *classification.CategoryService
+	TxnService       *accounting.TransactionService
+	LedgerService    *accounting.LedgerService
+	TxnRepo         accounting.TransactionRepository
+}
+
+func newAccountingHandlerWithPostgreSQL(db *sql.DB) AccountingHandlerWithPostgreSQL {
+	ledgerRepo := accounting.NewPostgresLedgerRepository(db)
+	accountRepo := accounting.NewPostgresAccountRepository(db)
+	txnRepo := accounting.NewPostgresTransactionRepository(db)
+	classificationRepo := classification.NewPostgresRepository(db)
+	categoryService := classification.NewCategoryService(classificationRepo)
+	tagService := classification.NewTagService(classificationRepo)
+	ledgerService := accounting.NewLedgerService(ledgerRepo)
+	txnService := accounting.NewTransactionService(txnRepo, ledgerRepo, accountRepo, categoryService, tagService)
+	accountingHandler := accounting.NewHandler(ledgerService, accounting.NewAccountService(accountRepo), txnService)
+	return AccountingHandlerWithPostgreSQL{
+		AccountingHandler: accountingHandler,
+		CategoryService:   categoryService,
+		TxnService:        txnService,
+		LedgerService:     ledgerService,
+		TxnRepo:         txnRepo,
+	}
 }

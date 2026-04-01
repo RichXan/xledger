@@ -1,12 +1,8 @@
 package portability
 
 import (
-	"encoding/csv"
 	"encoding/json"
-	"io"
-	"math"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,14 +12,30 @@ import (
 )
 
 type Handler struct {
-	preview *ImportPreviewService
-	confirm *ImportConfirmService
-	export  *ExportService
-	pat     *PATService
+	preview  *ImportPreviewService
+	confirm  *ImportConfirmService
+	export   *ExportService
+	pat      *PATService
+	shortcut *ShortcutHandler
 }
 
-func NewHandler(preview *ImportPreviewService, confirm *ImportConfirmService, export *ExportService, pat *PATService) *Handler {
-	return &Handler{preview: preview, confirm: confirm, export: export, pat: pat}
+func NewHandler(preview *ImportPreviewService, confirm *ImportConfirmService, export *ExportService, pat *PATService, shortcut ...*ShortcutHandler) *Handler {
+	h := &Handler{preview: preview, confirm: confirm, export: export, pat: pat}
+	if len(shortcut) > 0 {
+		h.shortcut = shortcut[0]
+	}
+	return h
+}
+
+func (h *Handler) SetShortcutHandler(shortcut *ShortcutHandler) {
+	h.shortcut = shortcut
+}
+
+func (h *Handler) GetPATService() *PATService {
+	if h == nil {
+		return nil
+	}
+	return h.pat
 }
 
 func (h *Handler) ImportPreview(c *gin.Context) {
@@ -73,7 +85,7 @@ func (h *Handler) ImportConfirm(c *gin.Context) {
 			return
 		}
 		defer opened.Close()
-		parsed, err := parseImportRowsFromCSV(opened)
+		parsed, err := ParseImportRowsFromCSV(opened)
 		if err != nil {
 			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 			return
@@ -96,108 +108,6 @@ func (h *Handler) ImportConfirm(c *gin.Context) {
 		return
 	}
 	httpx.JSON(c, http.StatusOK, "OK", "成功", result)
-}
-
-func parseImportRowsFromCSV(reader io.Reader) (ImportConfirmRequest, error) {
-	records, err := csv.NewReader(reader).ReadAll()
-	if err != nil || len(records) < 2 {
-		return ImportConfirmRequest{}, err
-	}
-	headerMap := map[string]int{}
-	for idx, name := range records[0] {
-		trimmed := strings.TrimSpace(name)
-		trimmed = strings.TrimPrefix(trimmed, "\uFEFF")
-		headerMap[trimmed] = idx
-	}
-
-	getIndex := func(candidates ...string) int {
-		for _, candidate := range candidates {
-			if idx, ok := headerMap[candidate]; ok {
-				return idx
-			}
-		}
-		return -1
-	}
-
-	dateIdx := getIndex("时间", "date", "Date", "time", "occurred_at")
-	typeIdx := getIndex("类型", "type", "Type")
-	purposeIdx := getIndex("用途/来源", "category", "Category")
-	amountIdx := getIndex("金额", "amount", "Amount")
-	noteIdx := getIndex("备注", "description", "memo", "note")
-	signAmountIdx := getIndex("金额正负处理")
-
-	if dateIdx < 0 || amountIdx < 0 {
-		return ImportConfirmRequest{}, io.EOF
-	}
-
-	rows := make([]ImportRow, 0, len(records)-1)
-	for _, raw := range records[1:] {
-		date := csvCell(raw, dateIdx)
-		amountRaw := csvCell(raw, amountIdx)
-		if strings.TrimSpace(date) == "" || strings.TrimSpace(amountRaw) == "" {
-			continue
-		}
-
-		amount, parseErr := parseImportAmount(amountRaw)
-		if parseErr != nil {
-			continue
-		}
-
-		rowType := normalizeImportType(csvCell(raw, typeIdx))
-		signAmount := csvCell(raw, signAmountIdx)
-		if rowType == "" && strings.Contains(signAmount, "-") {
-			rowType = "expense"
-		}
-		if rowType == "" && strings.Contains(signAmount, "+") {
-			rowType = "income"
-		}
-		if rowType == "" {
-			rowType = "expense"
-		}
-
-		category := strings.TrimSpace(csvCell(raw, purposeIdx))
-		description := strings.TrimSpace(csvCell(raw, noteIdx))
-		if description == "" {
-			description = category
-		}
-
-		rows = append(rows, ImportRow{
-			Date:        strings.TrimSpace(date),
-			Amount:      math.Abs(amount),
-			Description: description,
-			Type:        rowType,
-			Category:    category,
-		})
-	}
-	if len(rows) == 0 {
-		return ImportConfirmRequest{}, io.EOF
-	}
-	return ImportConfirmRequest{Rows: rows}, nil
-}
-
-func csvCell(row []string, idx int) string {
-	if idx < 0 || idx >= len(row) {
-		return ""
-	}
-	return row[idx]
-}
-
-func parseImportAmount(raw string) (float64, error) {
-	replacer := strings.NewReplacer("¥", "", "￥", "", ",", "", " ", "")
-	normalized := replacer.Replace(strings.TrimSpace(raw))
-	return strconv.ParseFloat(normalized, 64)
-}
-
-func normalizeImportType(raw string) string {
-	lower := strings.ToLower(strings.TrimSpace(raw))
-	switch {
-	case strings.Contains(lower, "income"), strings.Contains(lower, "收入"):
-		return "income"
-	case strings.Contains(lower, "expense"), strings.Contains(lower, "支出"):
-		return "expense"
-	default:
-		return ""
-	}
 }
 
 func (h *Handler) Export(c *gin.Context) {
@@ -273,7 +183,7 @@ func (h *Handler) CreatePAT(c *gin.Context) {
 	}
 	plain, record, err := h.pat.CreatePAT(c.Request.Context(), userID, "default", nil)
 	if err != nil {
-		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "生成Token失败", nil)
 		return
 	}
 	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"token": plain, "id": record.ID, "expires_at": record.ExpiresAt})
@@ -328,10 +238,29 @@ func (h *Handler) writeExportError(c *gin.Context, err error) {
 }
 
 func userIDFromContext(c *gin.Context) (string, bool) {
-	if value, exists := c.Get("user_id"); exists {
-		if userID, ok := value.(string); ok && userID != "" {
-			return userID, true
-		}
+	return httpx.UserIDFromContext(c)
+}
+
+func (h *Handler) GenerateShortcut(c *gin.Context) {
+	if h.shortcut == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "快捷指令服务未配置", nil)
+		return
 	}
-	return "", false
+	h.shortcut.GenerateShortcut(c)
+}
+
+func (h *Handler) QuickAdd(c *gin.Context) {
+	if h.shortcut == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "快捷指令服务未配置", nil)
+		return
+	}
+	h.shortcut.QuickAdd(c)
+}
+
+func (h *Handler) ListCategories(c *gin.Context) {
+	if h.shortcut == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "快捷指令服务未配置", nil)
+		return
+	}
+	h.shortcut.ListCategories(c)
 }

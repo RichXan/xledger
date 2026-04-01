@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { BarChart3, LayoutDashboard, ReceiptText, Settings, Wallet } from 'lucide-react'
+import { BarChart3, LayoutDashboard, ReceiptText, Settings, Wallet, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const items = [
@@ -7,6 +7,7 @@ const items = [
   { to: '/transactions', label: 'Transactions', icon: ReceiptText },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/accounts', label: 'Accounts', icon: Wallet },
+  { to: '/shortcut', label: '快捷记账', icon: Zap },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 

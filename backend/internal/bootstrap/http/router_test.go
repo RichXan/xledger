@@ -99,7 +99,7 @@ func TestDefaultHandlers_ShareClassificationStateWithTransactions(t *testing.T) 
 	repo := auth.NewInMemoryRepository(func() time.Time { return now })
 	authHandler := auth.NewHandler(auth.NewCodeService(repo, &countingSender{}, nil, func() time.Time { return now }, func() string { return "123456" }))
 
-	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{AuthHandler: authHandler})
+	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{AuthHandler: authHandler, PATService: portability.NewPATService(nil)})
 	if err != nil {
 		t.Fatalf("expected NewRouterWithDependencies to succeed, got: %v", err)
 	}
@@ -145,6 +145,7 @@ func TestStatsEndpoints_AcceptsAccessAndPAT(t *testing.T) {
 	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
 		AuthHandler:      authHandler,
 		ReportingHandler: reportingHandler,
+		PATService:       portability.NewPATService(nil),
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
@@ -262,7 +263,16 @@ func TestPATEndpoints_AccessOnly_GETPOSTDELETE_On_api_settings_tokens(t *testing
 	if err != nil {
 		t.Fatalf("issue session: %v", err)
 	}
-	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{AuthHandler: authHandler})
+	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
+		AuthHandler:        authHandler,
+		PortabilityHandler: portability.NewHandler(
+			portability.NewImportPreviewService(),
+			portability.NewImportConfirmService(portability.NewRepository(nil)),
+			nil,
+			portability.NewPATService(nil),
+		),
+		PATService: portability.NewPATService(nil),
+	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
 	}

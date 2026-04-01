@@ -11,6 +11,8 @@ import (
 func TestDevLoginEndpoint_AvailableOnlyOutsideRelease(t *testing.T) {
 	t.Setenv("SMTP_HOST", "smtp.example.com")
 	t.Setenv("AUTH_CODE_PEPPER", "test-pepper")
+	t.Setenv("AUTH_TOKEN_SECRET", "test-token-secret")
+	t.Setenv("ENABLE_DEV_LOGIN", "1")
 
 	prevMode := os.Getenv("GIN_MODE")
 	defer os.Setenv("GIN_MODE", prevMode)

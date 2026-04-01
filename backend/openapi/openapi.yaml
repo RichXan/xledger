@@ -302,6 +302,72 @@ components:
           type: array
           items:
             type: object
+    GenerateShortcutResponse:
+      type: object
+      required: [pat_token, api_endpoint]
+      properties:
+        pat_token:
+          type: string
+          description: PAT token (only shown once at creation)
+          example: pat:user123:pat-1
+        api_endpoint:
+          type: string
+          description: API base URL for the shortcut
+          example: https://api.example.com
+        shortcut_url:
+          type: string
+          description: Deep link URL for Apple Shortcuts
+          example: shortcuts://run-shortcut?name=快捷记账
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+    QuickAddV2Request:
+      type: object
+      required: [amount, type]
+      properties:
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+          example: 50.00
+        type:
+          type: string
+          enum: [expense, income]
+          example: expense
+        category:
+          type: string
+          description: Category name (without emoji prefix)
+          example: 餐饮
+        memo:
+          type: string
+          example: 午餐
+    QuickAddV2Response:
+      type: object
+      required: [id, success]
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: double
+        type:
+          type: string
+          enum: [expense, income]
+        memo:
+          type: string
+          nullable: true
+        success:
+          type: boolean
+    QuickAddCategoriesResponse:
+      type: object
+      required: [categories]
+      properties:
+        categories:
+          type: array
+          items:
+            type: string
   parameters:
     PageParam:
       name: page
@@ -1123,6 +1189,170 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Transaction'
+  /shortcuts/generate:
+    post:
+      summary: 生成快捷指令
+      description: 创建一个 PAT 并返回用于快捷指令的 URL 和 Token
+      tags: [Shortcuts]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  default: 快捷记账
+                  description: PAT 名称
+                expires_in:
+                  type: integer
+                  description: 有效期（天），不提供则使用默认值
+      responses:
+        '200':
+          description: 生成成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/GenerateShortcutResponse'
+  /shortcuts/quick-add:
+    post:
+      summary: 快捷记账
+      description: 通过 PAT 创建交易（用于快捷指令回调）
+      tags: [Shortcuts]
+      security:
+        - PATAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuickAddV2Request'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuickAddV2Response'
+        '400':
+          description: 参数不合法
+  /shortcuts/categories:
+    get:
+      summary: 获取快捷指令可用的分类列表
+      tags: [Shortcuts]
+      security:
+        - PATAuth: []
+      responses:
+        '200':
+          description: 分类名称列表（已去除 emoji 前缀）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuickAddCategoriesResponse'
+  /quick-add:
+    post:
+      summary: 快速记账
+      description: 通过 Bearer Token 快速创建交易
+      tags: [QuickAdd]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, type]
+              properties:
+                amount:
+                  type: number
+                  format: double
+                  minimum: 0.01
+                  example: 50.00
+                type:
+                  type: string
+                  enum: [expense, income]
+                  example: expense
+                category:
+                  type: string
+                  description: Category name
+                  example: 餐饮
+                memo:
+                  type: string
+                  example: 午餐
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: 交易时间，不提供则使用当前时间
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          amount:
+                            type: number
+                            format: double
+                          type:
+                            type: string
+                            enum: [expense, income]
+                          category_name:
+                            type: string
+                            nullable: true
+                          memo:
+                            type: string
+                            nullable: true
+                          occurred_at:
+                            type: string
+                            format: date-time
+  /quick-add/categories:
+    get:
+      summary: 获取快速记账可用的分类列表
+      tags: [QuickAdd]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      responses:
+        '200':
+          description: 分类名称列表（已去除 emoji 前缀）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuickAddCategoriesResponse'
   /personal-access-tokens:
     get:
       summary: 获取 PAT 列表
@@ -1176,3 +1406,7 @@ tags:
     description: 数据导出
   - name: PAT
     description: Personal Access Token 管理
+  - name: Shortcuts
+    description: 快捷指令 (PAT 授权)
+  - name: QuickAdd
+    description: 快速记账

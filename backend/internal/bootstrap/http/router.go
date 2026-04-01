@@ -27,7 +27,8 @@ type Dependencies struct {
 	ClassificationHandler *classification.Handler
 	PortabilityHandler    *portability.Handler
 	ReportingHandler      *reporting.Handler
-	UserIDResolver        userIDResolver
+	UserIDResolver       userIDResolver
+	PATService           *portability.PATService
 }
 
 func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin.Engine, error) {
@@ -66,6 +67,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	if handler.HasOAuthService() {
 		authGroup.GET("/google", handler.GoogleStart)
 		authGroup.GET("/google/callback", handler.GoogleCallback)
+		authGroup.POST("/google/exchange-code", handler.GoogleExchangeCode)
 	}
 	if handler.HasSessionService() {
 		authGroup.POST("/refresh", handler.Refresh)
@@ -80,12 +82,17 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	if accountingHandler == nil || classificationHandler == nil || portabilityHandler == nil || reportingHandler == nil {
 		businessDeps = newDefaultBusinessDeps()
 	}
+	// Use deps.PATService if provided, otherwise fall back to businessDeps.patService
+	patService := deps.PATService
+	if patService == nil && businessDeps != nil {
+		patService = businessDeps.patService
+	}
 	if accountingHandler == nil {
 		accountingHandler = newDefaultAccountingHandler(businessDeps)
 	}
 	if accountingHandler != nil {
 		accountingGroup := r.Group("/api")
-		accountingGroup.Use(accountingAuthMiddleware(deps.UserIDResolver))
+		accountingGroup.Use(accountingAuthMiddleware(deps.UserIDResolver, patService))
 		accountingGroup.GET("/ledgers", accountingHandler.ListLedgers)
 		accountingGroup.POST("/ledgers", accountingHandler.CreateLedger)
 		accountingGroup.PATCH("/ledgers/:id", accountingHandler.UpdateLedger)
@@ -101,6 +108,10 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		accountingGroup.GET("/transactions", accountingHandler.ListTransactions)
 		accountingGroup.PATCH("/transactions/:id", accountingHandler.UpdateTransaction)
 		accountingGroup.DELETE("/transactions/:id", accountingHandler.DeleteTransaction)
+
+		quickAddHandler := accounting.NewQuickAddHandler(accountingHandler.GetTransactionService(), accountingHandler.GetLedgerService(), businessDeps.categoryService)
+		accountingGroup.POST("/quick-add", quickAddHandler.QuickAdd)
+		accountingGroup.GET("/quick-add/categories", quickAddHandler.ListCategories)
 	}
 
 	if classificationHandler == nil {
@@ -108,7 +119,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 	if classificationHandler != nil {
 		classificationGroup := r.Group("/api")
-		classificationGroup.Use(accountingAuthMiddleware(deps.UserIDResolver))
+		classificationGroup.Use(accountingAuthMiddleware(deps.UserIDResolver, patService))
 		classificationGroup.GET("/categories", classificationHandler.ListCategories)
 		classificationGroup.POST("/categories", classificationHandler.CreateCategory)
 		classificationGroup.PATCH("/categories/:id", classificationHandler.UpdateCategory)
@@ -125,15 +136,21 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 	if portabilityHandler != nil {
 		portabilityGroup := r.Group("/api")
-		portabilityGroup.Use(accountingAuthMiddleware(deps.UserIDResolver))
+		portabilityGroup.Use(accountingAuthMiddleware(deps.UserIDResolver, patService))
 		portabilityGroup.POST("/import/csv", portabilityHandler.ImportPreview)
 		portabilityGroup.POST("/import/csv/confirm", portabilityHandler.ImportConfirm)
 		portabilityGroup.GET("/export", portabilityHandler.Export)
 		patGroup := r.Group("/api/personal-access-tokens")
-		patGroup.Use(accountingAuthMiddleware(deps.UserIDResolver), accessOnlyMiddleware())
+		patGroup.Use(accountingAuthMiddleware(deps.UserIDResolver, patService), accessOnlyMiddleware())
 		patGroup.GET("", portabilityHandler.ListPATs)
 		patGroup.POST("", portabilityHandler.CreatePAT)
 		patGroup.DELETE("/:id", portabilityHandler.RevokePAT)
+
+		shortcutGroup := r.Group("/api/shortcuts")
+		shortcutGroup.Use(accountingAuthMiddleware(deps.UserIDResolver, patService))
+		shortcutGroup.POST("/generate", portabilityHandler.GenerateShortcut)
+		shortcutGroup.POST("/quick-add", portabilityHandler.QuickAdd)
+		shortcutGroup.GET("/categories", portabilityHandler.ListCategories)
 	}
 
 	if reportingHandler == nil {
@@ -141,7 +158,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	}
 	if reportingHandler != nil {
 		reportingGroup := r.Group("/api")
-		reportingGroup.Use(accountingAuthMiddleware(deps.UserIDResolver))
+		reportingGroup.Use(accountingAuthMiddleware(deps.UserIDResolver, patService))
 		reportingGroup.GET("/stats/overview", reportingHandler.Overview)
 		reportingGroup.GET("/stats/trend", reportingHandler.Trend)
 		reportingGroup.GET("/stats/category", reportingHandler.Category)
@@ -177,42 +194,31 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config) *gin.Engine {
 	authHandler.SetPasswordService(auth.NewPasswordService(authRepo))
 	authHandler.SetGoogleFrontendReturnURL(cfg.GoogleAuthFrontendReturn)
 
-	ledgerRepo := accounting.NewPostgresLedgerRepository(db)
-	accountRepo := accounting.NewPostgresAccountRepository(db)
-	txnRepo := accounting.NewPostgresTransactionRepository(db)
-	classificationRepo := classification.NewPostgresRepository(db)
-	categoryService := classification.NewCategoryService(classificationRepo)
-	tagService := classification.NewTagService(classificationRepo)
-	txnService := accounting.NewTransactionService(txnRepo, ledgerRepo, accountRepo, categoryService, tagService)
-	accountingHandler := accounting.NewHandler(
-		accounting.NewLedgerService(ledgerRepo),
-		accounting.NewAccountService(accountRepo),
-		txnService,
-	)
-	classificationHandler := classification.NewHandler(categoryService, tagService)
+	// Accounting domain wired via accounting_wiring.go
+	acctDeps := newAccountingHandlerWithPostgreSQL(db)
 
-	reportingRepo := reporting.NewRepository(accountRepo, txnRepo, categoryService)
+	// Classification wired (shares CategoryService with accounting)
+	classificationHandler := classification.NewHandler(acctDeps.CategoryService, nil)
+
+	// Reporting wired via reporting package directly
+	reportingRepo := reporting.NewRepository(nil, acctDeps.TxnRepo, acctDeps.CategoryService)
 	reportingHandler := reporting.NewHandler(
 		reporting.NewOverviewService(reportingRepo),
 		reporting.NewTrendService(reportingRepo),
 		reporting.NewCategoryService(reportingRepo),
 	)
 
-	exportRepo := portability.NewExportRepository(txnRepo, categoryService)
-	portabilityHandler := portability.NewHandler(
-		portability.NewImportPreviewService(),
-		portability.NewImportConfirmService(portability.NewPostgresRepository(db)),
-		portability.NewExportService(exportRepo),
-		portability.NewPATService(nil),
-	)
+	// Portability domain wired via portability_wiring.go
+	portabilityHandler := newPortabilityHandlerWithPostgreSQL(db, acctDeps.TxnRepo, acctDeps.LedgerService, acctDeps.CategoryService)
 
 	deps := Dependencies{
 		AuthHandler:           authHandler,
-		AccountingHandler:     accountingHandler,
+		AccountingHandler:     acctDeps.AccountingHandler,
 		ClassificationHandler: classificationHandler,
 		PortabilityHandler:    portabilityHandler,
 		ReportingHandler:      reportingHandler,
-		UserIDResolver:        postgresUserIDResolver(db),
+		UserIDResolver:       postgresUserIDResolver(db),
+		PATService:           portabilityHandler.GetPATService(),
 	}
 
 	r, err := NewRouterWithDependencies(cfg.TrustedProxies, deps)

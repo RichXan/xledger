@@ -8,6 +8,7 @@ import { LoginPage } from '@/pages/login-page'
 import { SettingsPage } from '@/pages/settings-page'
 import { TransactionsPage } from '@/pages/transactions-page'
 import { GoogleCallbackPage } from '@/pages/google-callback-page'
+import { ShortcutPage } from '@/pages/shortcut-page'
 
 function ProtectedLayout({ children }: { children: JSX.Element }) {
   return <RequireAuth>{children}</RequireAuth>
@@ -54,6 +55,16 @@ export default function App() {
           <ProtectedLayout>
             <AppShell>
               <AccountsPage />
+            </AppShell>
+          </ProtectedLayout>
+        }
+      />
+      <Route
+        path="/shortcut"
+        element={
+          <ProtectedLayout>
+            <AppShell>
+              <ShortcutPage />
             </AppShell>
           </ProtectedLayout>
         }

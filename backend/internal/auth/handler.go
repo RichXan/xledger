@@ -82,6 +82,11 @@ func (h *Handler) SetGoogleFrontendReturnURL(returnURL string) {
 	h.googleFrontendReturnURL = strings.TrimSpace(returnURL)
 }
 
+func IsDevLoginEnabled() bool {
+	val := strings.TrimSpace(strings.ToLower(os.Getenv("ENABLE_DEV_LOGIN")))
+	return val == "1" || val == "true"
+}
+
 func (h *Handler) HasOAuthService() bool {
 	return h != nil && h.oauthService != nil
 }
@@ -166,11 +171,14 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 			}
 		}
 		if h.googleFrontendReturnURL != "" {
-			target := h.googleFrontendReturnURL +
-				"?access_token=" + url.QueryEscape(tokens.AccessToken) +
-				"&refresh_token=" + url.QueryEscape(tokens.RefreshToken)
-			c.Redirect(http.StatusTemporaryRedirect, target)
-			return
+			exchangeCode, codeErr := randomHex(24)
+			if codeErr == nil {
+				h.oauthService.StoreExchangeCode(exchangeCode, tokens)
+				target := h.googleFrontendReturnURL + "?exchange_code=" + url.QueryEscape(exchangeCode)
+				c.Redirect(http.StatusTemporaryRedirect, target)
+				return
+			}
+			log.Printf("failed to generate exchange code: %v", codeErr)
 		}
 		c.JSON(http.StatusOK, tokens)
 		return
@@ -193,6 +201,31 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, tokens)
+}
+
+type exchangeCodeRequest struct {
+	Code string `json:"code" binding:"required"`
+}
+
+func (h *Handler) GoogleExchangeCode(c *gin.Context) {
+	if h.oauthService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+		return
+	}
+	var req exchangeCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error_code": "VALIDATION_ERROR"})
+		return
+	}
+	tokens, ok := h.oauthService.ConsumeExchangeCode(strings.TrimSpace(req.Code))
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"access_token":  tokens.AccessToken,
+		"refresh_token": tokens.RefreshToken,
+	})
 }
 
 func (h *Handler) GoogleStart(c *gin.Context) {
@@ -403,7 +436,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 }
 
 func (h *Handler) DevLogin(c *gin.Context) {
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("GIN_MODE")), "release") {
+	if !IsDevLoginEnabled() {
 		httpx.JSON(c, http.StatusNotFound, "RESOURCE_NOT_FOUND", "资源不存在", nil)
 		return
 	}

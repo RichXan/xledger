@@ -38,6 +38,9 @@ func TestPAT_DefaultTTL90Days_StoredAsHash(t *testing.T) {
 	if created.TokenHash == plain {
 		t.Fatalf("expected hash-only storage, got raw token persisted")
 	}
+	if created.ExpiresAt == nil {
+		t.Fatalf("expected default ttl 90d, got nil")
+	}
 	if created.ExpiresAt.Sub(now) != 90*24*time.Hour {
 		t.Fatalf("expected default ttl 90d, got %s", created.ExpiresAt.Sub(now))
 	}

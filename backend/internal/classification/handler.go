@@ -220,10 +220,5 @@ func (h *Handler) writeError(c *gin.Context, err error) {
 }
 
 func userIDFromContext(c *gin.Context) (string, bool) {
-	if value, exists := c.Get("user_id"); exists {
-		if userID, ok := value.(string); ok && userID != "" {
-			return userID, true
-		}
-	}
-	return "", false
+	return httpx.UserIDFromContext(c)
 }
