@@ -232,23 +232,27 @@ func (r *PostgresTransactionRepository) GetTransferPairByTxnID(userID string, tx
 	return pair, rows.Err()
 }
 
-func (r *PostgresTransactionRepository) UpdateTransferPairAmount(userID string, pairID string, amount float64, expectedVersion *int) (Transaction, error) {
-	tx, err := r.db.Begin()
-	if err != nil {
-		return Transaction{}, err
-	}
-	defer tx.Rollback()
+func (r *PostgresTransactionRepository) UpdateTransferPairAmount(tx *sql.Tx, userID string, pairID string, amount float64, expectedVersion *int) (Transaction, error) {
+	shouldCommit := false
+	if tx == nil {
+		var err error
+		tx, err = r.db.Begin()
+		if err != nil {
+			return Transaction{}, err
+		}
+		defer tx.Rollback()
 
-	// Acquire advisory lock BEFORE reading version to prevent race condition
-	_, err = tx.Exec(`
-		SELECT pg_advisory_xact_lock(hashtext($1 || '|' || $2))
-	`, userID, pairID)
-	if err != nil {
-		return Transaction{}, err
+		_, err = tx.Exec(`
+			SELECT pg_advisory_xact_lock(hashtext($1 || '|' || $2))
+		`, userID, pairID)
+		if err != nil {
+			return Transaction{}, err
+		}
+		shouldCommit = true
 	}
 
 	var currentVersion int
-	err = tx.QueryRow(`
+	err := tx.QueryRow(`
 		SELECT version FROM transactions
 			WHERE transfer_pair_id = $1 AND user_id = $2 AND transfer_side = 'from' AND deleted_at IS NULL
 	`, pairID, userID).Scan(&currentVersion)
@@ -299,18 +303,26 @@ func (r *PostgresTransactionRepository) UpdateTransferPairAmount(userID string, 
 	if transferSide != nil {
 		updated.TransferSide = *transferSide
 	}
-	return updated, tx.Commit()
+	if shouldCommit {
+		return updated, tx.Commit()
+	}
+	return updated, nil
 }
 
-func (r *PostgresTransactionRepository) DeleteTransferPairByTxnID(userID string, txnID string, expectedVersion *int) ([]string, error) {
-	tx, err := r.db.Begin()
-	if err != nil {
-		return nil, err
+func (r *PostgresTransactionRepository) DeleteTransferPairByTxnID(tx *sql.Tx, userID string, txnID string, expectedVersion *int) ([]string, error) {
+	shouldCommit := false
+	if tx == nil {
+		var err error
+		tx, err = r.db.Begin()
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback()
+		shouldCommit = true
 	}
-	defer tx.Rollback()
 
 	var pairID string
-	err = tx.QueryRow(`
+	err := tx.QueryRow(`
 		SELECT transfer_pair_id FROM transactions
 		WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
 	`, txnID, userID).Scan(&pairID)
@@ -351,10 +363,13 @@ func (r *PostgresTransactionRepository) DeleteTransferPairByTxnID(userID string,
 		}
 		ledgers = append(ledgers, ledgerID)
 	}
-	return ledgers, tx.Commit()
+	if shouldCommit {
+		return ledgers, tx.Commit()
+	}
+	return ledgers, nil
 }
 
-func (r *PostgresTransactionRepository) WithTransferPairLock(userID string, pairID string, fn func() error) error {
+func (r *PostgresTransactionRepository) WithTransferPairLock(userID string, pairID string, fn func(*sql.Tx) error) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -368,7 +383,7 @@ func (r *PostgresTransactionRepository) WithTransferPairLock(userID string, pair
 		return err
 	}
 
-	if err := fn(); err != nil {
+	if err := fn(tx); err != nil {
 		return err
 	}
 	return tx.Commit()

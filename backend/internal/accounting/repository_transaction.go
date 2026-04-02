@@ -1,6 +1,7 @@
 package accounting
 
 import (
+	"database/sql"
 	"errors"
 	"sort"
 	"strings"
@@ -104,9 +105,9 @@ type TransactionRepository interface {
 	DeleteByIDForUser(userID string, txnID string) (bool, error)
 	CreateTransferPair(userID string, pairID string, fromInput TransactionCreateInput, toInput TransactionCreateInput) (Transaction, error)
 	GetTransferPairByTxnID(userID string, txnID string) ([]Transaction, error)
-	UpdateTransferPairAmount(userID string, pairID string, amount float64, expectedVersion *int) (Transaction, error)
-	DeleteTransferPairByTxnID(userID string, txnID string, expectedVersion *int) ([]string, error)
-	WithTransferPairLock(userID string, pairID string, fn func() error) error
+	UpdateTransferPairAmount(tx *sql.Tx, userID string, pairID string, amount float64, expectedVersion *int) (Transaction, error)
+	DeleteTransferPairByTxnID(tx *sql.Tx, userID string, txnID string, expectedVersion *int) ([]string, error)
+	WithTransferPairLock(userID string, pairID string, fn func(*sql.Tx) error) error
 	ListByUser(userID string, query TransactionQuery) ([]Transaction, error)
 	CountByUser(userID string, query TransactionQuery) (int, error)
 	ListByTransferPairForUser(userID string, pairID string) ([]Transaction, error)
@@ -272,7 +273,7 @@ func (r *InMemoryTransactionRepository) GetTransferPairByTxnID(userID string, tx
 	return pair, nil
 }
 
-func (r *InMemoryTransactionRepository) UpdateTransferPairAmount(userID string, pairID string, amount float64, expectedVersion *int) (Transaction, error) {
+func (r *InMemoryTransactionRepository) UpdateTransferPairAmount(_ *sql.Tx, userID string, pairID string, amount float64, expectedVersion *int) (Transaction, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -307,7 +308,7 @@ func (r *InMemoryTransactionRepository) UpdateTransferPairAmount(userID string, 
 	return fromTxn, nil
 }
 
-func (r *InMemoryTransactionRepository) DeleteTransferPairByTxnID(userID string, txnID string, expectedVersion *int) ([]string, error) {
+func (r *InMemoryTransactionRepository) DeleteTransferPairByTxnID(_ *sql.Tx, userID string, txnID string, expectedVersion *int) ([]string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -344,7 +345,7 @@ func (r *InMemoryTransactionRepository) DeleteTransferPairByTxnID(userID string,
 	return ledgers, nil
 }
 
-func (r *InMemoryTransactionRepository) WithTransferPairLock(userID string, pairID string, fn func() error) error {
+func (r *InMemoryTransactionRepository) WithTransferPairLock(userID string, pairID string, fn func(*sql.Tx) error) error {
 	key := strings.TrimSpace(userID) + "|" + strings.TrimSpace(pairID)
 
 	r.mu.Lock()
@@ -361,7 +362,7 @@ func (r *InMemoryTransactionRepository) WithTransferPairLock(userID string, pair
 		r.mu.Unlock()
 	}()
 
-	return fn()
+	return fn(nil)
 }
 
 func (r *InMemoryTransactionRepository) ListByUser(userID string, query TransactionQuery) ([]Transaction, error) {

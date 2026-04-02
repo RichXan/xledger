@@ -37,6 +37,7 @@ type refreshRequest struct {
 
 type logoutRequest struct {
 	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"access_token"`
 }
 
 type registerRequest struct {
@@ -144,7 +145,7 @@ func (h *Handler) VerifyCode(c *gin.Context) {
 
 func (h *Handler) GoogleCallback(c *gin.Context) {
 	if h.oauthService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "AUTH_INTERNAL", "服务内部错误", nil)
 		return
 	}
 
@@ -163,10 +164,10 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 			}
 			switch ErrorCode(err) {
 			case AUTH_OAUTH_FAILED:
-				c.JSON(http.StatusUnauthorized, gin.H{"error_code": AUTH_OAUTH_FAILED})
+				httpx.JSON(c, http.StatusUnauthorized, AUTH_OAUTH_FAILED, "未认证或凭证无效", nil)
 				return
 			default:
-				c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+				httpx.JSON(c, http.StatusInternalServerError, "AUTH_INTERNAL", "服务内部错误", nil)
 				return
 			}
 		}
@@ -180,7 +181,7 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 			}
 			log.Printf("failed to generate exchange code: %v", codeErr)
 		}
-		c.JSON(http.StatusOK, tokens)
+		httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"access_token": tokens.AccessToken, "refresh_token": tokens.RefreshToken})
 		return
 	}
 
@@ -192,15 +193,15 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		log.Printf("google oauth callback failed: state=%q nonce=%q err=%v", c.Query("state"), c.Query("nonce"), err)
 		switch ErrorCode(err) {
 		case AUTH_OAUTH_FAILED:
-			c.JSON(http.StatusUnauthorized, gin.H{"error_code": AUTH_OAUTH_FAILED})
+			httpx.JSON(c, http.StatusUnauthorized, AUTH_OAUTH_FAILED, "未认证或凭证无效", nil)
 			return
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+			httpx.JSON(c, http.StatusInternalServerError, "AUTH_INTERNAL", "服务内部错误", nil)
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, tokens)
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"access_token": tokens.AccessToken, "refresh_token": tokens.RefreshToken})
 }
 
 type exchangeCodeRequest struct {
@@ -209,20 +210,20 @@ type exchangeCodeRequest struct {
 
 func (h *Handler) GoogleExchangeCode(c *gin.Context) {
 	if h.oauthService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "AUTH_INTERNAL", "服务内部错误", nil)
 		return
 	}
 	var req exchangeCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": "VALIDATION_ERROR"})
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
 	tokens, ok := h.oauthService.ConsumeExchangeCode(strings.TrimSpace(req.Code))
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_UNAUTHORIZED", "未认证或凭证无效", nil)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{
 		"access_token":  tokens.AccessToken,
 		"refresh_token": tokens.RefreshToken,
 	})
@@ -230,17 +231,17 @@ func (h *Handler) GoogleExchangeCode(c *gin.Context) {
 
 func (h *Handler) GoogleStart(c *gin.Context) {
 	if h.oauthService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "AUTH_INTERNAL", "服务内部错误", nil)
 		return
 	}
 	loginURL, err := h.oauthService.GoogleLoginURL(c.Request.Context())
 	if err != nil {
 		switch ErrorCode(err) {
 		case AUTH_OAUTH_FAILED:
-			c.JSON(http.StatusUnauthorized, gin.H{"error_code": AUTH_OAUTH_FAILED})
+			httpx.JSON(c, http.StatusUnauthorized, AUTH_OAUTH_FAILED, "未认证或凭证无效", nil)
 			return
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+			httpx.JSON(c, http.StatusInternalServerError, "AUTH_INTERNAL", "服务内部错误", nil)
 			return
 		}
 	}
@@ -404,13 +405,13 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 
 func (h *Handler) Refresh(c *gin.Context) {
 	if h.sessionService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "AUTH_INTERNAL", "服务内部错误", nil)
 		return
 	}
 
 	var req refreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_code": AUTH_BAD_REQUEST})
+		httpx.JSON(c, http.StatusBadRequest, AUTH_BAD_REQUEST, "请求参数不合法", nil)
 		return
 	}
 
@@ -418,21 +419,21 @@ func (h *Handler) Refresh(c *gin.Context) {
 	if err != nil {
 		switch ErrorCode(err) {
 		case AUTH_BAD_REQUEST:
-			c.JSON(http.StatusBadRequest, gin.H{"error_code": AUTH_BAD_REQUEST})
+			httpx.JSON(c, http.StatusBadRequest, AUTH_BAD_REQUEST, "请求参数不合法", nil)
 			return
 		case AUTH_REFRESH_EXPIRED:
-			c.JSON(http.StatusUnauthorized, gin.H{"error_code": AUTH_REFRESH_EXPIRED})
+			httpx.JSON(c, http.StatusUnauthorized, AUTH_REFRESH_EXPIRED, "未认证或凭证无效", nil)
 			return
 		case AUTH_REFRESH_REVOKED:
-			c.JSON(http.StatusUnauthorized, gin.H{"error_code": AUTH_REFRESH_REVOKED})
+			httpx.JSON(c, http.StatusUnauthorized, AUTH_REFRESH_REVOKED, "未认证或凭证无效", nil)
 			return
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+			httpx.JSON(c, http.StatusInternalServerError, "AUTH_INTERNAL", "服务内部错误", nil)
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, tokens)
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"access_token": tokens.AccessToken, "refresh_token": tokens.RefreshToken})
 }
 
 func (h *Handler) DevLogin(c *gin.Context) {
@@ -465,37 +466,45 @@ func (h *Handler) DevLogin(c *gin.Context) {
 
 func (h *Handler) Logout(c *gin.Context) {
 	if h.sessionService == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+		httpx.JSON(c, http.StatusInternalServerError, "AUTH_INTERNAL", "服务内部错误", nil)
 		return
 	}
 
-	refreshToken := strings.TrimSpace(c.GetHeader("Authorization"))
-	if strings.HasPrefix(strings.ToLower(refreshToken), "bearer ") {
-		refreshToken = strings.TrimSpace(refreshToken[len("Bearer "):])
+	authorization := strings.TrimSpace(c.GetHeader("Authorization"))
+	var accessToken, refreshToken string
+	if strings.HasPrefix(strings.ToLower(authorization), "bearer ") {
+		accessToken = strings.TrimSpace(authorization[len("Bearer "):])
 	}
-	if refreshToken == "" {
-		var req logoutRequest
-		if err := c.ShouldBindJSON(&req); err == nil {
-			refreshToken = strings.TrimSpace(req.RefreshToken)
+
+	var req logoutRequest
+	if err := c.ShouldBindJSON(&req); err == nil {
+		refreshToken = strings.TrimSpace(req.RefreshToken)
+		if accessToken == "" {
+			accessToken = strings.TrimSpace(req.AccessToken)
+		}
+	} else if refreshToken == "" && accessToken == "" {
+		if strings.HasPrefix(strings.ToLower(authorization), "bearer ") {
+			refreshToken = accessToken
+			accessToken = ""
 		}
 	}
 
-	err := h.sessionService.Logout(c.Request.Context(), refreshToken)
+	err := h.sessionService.Logout(c.Request.Context(), refreshToken, accessToken)
 	if err != nil {
 		switch ErrorCode(err) {
 		case AUTH_BAD_REQUEST:
-			c.JSON(http.StatusBadRequest, gin.H{"error_code": AUTH_BAD_REQUEST})
+			httpx.JSON(c, http.StatusBadRequest, AUTH_BAD_REQUEST, "请求参数不合法", nil)
 			return
 		case AUTH_UNAUTHORIZED:
-			c.JSON(http.StatusUnauthorized, gin.H{"error_code": AUTH_UNAUTHORIZED})
+			httpx.JSON(c, http.StatusUnauthorized, AUTH_UNAUTHORIZED, "未认证或凭证无效", nil)
 			return
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error_code": "AUTH_INTERNAL"})
+			httpx.JSON(c, http.StatusInternalServerError, "AUTH_INTERNAL", "服务内部错误", nil)
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"logged_out": true})
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"logged_out": true})
 }
 
 func (h *Handler) requireAccessToken(c *gin.Context) (SessionToken, error) {

@@ -2,6 +2,7 @@ package accounting
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 )
@@ -108,7 +109,7 @@ func TestTransfer_ConflictReturnsTXN_CONFLICT(t *testing.T) {
 	}
 
 	pairID := ptrString(created.TransferPairID)
-	lockErr := repo.WithTransferPairLock("user-1", pairID, func() error {
+	lockErr := repo.WithTransferPairLock("user-1", pairID, func(_ *sql.Tx) error {
 		_, editErr := service.EditTransaction(context.Background(), "user-1", created.ID, TransactionEditInput{Amount: 33})
 		if ErrorCode(editErr) != TXN_CONFLICT {
 			t.Fatalf("expected %s, got %q", TXN_CONFLICT, ErrorCode(editErr))

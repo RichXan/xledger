@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"xledger/backend/internal/auth"
+	"xledger/backend/internal/common/httpx"
 	"xledger/backend/internal/portability"
 )
 
@@ -24,13 +25,15 @@ func accountingAuthMiddleware(resolver userIDResolver, patService *portability.P
 		}
 
 		if token == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+			httpx.JSON(c, http.StatusUnauthorized, "AUTH_UNAUTHORIZED", "未认证或凭证无效", nil)
+			c.Abort()
 			return
 		}
 
 		email, ok := parseBusinessAuthEmail(token, patService, c.Request.URL.Path)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+			httpx.JSON(c, http.StatusUnauthorized, "AUTH_UNAUTHORIZED", "未认证或凭证无效", nil)
+			c.Abort()
 			return
 		}
 
@@ -38,12 +41,14 @@ func accountingAuthMiddleware(resolver userIDResolver, patService *portability.P
 		if resolver != nil {
 			value, err := resolver(c.Request.Context(), email)
 			if err != nil {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+				httpx.JSON(c, http.StatusUnauthorized, "AUTH_UNAUTHORIZED", "未认证或凭证无效", nil)
+				c.Abort()
 				return
 			}
 			resolvedUserID = strings.TrimSpace(value)
 			if resolvedUserID == "" {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error_code": "AUTH_UNAUTHORIZED"})
+				httpx.JSON(c, http.StatusUnauthorized, "AUTH_UNAUTHORIZED", "未认证或凭证无效", nil)
+				c.Abort()
 				return
 			}
 		} else {
@@ -63,30 +68,14 @@ func parseBusinessAuthEmail(token string, patService *portability.PATService, pa
 
 	lowerToken := strings.ToLower(token)
 	if strings.HasPrefix(lowerToken, "pat:") {
-		if patService != nil {
-			email, valErr := patService.ValidatePAT(context.Background(), token, path)
-			if valErr == nil && email != "" {
-				return email, true
-			}
-			// patService exists but PAT not found (empty in-memory storage): fall back to old parsing
-			rawEmail := strings.TrimSpace(token[len("pat:"):])
-			if idx := strings.Index(rawEmail, ":"); idx >= 0 {
-				rawEmail = strings.TrimSpace(rawEmail[:idx])
-			}
-			if rawEmail != "" {
-				return rawEmail, true
-			}
+		if patService == nil {
 			return "", false
 		}
-		// patService is nil: fall back to old insecure parsing
-		rawEmail := strings.TrimSpace(token[len("pat:"):])
-		if idx := strings.Index(rawEmail, ":"); idx >= 0 {
-			rawEmail = strings.TrimSpace(rawEmail[:idx])
+		email, valErr := patService.ValidatePAT(context.Background(), token, path)
+		if valErr == nil && email != "" {
+			return email, true
 		}
-		if rawEmail == "" {
-			return "", false
-		}
-		return rawEmail, true
+		return "", false
 	}
 
 	return "", false

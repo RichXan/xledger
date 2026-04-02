@@ -162,7 +162,7 @@ func (s *SessionService) Refresh(ctx context.Context, refreshToken string) (Toke
 	}, nil
 }
 
-func (s *SessionService) Logout(ctx context.Context, refreshToken string) error {
+func (s *SessionService) Logout(ctx context.Context, refreshToken string, accessToken string) error {
 	trimmed := strings.TrimSpace(refreshToken)
 	if trimmed == "" {
 		return &authError{code: AUTH_UNAUTHORIZED, err: errors.New("missing credentials")}
@@ -179,7 +179,46 @@ func (s *SessionService) Logout(ctx context.Context, refreshToken string) error 
 	if blacklistErr := s.repo.BlacklistRefreshToken(ctx, token.ID, s.now(), token.ExpiresAt); blacklistErr != nil {
 		return fmt.Errorf("blacklist refresh token: %w", blacklistErr)
 	}
+
+	if accessToken != "" {
+		accessTrimmed := strings.TrimSpace(accessToken)
+		if accessTrimmed != "" {
+			accessTok, parseErr := ParseSessionToken(accessTrimmed)
+			if parseErr == nil && accessTok.Type == "access" {
+				_ = s.repo.BlacklistAccessToken(ctx, accessTok.ID, s.now(), accessTok.ExpiresAt)
+			}
+		}
+	}
+
 	return nil
+}
+
+func (s *SessionService) ValidateAccessToken(ctx context.Context, accessToken string) (SessionToken, error) {
+	trimmed := strings.TrimSpace(accessToken)
+	if trimmed == "" {
+		return SessionToken{}, &authError{code: AUTH_UNAUTHORIZED, err: errors.New("missing access token")}
+	}
+
+	token, err := ParseSessionToken(trimmed)
+	if err != nil {
+		return SessionToken{}, &authError{code: AUTH_BAD_REQUEST, err: err}
+	}
+	if token.Type != "access" {
+		return SessionToken{}, &authError{code: AUTH_BAD_REQUEST, err: errors.New("access token required")}
+	}
+	if !s.now().Before(token.ExpiresAt) {
+		return SessionToken{}, &authError{code: AUTH_REFRESH_EXPIRED, err: errors.New("access token expired")}
+	}
+
+	blacklisted, err := s.repo.IsAccessTokenBlacklisted(ctx, token.ID)
+	if err != nil {
+		return SessionToken{}, fmt.Errorf("check access token blacklist: %w", err)
+	}
+	if blacklisted {
+		return SessionToken{}, &authError{code: AUTH_UNAUTHORIZED, err: errors.New("access token revoked")}
+	}
+
+	return token, nil
 }
 
 func ParseSessionToken(raw string) (SessionToken, error) {

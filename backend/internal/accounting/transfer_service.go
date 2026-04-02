@@ -1,6 +1,9 @@
 package accounting
 
-import "strings"
+import (
+	"database/sql"
+	"strings"
+)
 
 type TransferService struct {
 	repo TransactionRepository
@@ -12,7 +15,7 @@ func NewTransferService(repo TransactionRepository) *TransferService {
 
 func (s *TransferService) Create(userID string, fromInput TransactionCreateInput, toInput TransactionCreateInput) (Transaction, []string, error) {
 	pairID := nextID()
-	err := s.repo.WithTransferPairLock(userID, pairID, func() error {
+	err := s.repo.WithTransferPairLock(userID, pairID, func(tx *sql.Tx) error {
 		_, createErr := s.repo.CreateTransferPair(userID, pairID, fromInput, toInput)
 		return createErr
 	})
@@ -55,8 +58,8 @@ func (s *TransferService) Edit(userID string, txnID string, amount float64, expe
 	}
 
 	updated := Transaction{}
-	lockErr := s.repo.WithTransferPairLock(userID, pairID, func() error {
-		next, updateErr := s.repo.UpdateTransferPairAmount(userID, pairID, amount, expectedVersion)
+	lockErr := s.repo.WithTransferPairLock(userID, pairID, func(tx *sql.Tx) error {
+		next, updateErr := s.repo.UpdateTransferPairAmount(tx, userID, pairID, amount, expectedVersion)
 		if updateErr != nil {
 			return updateErr
 		}
@@ -90,8 +93,8 @@ func (s *TransferService) Delete(userID string, txnID string, expectedVersion *i
 	}
 
 	var ledgers []string
-	lockErr := s.repo.WithTransferPairLock(userID, pairID, func() error {
-		deletedLedgers, deleteErr := s.repo.DeleteTransferPairByTxnID(userID, txnID, expectedVersion)
+	lockErr := s.repo.WithTransferPairLock(userID, pairID, func(tx *sql.Tx) error {
+		deletedLedgers, deleteErr := s.repo.DeleteTransferPairByTxnID(tx, userID, txnID, expectedVersion)
 		if deleteErr != nil {
 			return deleteErr
 		}

@@ -244,30 +244,52 @@ func TestRefresh_RejectsAccessTokenType(t *testing.T) {
 	}
 }
 
-func TestLogout_BlacklistsRefreshWithinSLA(t *testing.T) {
-	now := time.Date(2026, 3, 20, 12, 40, 0, 0, time.UTC)
+func TestLogout_BlacklistsAccessTokenImmediately(t *testing.T) {
+	now := time.Date(2026, 3, 20, 12, 41, 0, 0, time.UTC)
 	repo := NewInMemoryRepository(func() time.Time { return now })
 	svc := NewSessionService(repo, nil, func() time.Time { return now })
 
-	pair, err := svc.IssueSession(context.Background(), "logout@example.com")
+	pair, err := svc.IssueSession(context.Background(), "logout-access@example.com")
 	if err != nil {
 		t.Fatalf("issue session: %v", err)
 	}
 
-	if err := svc.Logout(context.Background(), pair.RefreshToken); err != nil {
+	if err := svc.Logout(context.Background(), pair.RefreshToken, pair.AccessToken); err != nil {
 		t.Fatalf("logout should succeed, got %v", err)
 	}
 
-	parsed, err := ParseSessionToken(pair.RefreshToken)
+	parsedAccess, err := ParseSessionToken(pair.AccessToken)
 	if err != nil {
-		t.Fatalf("parse refresh token: %v", err)
+		t.Fatalf("parse access token: %v", err)
 	}
-	blacklistedAt, ok := repo.RefreshBlacklistTime(parsed.ID)
-	if !ok {
-		t.Fatal("expected refresh token to be blacklisted")
+	blacklisted, err := repo.IsAccessTokenBlacklisted(context.Background(), parsedAccess.ID)
+	if err != nil {
+		t.Fatalf("query access blacklist: %v", err)
 	}
-	if blacklistedAt.Sub(now) > 5*time.Second {
-		t.Fatalf("expected blacklist write within 5s SLA, got %s", blacklistedAt.Sub(now))
+	if !blacklisted {
+		t.Fatal("expected access token to be blacklisted on logout")
+	}
+}
+
+func TestRequireAccessToken_RejectsBlacklistedAccessToken(t *testing.T) {
+	now := time.Date(2026, 3, 20, 12, 42, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	svc := NewSessionService(repo, nil, func() time.Time { return now })
+
+	pair, err := svc.IssueSession(context.Background(), "middleware-access@example.com")
+	if err != nil {
+		t.Fatalf("issue session: %v", err)
+	}
+	parsedAccess, err := ParseSessionToken(pair.AccessToken)
+	if err != nil {
+		t.Fatalf("parse access token: %v", err)
+	}
+	if err := repo.BlacklistAccessToken(context.Background(), parsedAccess.ID, now, parsedAccess.ExpiresAt); err != nil {
+		t.Fatalf("blacklist access token: %v", err)
+	}
+
+	if _, err := svc.ValidateAccessToken(context.Background(), pair.AccessToken); ErrorCode(err) != AUTH_UNAUTHORIZED {
+		t.Fatalf("expected %s for blacklisted access token, got %q", AUTH_UNAUTHORIZED, ErrorCode(err))
 	}
 }
 
@@ -280,7 +302,7 @@ func TestLogout_BlacklistPropagationLTE5s(t *testing.T) {
 	if err != nil {
 		t.Fatalf("issue session: %v", err)
 	}
-	if err := svc.Logout(context.Background(), pair.RefreshToken); err != nil {
+	if err := svc.Logout(context.Background(), pair.RefreshToken, pair.AccessToken); err != nil {
 		t.Fatalf("logout should succeed, got %v", err)
 	}
 
@@ -306,7 +328,7 @@ func TestLogout_BlacklistEntryExpiresAfterTokenLifetime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("issue session: %v", err)
 	}
-	if err := svc.Logout(context.Background(), pair.RefreshToken); err != nil {
+	if err := svc.Logout(context.Background(), pair.RefreshToken, pair.AccessToken); err != nil {
 		t.Fatalf("logout should succeed, got %v", err)
 	}
 
@@ -335,7 +357,7 @@ func TestInMemoryRepository_BlacklistCleanupPreventsUnboundedGrowth(t *testing.T
 		if err != nil {
 			t.Fatalf("issue session %d: %v", i, err)
 		}
-		if err := svc.Logout(context.Background(), pair.RefreshToken); err != nil {
+		if err := svc.Logout(context.Background(), pair.RefreshToken, pair.AccessToken); err != nil {
 			t.Fatalf("logout %d: %v", i, err)
 		}
 	}
@@ -364,7 +386,7 @@ func TestLogout_RejectsRefreshTokenType(t *testing.T) {
 		t.Fatalf("issue session: %v", err)
 	}
 
-	err = svc.Logout(context.Background(), pair.AccessToken)
+	err = svc.Logout(context.Background(), pair.AccessToken, "")
 	if ErrorCode(err) != AUTH_BAD_REQUEST {
 		t.Fatalf("expected %s for non-refresh logout token, got %q", AUTH_BAD_REQUEST, ErrorCode(err))
 	}
@@ -375,7 +397,7 @@ func TestLogout_Unauthorized_ReturnsAUTH_UNAUTHORIZED(t *testing.T) {
 	repo := NewInMemoryRepository(func() time.Time { return now })
 	svc := NewSessionService(repo, nil, func() time.Time { return now })
 
-	err := svc.Logout(context.Background(), "")
+	err := svc.Logout(context.Background(), "", "")
 	if ErrorCode(err) != AUTH_UNAUTHORIZED {
 		t.Fatalf("expected %s, got %q", AUTH_UNAUTHORIZED, ErrorCode(err))
 	}

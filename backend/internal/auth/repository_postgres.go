@@ -468,3 +468,71 @@ func (r *PostgresRepository) EnsureDefaultLedger(ctx context.Context, email stri
 
 	return true, tx.Commit()
 }
+
+func (r *PostgresRepository) StoreOAuthExchangeCode(ctx context.Context, code string, tokens TokenPair, expiresAt time.Time) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO oauth_exchange_codes (code, access_token, refresh_token, expires_at, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`, code, tokens.AccessToken, tokens.RefreshToken, expiresAt, time.Now().UTC())
+	return err
+}
+
+func (r *PostgresRepository) ConsumeOAuthExchangeCode(ctx context.Context, code string) (TokenPair, bool, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return TokenPair{}, false, err
+	}
+	defer tx.Rollback()
+
+	var accessToken, refreshToken string
+	var expiresAt time.Time
+	err = tx.QueryRowContext(ctx, `
+		SELECT access_token, refresh_token, expires_at
+		FROM oauth_exchange_codes
+		WHERE code = $1 FOR UPDATE
+	`, code).Scan(&accessToken, &refreshToken, &expiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return TokenPair{}, false, nil
+	}
+	if err != nil {
+		return TokenPair{}, false, err
+	}
+
+	if time.Now().UTC().After(expiresAt) {
+		tx.ExecContext(ctx, `DELETE FROM oauth_exchange_codes WHERE code = $1`, code)
+		tx.Commit()
+		return TokenPair{}, false, nil
+	}
+
+	tx.ExecContext(ctx, `DELETE FROM oauth_exchange_codes WHERE code = $1`, code)
+	return TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, true, tx.Commit()
+}
+
+func (r *PostgresRepository) BlacklistAccessToken(ctx context.Context, tokenID string, at time.Time, expiresAt time.Time) error {
+	if !at.Before(expiresAt) {
+		return nil
+	}
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO access_token_blacklist (token_id, blacklisted_at, expires_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (token_id) DO NOTHING
+	`, tokenID, at, expiresAt)
+	return err
+}
+
+func (r *PostgresRepository) IsAccessTokenBlacklisted(ctx context.Context, tokenID string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM access_token_blacklist
+			WHERE token_id = $1 AND expires_at > NOW()
+		)
+	`, tokenID).Scan(&exists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}

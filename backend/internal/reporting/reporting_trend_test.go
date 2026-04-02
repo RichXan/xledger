@@ -2,6 +2,7 @@ package reporting
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -208,13 +209,13 @@ func (r slowTransactionRepo) CreateTransferPair(string, string, accounting.Trans
 func (r slowTransactionRepo) GetTransferPairByTxnID(string, string) ([]accounting.Transaction, error) {
 	panic("not used")
 }
-func (r slowTransactionRepo) UpdateTransferPairAmount(string, string, float64, *int) (accounting.Transaction, error) {
+func (r slowTransactionRepo) UpdateTransferPairAmount(*sql.Tx, string, string, float64, *int) (accounting.Transaction, error) {
 	panic("not used")
 }
-func (r slowTransactionRepo) DeleteTransferPairByTxnID(string, string, *int) ([]string, error) {
+func (r slowTransactionRepo) DeleteTransferPairByTxnID(*sql.Tx, string, string, *int) ([]string, error) {
 	panic("not used")
 }
-func (r slowTransactionRepo) WithTransferPairLock(string, string, func() error) error {
+func (r slowTransactionRepo) WithTransferPairLock(string, string, func(*sql.Tx) error) error {
 	panic("not used")
 }
 func (r slowTransactionRepo) ListByUser(string, accounting.TransactionQuery) ([]accounting.Transaction, error) {

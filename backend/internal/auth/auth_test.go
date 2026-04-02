@@ -429,6 +429,40 @@ func TestInMemoryRepository_OpportunisticCleanup_RemovesExpiredStaleEntries(t *t
 	}
 }
 
+func TestOAuthExchangeCode_StoreConsumeSingleUse(t *testing.T) {
+	now := time.Date(2026, 3, 20, 13, 20, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	svc := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
+	pair := TokenPair{AccessToken: "access-token", RefreshToken: "refresh-token"}
+
+	svc.StoreExchangeCode("exchange-1", pair)
+	consumed, ok := svc.ConsumeExchangeCode("exchange-1")
+	if !ok {
+		t.Fatal("expected first exchange code consume to succeed")
+	}
+	if consumed != pair {
+		t.Fatalf("expected consumed token pair %#v, got %#v", pair, consumed)
+	}
+
+	_, ok = svc.ConsumeExchangeCode("exchange-1")
+	if ok {
+		t.Fatal("expected exchange code to be single use")
+	}
+}
+
+func TestOAuthExchangeCode_Expires(t *testing.T) {
+	now := time.Date(2026, 3, 20, 13, 25, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	svc := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
+	svc.StoreExchangeCode("exchange-expired", TokenPair{AccessToken: "access-token", RefreshToken: "refresh-token"})
+
+	now = now.Add(11 * time.Minute)
+	_, ok := svc.ConsumeExchangeCode("exchange-expired")
+	if ok {
+		t.Fatal("expected expired exchange code to fail consumption")
+	}
+}
+
 type stubSender struct {
 	err      error
 	calls    int

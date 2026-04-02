@@ -134,17 +134,23 @@ func TestCategoriesAndTags_AcceptsAccessAndPAT(t *testing.T) {
 		classification.NewTagService(classification.NewInMemoryRepository()),
 	)
 
+	patService := portability.NewPATService(now)
+	patToken, _, err := patService.CreatePAT(context.Background(), "category-auth@example.com", "test-pat", nil)
+	if err != nil {
+		t.Fatalf("create PAT: %v", err)
+	}
+
 	r, err := bootstraphttp.NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, bootstraphttp.Dependencies{
 		AuthHandler:           authHandler,
 		ClassificationHandler: classificationHandler,
-		PATService:            portability.NewPATService(nil),
+		PATService:            patService,
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
 	}
 
 	requireAuthOK(t, r, "/api/categories", "Bearer "+pair.AccessToken)
-	requireAuthOK(t, r, "/api/tags", "Bearer pat:category-auth@example.com")
+	requireAuthOK(t, r, "/api/tags", "Bearer "+patToken)
 }
 
 func requireAuthOK(t *testing.T, r stdhttp.Handler, path string, authz string) {

@@ -98,12 +98,13 @@ func TestDefaultHandlers_ShareClassificationStateWithTransactions(t *testing.T) 
 	now := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
 	repo := auth.NewInMemoryRepository(func() time.Time { return now })
 	authHandler := auth.NewHandler(auth.NewCodeService(repo, &countingSender{}, nil, func() time.Time { return now }, func() string { return "123456" }))
+	patService := portability.NewPATService(nil)
 
-	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{AuthHandler: authHandler, PATService: portability.NewPATService(nil)})
+	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{AuthHandler: authHandler, PATService: patService})
 	if err != nil {
 		t.Fatalf("expected NewRouterWithDependencies to succeed, got: %v", err)
 	}
-	authz := "pat:shared@example.com"
+	authz := issuePATToken(t, patService, "shared@example.com")
 
 	ledgerID := responseFieldFromData(t, performJSON(t, r, http.MethodPost, "/api/ledgers", `{"name":"Main","is_default":true}`, authz, http.StatusCreated), "id")
 	categoryID := responseFieldFromData(t, performJSON(t, r, http.MethodPost, "/api/categories", `{"name":"Salary"}`, authz, http.StatusCreated), "id")
@@ -130,6 +131,8 @@ func TestStatsEndpoints_AcceptsAccessAndPAT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("issue session: %v", err)
 	}
+	patService := portability.NewPATService(nil)
+	patToken := issuePATToken(t, patService, "reporting-auth@example.com")
 
 	accountRepo := accounting.NewInMemoryAccountRepository()
 	txnRepo := accounting.NewInMemoryTransactionRepository()
@@ -145,7 +148,7 @@ func TestStatsEndpoints_AcceptsAccessAndPAT(t *testing.T) {
 	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
 		AuthHandler:      authHandler,
 		ReportingHandler: reportingHandler,
-		PATService:       portability.NewPATService(nil),
+		PATService:       patService,
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
@@ -154,7 +157,7 @@ func TestStatsEndpoints_AcceptsAccessAndPAT(t *testing.T) {
 	if len(performJSON(t, r, http.MethodGet, "/api/stats/overview", ``, pair.AccessToken, http.StatusOK)) == 0 {
 		t.Fatalf("expected overview payload")
 	}
-	if len(performJSON(t, r, http.MethodGet, "/api/stats/trend?from=2026-03-01T00:00:00Z&to=2026-03-02T00:00:00Z", ``, "pat:reporting-auth@example.com", http.StatusOK)) == 0 {
+	if len(performJSON(t, r, http.MethodGet, "/api/stats/trend?from=2026-03-01T00:00:00Z&to=2026-03-02T00:00:00Z", ``, patToken, http.StatusOK)) == 0 {
 		t.Fatalf("expected trend payload")
 	}
 	if len(performJSON(t, r, http.MethodGet, "/api/stats/category", ``, pair.AccessToken, http.StatusOK)) == 0 {
@@ -170,18 +173,21 @@ func TestImportPreviewEndpoint_AcceptsAccessAndPAT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("issue session: %v", err)
 	}
+	patService := portability.NewPATService(nil)
+	patToken := issuePATToken(t, patService, "import-auth@example.com")
 
 	repo := portability.NewRepository(nil)
 	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
 		AuthHandler:        authHandler,
-		PortabilityHandler: portability.NewHandler(portability.NewImportPreviewService(), portability.NewImportConfirmService(repo), nil, portability.NewPATService(nil)),
+		PortabilityHandler: portability.NewHandler(portability.NewImportPreviewService(), portability.NewImportConfirmService(repo), nil, patService),
+		PATService:         patService,
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
 	}
 
 	performMultipartCSV(t, r, "/api/import/csv", pair.AccessToken, http.StatusOK)
-	performMultipartCSV(t, r, "/api/import/csv", "pat:import-auth@example.com", http.StatusOK)
+	performMultipartCSV(t, r, "/api/import/csv", patToken, http.StatusOK)
 }
 
 func TestExportEndpoint_AcceptsAccessAndPAT(t *testing.T) {
@@ -192,6 +198,8 @@ func TestExportEndpoint_AcceptsAccessAndPAT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("issue session: %v", err)
 	}
+	patService := portability.NewPATService(nil)
+	patToken := issuePATToken(t, patService, "export-auth@example.com")
 
 	ledgerRepo := accounting.NewInMemoryLedgerRepository()
 	accountRepo := accounting.NewInMemoryAccountRepository()
@@ -221,15 +229,16 @@ func TestExportEndpoint_AcceptsAccessAndPAT(t *testing.T) {
 			portability.NewImportPreviewService(),
 			portability.NewImportConfirmService(portability.NewRepository(nil)),
 			portability.NewExportService(exportRepo),
-			portability.NewPATService(nil),
+			patService,
 		),
+		PATService: patService,
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
 	}
 
 	performExportRequest(t, r, "/api/export?format=csv", pair.AccessToken, http.StatusOK, "text/csv")
-	performExportRequest(t, r, "/api/export?format=json", "pat:export-auth@example.com", http.StatusOK, "application/json")
+	performExportRequest(t, r, "/api/export?format=json", patToken, http.StatusOK, "application/json")
 }
 
 func TestPAT_CannotAccessAuthEndpoints(t *testing.T) {
@@ -252,6 +261,44 @@ func TestPAT_CannotAccessAuthEndpoints(t *testing.T) {
 		if !strings.Contains(rec.Body.String(), "PAT_FORBIDDEN_ON_AUTH") {
 			t.Fatalf("expected PAT_FORBIDDEN_ON_AUTH for %s, got %s", path, rec.Body.String())
 		}
+	}
+}
+
+func TestAccountingAuthMiddleware_RejectsPATWhenPATServiceMissing(t *testing.T) {
+	now := func() time.Time { return time.Now().UTC() }
+	authRepo := auth.NewInMemoryRepository(now)
+	authHandler := auth.NewHandler(auth.NewCodeService(authRepo, &countingSender{}, nil, now, func() string { return "123456" }))
+	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{AuthHandler: authHandler})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/ledgers", nil)
+	req.Header.Set("Authorization", "Bearer pat:missing@example.com")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected unauthorized for PAT without service, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAccountingAuthMiddleware_RejectsPATWhenValidationFails(t *testing.T) {
+	now := func() time.Time { return time.Now().UTC() }
+	authRepo := auth.NewInMemoryRepository(now)
+	authHandler := auth.NewHandler(auth.NewCodeService(authRepo, &countingSender{}, nil, now, func() string { return "123456" }))
+	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{AuthHandler: authHandler, PATService: portability.NewPATService(nil)})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/ledgers", nil)
+	req.Header.Set("Authorization", "Bearer pat:invalid@example.com")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected unauthorized for invalid PAT, got %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -372,6 +419,15 @@ func performExportRequest(t *testing.T, handler http.Handler, path string, acces
 	if contentType := rec.Header().Get("Content-Type"); !strings.HasPrefix(contentType, wantContentType) {
 		t.Fatalf("expected content-type %s, got %s", wantContentType, contentType)
 	}
+}
+
+func issuePATToken(t *testing.T, patService *portability.PATService, userID string) string {
+	t.Helper()
+	token, _, err := patService.CreatePAT(context.Background(), userID, "test-pat", nil)
+	if err != nil {
+		t.Fatalf("create PAT for %s: %v", userID, err)
+	}
+	return token
 }
 
 type countingSender struct {

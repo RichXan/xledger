@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -29,8 +30,8 @@ type Dependencies struct {
 	ClassificationHandler *classification.Handler
 	PortabilityHandler    *portability.Handler
 	ReportingHandler      *reporting.Handler
-	UserIDResolver       userIDResolver
-	PATService           *portability.PATService
+	UserIDResolver        userIDResolver
+	PATService            *portability.PATService
 }
 
 func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin.Engine, error) {
@@ -62,7 +63,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		authGroup.POST("/change-password", handler.ChangePassword)
 		authGroup.PATCH("/profile", handler.UpdateProfile)
 	}
-	if gin.Mode() != gin.ReleaseMode && handler.HasSessionService() {
+	if !isReleaseMode() && handler.HasSessionService() {
 		authGroup.POST("/dev-login", handler.DevLogin)
 	}
 	authGroup.GET("/me", handler.Me)
@@ -84,7 +85,6 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	if accountingHandler == nil || classificationHandler == nil || portabilityHandler == nil || reportingHandler == nil {
 		businessDeps = newDefaultBusinessDeps()
 	}
-	// Use deps.PATService if provided, otherwise fall back to businessDeps.patService
 	patService := deps.PATService
 	if patService == nil && businessDeps != nil {
 		patService = businessDeps.patService
@@ -196,13 +196,8 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config, redisClient *redis.C
 	authHandler.SetPasswordService(auth.NewPasswordService(authRepo))
 	authHandler.SetGoogleFrontendReturnURL(cfg.GoogleAuthFrontendReturn)
 
-	// Accounting domain wired via accounting_wiring.go
 	acctDeps := newAccountingHandlerWithPostgreSQL(db)
-
-	// Classification wired (shares CategoryService with accounting)
 	classificationHandler := classification.NewHandler(acctDeps.CategoryService, nil)
-
-	// Reporting wired via reporting package directly
 	reportingRepo := reporting.NewRepository(nil, acctDeps.TxnRepo, acctDeps.CategoryService)
 	var reportingCache reporting.Cache
 	if redisClient != nil {
@@ -213,8 +208,6 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config, redisClient *redis.C
 		reporting.NewTrendService(reportingRepo, reportingCache),
 		reporting.NewCategoryService(reportingRepo),
 	)
-
-	// Portability domain wired via portability_wiring.go
 	portabilityHandler := newPortabilityHandlerWithPostgreSQL(db, acctDeps.TxnRepo, acctDeps.LedgerService, acctDeps.CategoryService)
 
 	deps := Dependencies{
@@ -223,8 +216,8 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config, redisClient *redis.C
 		ClassificationHandler: classificationHandler,
 		PortabilityHandler:    portabilityHandler,
 		ReportingHandler:      reportingHandler,
-		UserIDResolver:       postgresUserIDResolver(db),
-		PATService:           portabilityHandler.GetPATService(),
+		UserIDResolver:        postgresUserIDResolver(db),
+		PATService:            portabilityHandler.GetPATService(),
 	}
 
 	r, err := NewRouterWithDependencies(cfg.TrustedProxies, deps)
@@ -244,4 +237,12 @@ func isPlaceholderSMTP(host string, password string) bool {
 		return true
 	}
 	return password == "" || password == "replace-me"
+}
+
+func isReleaseMode() bool {
+	mode := strings.TrimSpace(strings.ToLower(os.Getenv("GIN_MODE")))
+	if mode != "" {
+		return mode == gin.ReleaseMode
+	}
+	return gin.Mode() == gin.ReleaseMode
 }

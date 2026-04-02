@@ -47,7 +47,38 @@ func TestAPIContract_AuthMe_ExistsAndUsesEnvelope(t *testing.T) {
 	assertCode(t, resp, "OK")
 }
 
+func TestAPIContract_AuthRefresh_UsesUnifiedEnvelope(t *testing.T) {
+	r := newContractRouter(t)
+	pair := issueContractSession(t, r)
+	resp := performJSONEnvelope(t, r, http.MethodPost, "/api/auth/refresh", `{"refresh_token":"`+pair.RefreshToken+`"}`, "", http.StatusOK)
+	assertEnvelopeShape(t, resp)
+	assertCode(t, resp, "OK")
+	responseStringFromEnvelope(t, resp, "access_token")
+	responseStringFromEnvelope(t, resp, "refresh_token")
+}
+
+func TestAPIContract_AuthLogout_UsesUnifiedEnvelope(t *testing.T) {
+	r := newContractRouter(t)
+	pair := issueContractSession(t, r)
+	resp := performJSONEnvelope(t, r, http.MethodPost, "/api/auth/logout", `{"refresh_token":"`+pair.RefreshToken+`"}`, "", http.StatusOK)
+	assertEnvelopeShape(t, resp)
+	assertCode(t, resp, "OK")
+}
+
+func TestAPIContract_GoogleExchangeCode_UsesUnifiedEnvelope(t *testing.T) {
+	r := newOAuthContractRouter(t)
+	resp := performJSONEnvelope(t, r, http.MethodPost, "/api/auth/google/exchange-code", `{"code":"missing"}`, "", http.StatusUnauthorized)
+	assertEnvelopeShape(t, resp)
+}
+
+func TestAPIContract_GoogleCallbackError_UsesUnifiedEnvelope(t *testing.T) {
+	r := newOAuthContractRouter(t)
+	resp := performJSONEnvelope(t, r, http.MethodGet, "/api/auth/google/callback?state=missing&code=bad", ``, "", http.StatusUnauthorized)
+	assertEnvelopeShape(t, resp)
+}
+
 func TestAPIContract_ListResponse_UsesDataItemsPagination(t *testing.T) {
+
 	r := newContractRouter(t)
 	accessToken := issueContractAccessToken(t, r)
 	resp := performJSONEnvelope(t, r, http.MethodGet, "/api/accounts?page=1&page_size=20", ``, accessToken, http.StatusOK)
@@ -66,9 +97,13 @@ func newContractRouter(t *testing.T) http.Handler {
 	now := func() time.Time { return time.Now().UTC() }
 	repo := auth.NewInMemoryRepository(now)
 	sessionService := auth.NewSessionService(repo, nil, now)
-	authHandler := auth.NewHandler(auth.NewCodeService(repo, contractNoopSender{}, auth.NewSessionTokenIssuer(sessionService), now, func() string { return "123456" }))
+	authHandler := auth.NewHandlerWithServices(
+		auth.NewCodeService(repo, contractNoopSender{}, auth.NewSessionTokenIssuer(sessionService), now, func() string { return "123456" }),
+		nil,
+		sessionService,
+	)
 	r, err := bootstraphttp.NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, bootstraphttp.Dependencies{
-		AuthHandler:  authHandler,
+		AuthHandler: authHandler,
 		PATService:  portability.NewPATService(nil),
 	})
 	if err != nil {
@@ -77,11 +112,42 @@ func newContractRouter(t *testing.T) http.Handler {
 	return r
 }
 
+
 func issueContractAccessToken(t *testing.T, handler http.Handler) string {
+	t.Helper()
+	pair := issueContractSession(t, handler)
+	return pair.AccessToken
+}
+
+func issueContractSession(t *testing.T, handler http.Handler) auth.TokenPair {
 	t.Helper()
 	_ = performJSONRaw(t, handler, http.MethodPost, "/api/auth/send-code", `{"email":"contract@example.com"}`, "", http.StatusOK)
 	verify := performJSONRaw(t, handler, http.MethodPost, "/api/auth/verify-code", `{"email":"contract@example.com","code":"123456"}`, "", http.StatusOK)
-	return responseStringFromEnvelope(t, verify, "access_token")
+	return auth.TokenPair{
+		AccessToken:  responseStringFromEnvelope(t, verify, "access_token"),
+		RefreshToken: responseStringFromEnvelope(t, verify, "refresh_token"),
+	}
+}
+
+func newOAuthContractRouter(t *testing.T) http.Handler {
+	t.Helper()
+	now := func() time.Time { return time.Now().UTC() }
+	repo := auth.NewInMemoryRepository(now)
+	sessionService := auth.NewSessionService(repo, nil, now)
+	oauthService := auth.NewOAuthService(repo, sessionService, now)
+	authHandler := auth.NewHandlerWithServices(
+		auth.NewCodeService(repo, contractNoopSender{}, auth.NewSessionTokenIssuer(sessionService), now, func() string { return "123456" }),
+		oauthService,
+		sessionService,
+	)
+	r, err := bootstraphttp.NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, bootstraphttp.Dependencies{
+		AuthHandler: authHandler,
+		PATService:  portability.NewPATService(nil),
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+	return r
 }
 
 func performJSONEnvelope(t *testing.T, handler http.Handler, method string, path string, body string, accessToken string, wantStatus int) map[string]any {
