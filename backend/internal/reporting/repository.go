@@ -3,6 +3,7 @@ package reporting
 import (
 	"context"
 	"strings"
+	"time"
 
 	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/classification"
@@ -28,6 +29,14 @@ func (r *Repository) ListAccounts(userID string) ([]accounting.Account, error) {
 
 func (r *Repository) ListTransactions(userID string, query accounting.TransactionQuery) ([]accounting.Transaction, error) {
 	return r.txnRepo.ListByUser(strings.TrimSpace(userID), query)
+}
+
+func (r *Repository) GetOverviewStats(userID string, query accounting.TransactionQuery) (float64, float64, error) {
+	return r.txnRepo.GetOverviewStats(strings.TrimSpace(userID), query)
+}
+
+func (r *Repository) GetTrendStats(userID string, query accounting.TransactionQuery, granularity string, loc *time.Location) ([]accounting.TrendRow, error) {
+	return r.txnRepo.GetTrendStats(strings.TrimSpace(userID), query, granularity, loc)
 }
 
 func (r *Repository) HistoricalCategoryName(ctx context.Context, userID string, categoryID string) (string, bool) {

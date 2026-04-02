@@ -8,8 +8,8 @@ func newDefaultReportingHandler(deps *defaultBusinessDeps) *reporting.Handler {
 	}
 	repo := reporting.NewRepository(deps.accountRepo, deps.transactionRepo, deps.categoryService)
 	return reporting.NewHandler(
-		reporting.NewOverviewService(repo),
-		reporting.NewTrendService(repo),
+		reporting.NewOverviewService(repo, deps.reportingCache),
+		reporting.NewTrendService(repo, deps.reportingCache),
 		reporting.NewCategoryService(repo),
 	)
 }

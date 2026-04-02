@@ -20,7 +20,7 @@ func TestTrend_Perf1K(t *testing.T) {
 	tagService := classification.NewTagService(classificationRepo)
 	txnService := accounting.NewTransactionService(txnRepo, ledgerRepo, accountRepo, categoryService, tagService)
 	repo := NewRepository(accountRepo, txnRepo, categoryService)
-	trend := NewTrendService(repo)
+	trend := NewTrendService(repo, nil)
 
 	ledger, err := ledgerRepo.Create("user-1", accounting.LedgerCreateInput{Name: "Main", IsDefault: true})
 	if err != nil {

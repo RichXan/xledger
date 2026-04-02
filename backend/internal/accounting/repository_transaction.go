@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+// TrendRow is the per-bucket result of a SQL aggregation for trend reporting.
+type TrendRow struct {
+	BucketStart time.Time
+	Income      float64
+	Expense     float64
+}
+
 const (
 	TransactionTypeIncome   = "income"
 	TransactionTypeExpense  = "expense"
@@ -105,6 +112,12 @@ type TransactionRepository interface {
 	ListByTransferPairForUser(userID string, pairID string) ([]Transaction, error)
 	MarkBalancesRecalculated(userID string, ledgerID string) error
 	MarkStatsInputRecalculated(userID string, ledgerID string) error
+	// GetOverviewStats returns aggregated income/expense sums for the reporting overview.
+	// Implementations may push the aggregation to the database (e.g., SQL SUM/FILTER).
+	GetOverviewStats(userID string, query TransactionQuery) (totalIncome float64, totalExpense float64, err error)
+	// GetTrendStats returns per-bucket income/expense rows for trend charts.
+	// Implementations may use date_trunc + GROUP BY on the database side.
+	GetTrendStats(userID string, query TransactionQuery, granularity string, loc *time.Location) ([]TrendRow, error)
 }
 
 type InMemoryTransactionRepository struct {
@@ -529,6 +542,66 @@ func (r *InMemoryTransactionRepository) MarkStatsInputRecalculated(_ string, led
 	r.statsInputRecalcCount++
 	r.statsInputByLedger[ledgerID]++
 	return nil
+}
+
+// GetOverviewStats is an in-memory implementation of the reporting aggregation interface.
+// It reuses ListByUser so all existing filter semantics are preserved for tests.
+func (r *InMemoryTransactionRepository) GetOverviewStats(userID string, query TransactionQuery) (float64, float64, error) {
+	txns, err := r.ListByUser(userID, query)
+	if err != nil {
+		return 0, 0, err
+	}
+	var income, expense float64
+	for _, txn := range txns {
+		switch txn.Type {
+		case TransactionTypeIncome:
+			income += txn.Amount
+		case TransactionTypeExpense:
+			expense += txn.Amount
+		}
+	}
+	return income, expense, nil
+}
+
+// GetTrendStats is an in-memory implementation of the reporting aggregation interface.
+func (r *InMemoryTransactionRepository) GetTrendStats(userID string, query TransactionQuery, granularity string, loc *time.Location) ([]TrendRow, error) {
+	if loc == nil {
+		loc = time.FixedZone("UTC+8", 8*60*60)
+	}
+	txns, err := r.ListByUser(userID, query)
+	if err != nil {
+		return nil, err
+	}
+	buckets := map[time.Time]*TrendRow{}
+	for _, txn := range txns {
+		if txn.Type == TransactionTypeTransfer {
+			continue
+		}
+		v := txn.OccurredAt.In(loc)
+		var bucket time.Time
+		if granularity == "month" {
+			bucket = time.Date(v.Year(), v.Month(), 1, 0, 0, 0, 0, loc)
+		} else {
+			bucket = time.Date(v.Year(), v.Month(), v.Day(), 0, 0, 0, 0, loc)
+		}
+		row := buckets[bucket]
+		if row == nil {
+			row = &TrendRow{BucketStart: bucket}
+			buckets[bucket] = row
+		}
+		switch txn.Type {
+		case TransactionTypeIncome:
+			row.Income += txn.Amount
+		case TransactionTypeExpense:
+			row.Expense += txn.Amount
+		}
+	}
+	rows := make([]TrendRow, 0, len(buckets))
+	for _, row := range buckets {
+		rows = append(rows, *row)
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].BucketStart.Before(rows[j].BucketStart) })
+	return rows, nil
 }
 
 func (r *InMemoryTransactionRepository) BalanceRecalculationCount() int {

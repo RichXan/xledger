@@ -137,8 +137,8 @@ func TestStatsEndpoints_AcceptsAccessAndPAT(t *testing.T) {
 	categoryService := classification.NewCategoryService(classificationRepo)
 	reportingRepo := reporting.NewRepository(accountRepo, txnRepo, categoryService)
 	reportingHandler := reporting.NewHandler(
-		reporting.NewOverviewService(reportingRepo),
-		reporting.NewTrendService(reportingRepo),
+		reporting.NewOverviewService(reportingRepo, nil),
+		reporting.NewTrendService(reportingRepo, nil),
 		reporting.NewCategoryService(reportingRepo),
 	)
 

@@ -13,7 +13,7 @@ func TestTrend_BasicWindowAggregation(t *testing.T) {
 	ctx := context.Background()
 	ledgerRepo, accountRepo, txnRepo, categoryService, txnService := newTrendFixture(t)
 	repo := NewRepository(accountRepo, txnRepo, categoryService)
-	trend := NewTrendService(repo)
+	trend := NewTrendService(repo, nil)
 
 	ledger, err := ledgerRepo.Create("user-1", accounting.LedgerCreateInput{Name: "Main", IsDefault: true})
 	if err != nil {
@@ -46,7 +46,7 @@ func TestTrend_MonthAggregation(t *testing.T) {
 	ctx := context.Background()
 	ledgerRepo, accountRepo, txnRepo, categoryService, txnService := newTrendFixture(t)
 	repo := NewRepository(accountRepo, txnRepo, categoryService)
-	trend := NewTrendService(repo)
+	trend := NewTrendService(repo, nil)
 
 	ledger, err := ledgerRepo.Create("user-1", accounting.LedgerCreateInput{Name: "Main", IsDefault: true})
 	if err != nil {
@@ -95,7 +95,7 @@ func TestTrend_UsesUserTimezoneOrUTC8Default(t *testing.T) {
 	ctx := context.Background()
 	ledgerRepo, accountRepo, txnRepo, categoryService, txnService := newTrendFixture(t)
 	repo := NewRepository(accountRepo, txnRepo, categoryService)
-	trend := NewTrendService(repo)
+	trend := NewTrendService(repo, nil)
 
 	ledger, err := ledgerRepo.Create("user-1", accounting.LedgerCreateInput{Name: "Main", IsDefault: true})
 	if err != nil {
@@ -125,7 +125,7 @@ func TestTrend_UsesUserTimezoneOrUTC8Default(t *testing.T) {
 
 func TestTrend_EmptyWindowReturnsZeroSeries(t *testing.T) {
 	repo := NewRepository(accounting.NewInMemoryAccountRepository(), accounting.NewInMemoryTransactionRepository(), classification.NewCategoryService(classification.NewInMemoryRepository()))
-	trend := NewTrendService(repo)
+	trend := NewTrendService(repo, nil)
 
 	from := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 3, 4, 0, 0, 0, 0, time.UTC)
@@ -145,7 +145,7 @@ func TestTrend_EmptyWindowReturnsZeroSeries(t *testing.T) {
 
 func TestTrend_InvalidParams_ReturnsSTAT_QUERY_INVALID(t *testing.T) {
 	repo := NewRepository(accounting.NewInMemoryAccountRepository(), accounting.NewInMemoryTransactionRepository(), classification.NewCategoryService(classification.NewInMemoryRepository()))
-	trend := NewTrendService(repo)
+	trend := NewTrendService(repo, nil)
 
 	_, err := trend.GetTrend(context.Background(), "user-1", TrendQuery{From: time.Date(2026, 3, 2, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC), Granularity: "day"})
 	if ErrorCode(err) != STAT_QUERY_INVALID {
@@ -162,7 +162,7 @@ func TestTrend_InvalidParams_ReturnsSTAT_QUERY_INVALID(t *testing.T) {
 }
 
 func TestTrend_TimeoutReturnsSTAT_TIMEOUT_NoPartialPayload(t *testing.T) {
-	trend := NewTrendService(&Repository{txnRepo: slowTransactionRepo{delay: 25 * time.Millisecond}})
+	trend := NewTrendService(&Repository{txnRepo: slowTransactionRepo{delay: 25 * time.Millisecond}}, nil)
 	_, err := trend.GetTrend(context.Background(), "user-1", TrendQuery{From: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 3, 2, 0, 0, 0, 0, time.UTC), Granularity: "day", Timeout: 5 * time.Millisecond})
 	if ErrorCode(err) != STAT_TIMEOUT {
 		t.Fatalf("expected %s, got %q", STAT_TIMEOUT, ErrorCode(err))
@@ -171,7 +171,7 @@ func TestTrend_TimeoutReturnsSTAT_TIMEOUT_NoPartialPayload(t *testing.T) {
 
 func TestTrend_ReadOnlyDegradationRejectsHeavyWindow(t *testing.T) {
 	repo := NewRepository(accounting.NewInMemoryAccountRepository(), accounting.NewInMemoryTransactionRepository(), classification.NewCategoryService(classification.NewInMemoryRepository()))
-	trend := NewTrendService(repo)
+	trend := NewTrendService(repo, nil)
 	_, err := trend.GetTrend(context.Background(), "user-1", TrendQuery{From: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), Granularity: "day"})
 	if ErrorCode(err) != STAT_QUERY_INVALID {
 		t.Fatalf("expected %s for heavy window rejection, got %q", STAT_QUERY_INVALID, ErrorCode(err))
@@ -229,3 +229,10 @@ func (r slowTransactionRepo) ListByTransferPairForUser(string, string) ([]accoun
 }
 func (r slowTransactionRepo) MarkBalancesRecalculated(string, string) error   { panic("not used") }
 func (r slowTransactionRepo) MarkStatsInputRecalculated(string, string) error { panic("not used") }
+func (r slowTransactionRepo) GetOverviewStats(string, accounting.TransactionQuery) (float64, float64, error) {
+	return 0, 0, nil
+}
+func (r slowTransactionRepo) GetTrendStats(_ string, _ accounting.TransactionQuery, _ string, _ *time.Location) ([]accounting.TrendRow, error) {
+	time.Sleep(r.delay)
+	return []accounting.TrendRow{}, nil
+}

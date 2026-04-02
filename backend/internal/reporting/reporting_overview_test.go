@@ -13,7 +13,7 @@ func TestOverview_TotalAssetsIndependentFromLedgerFilter(t *testing.T) {
 	ctx := context.Background()
 	deps := newReportingFixture(t)
 
-	overview := NewOverviewService(NewRepository(deps.accountRepo, deps.txnRepo, deps.categoryService))
+	overview := NewOverviewService(NewRepository(deps.accountRepo, deps.txnRepo, deps.categoryService), nil)
 	all, err := overview.GetOverview(ctx, "user-1", OverviewQuery{})
 	if err != nil {
 		t.Fatalf("overview without ledger filter: %v", err)
@@ -34,7 +34,7 @@ func TestOverview_AccountNullIncludedInIncomeExpenseNotAssets(t *testing.T) {
 	ctx := context.Background()
 	deps := newReportingFixture(t)
 
-	overview := NewOverviewService(NewRepository(deps.accountRepo, deps.txnRepo, deps.categoryService))
+	overview := NewOverviewService(NewRepository(deps.accountRepo, deps.txnRepo, deps.categoryService), nil)
 	result, err := overview.GetOverview(ctx, "user-1", OverviewQuery{})
 	if err != nil {
 		t.Fatalf("overview query: %v", err)
@@ -54,7 +54,7 @@ func TestOverview_TransferOffsetsExcludedFromIncomeExpense(t *testing.T) {
 	ctx := context.Background()
 	deps := newReportingFixture(t)
 
-	overview := NewOverviewService(NewRepository(deps.accountRepo, deps.txnRepo, deps.categoryService))
+	overview := NewOverviewService(NewRepository(deps.accountRepo, deps.txnRepo, deps.categoryService), nil)
 	result, err := overview.GetOverview(ctx, "user-1", OverviewQuery{})
 	if err != nil {
 		t.Fatalf("overview query: %v", err)

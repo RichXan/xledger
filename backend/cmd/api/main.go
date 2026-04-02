@@ -13,6 +13,7 @@ import (
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 
 	"xledger/backend/internal/bootstrap/config"
 	bootstraphttp "xledger/backend/internal/bootstrap/http"
@@ -142,13 +143,14 @@ func startServer() {
 		log.Println("DATABASE_URL not set, using in-memory repositories")
 	}
 
+	var redisClient *redis.Client
 	if cfg.RedisURL != "" {
-		redisClient, redisErr := infrastructure.ConnectRedis(ctx, infrastructure.RedisConfig{
+		redisClient, err = infrastructure.ConnectRedis(ctx, infrastructure.RedisConfig{
 			URL:         cfg.RedisURL,
 			PingTimeout: 3 * time.Second,
 		})
-		if redisErr != nil {
-			log.Fatalf("redis connection error: %v", redisErr)
+		if err != nil {
+			log.Fatalf("redis connection error: %v", err)
 		}
 		defer redisClient.Close()
 		log.Println("Connected to Redis")
@@ -158,7 +160,7 @@ func startServer() {
 
 	var router http.Handler
 	if db != nil {
-		router = bootstraphttp.NewRouterWithPostgreSQL(db, cfg)
+		router = bootstraphttp.NewRouterWithPostgreSQL(db, cfg, redisClient)
 	} else {
 		router, err = bootstraphttp.NewRouter(cfg.TrustedProxies)
 		if err != nil {

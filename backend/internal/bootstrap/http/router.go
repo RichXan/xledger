@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 
 	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/auth"
 	"xledger/backend/internal/bootstrap/config"
+	"xledger/backend/internal/bootstrap/infrastructure"
 	"xledger/backend/internal/classification"
 	"xledger/backend/internal/portability"
 	"xledger/backend/internal/reporting"
@@ -167,7 +169,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	return r, nil
 }
 
-func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config) *gin.Engine {
+func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config, redisClient *redis.Client) *gin.Engine {
 	authRepo := auth.NewPostgresRepository(db)
 	var mailSender auth.SMTPSender = auth.NewSMTPMailSender(auth.SMTPConfig{
 		Host:     cfg.SMTPHost,
@@ -202,9 +204,13 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config) *gin.Engine {
 
 	// Reporting wired via reporting package directly
 	reportingRepo := reporting.NewRepository(nil, acctDeps.TxnRepo, acctDeps.CategoryService)
+	var reportingCache reporting.Cache
+	if redisClient != nil {
+		reportingCache = infrastructure.NewRedisReportingCache(redisClient)
+	}
 	reportingHandler := reporting.NewHandler(
-		reporting.NewOverviewService(reportingRepo),
-		reporting.NewTrendService(reportingRepo),
+		reporting.NewOverviewService(reportingRepo, reportingCache),
+		reporting.NewTrendService(reportingRepo, reportingCache),
 		reporting.NewCategoryService(reportingRepo),
 	)
 

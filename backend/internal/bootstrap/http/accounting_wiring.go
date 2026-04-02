@@ -6,6 +6,7 @@ import (
 	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/classification"
 	"xledger/backend/internal/portability"
+	"xledger/backend/internal/reporting"
 )
 
 type defaultBusinessDeps struct {
@@ -18,6 +19,7 @@ type defaultBusinessDeps struct {
 	txnService         *accounting.TransactionService
 	ledgerService      *accounting.LedgerService
 	patService         *portability.PATService
+	reportingCache     reporting.Cache // nil = no caching
 }
 
 func newDefaultBusinessDeps() *defaultBusinessDeps {

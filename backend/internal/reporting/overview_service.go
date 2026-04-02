@@ -2,6 +2,8 @@ package reporting
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 const (
 	STAT_QUERY_INVALID = "STAT_QUERY_INVALID"
 	STAT_TIMEOUT       = "STAT_TIMEOUT"
+	overviewCacheTTL   = 5 * time.Minute
 )
 
 type contractError struct{ code string }
@@ -40,9 +43,15 @@ type OverviewResult struct {
 	Net         float64 `json:"net"`
 }
 
-type OverviewService struct{ repo *Repository }
+type OverviewService struct {
+	repo  *Repository
+	cache Cache
+}
 
-func NewOverviewService(repo *Repository) *OverviewService { return &OverviewService{repo: repo} }
+// NewOverviewService creates an OverviewService. cache may be nil (no caching).
+func NewOverviewService(repo *Repository, cache Cache) *OverviewService {
+	return &OverviewService{repo: repo, cache: cache}
+}
 
 func (s *OverviewService) GetOverview(ctx context.Context, userID string, query OverviewQuery) (OverviewResult, error) {
 	userID = strings.TrimSpace(userID)
@@ -52,36 +61,59 @@ func (s *OverviewService) GetOverview(ctx context.Context, userID string, query 
 	if (!query.From.IsZero() && query.To.IsZero()) || (query.From.IsZero() && !query.To.IsZero()) || (!query.From.IsZero() && query.From.After(query.To)) {
 		return OverviewResult{}, &contractError{code: STAT_QUERY_INVALID}
 	}
-	accounts, err := s.repo.ListAccounts(userID)
-	if err != nil {
-		return OverviewResult{}, err
+
+	cacheKey := fmt.Sprintf("rep:overview:%s:%s:%s:%s",
+		userID, query.LedgerID,
+		query.From.Format(time.RFC3339), query.To.Format(time.RFC3339),
+	)
+
+	// Cache-Aside: probe cache first
+	if s.cache != nil {
+		if data, ok, err := s.cache.Get(cacheKey); ok && err == nil {
+			var result OverviewResult
+			if json.Unmarshal(data, &result) == nil {
+				return result, nil
+			}
+		}
 	}
+
+	// TotalAssets still requires account listing (no SQL agg today)
+	var totalAssets float64
+	if s.repo.accountRepo != nil {
+		accounts, err := s.repo.ListAccounts(userID)
+		if err != nil {
+			return OverviewResult{}, err
+		}
+		for _, a := range accounts {
+			totalAssets += a.InitialBalance
+		}
+	}
+
+	// SQL aggregation for income/expense — O(1) DB round-trip
 	txnQuery := accounting.TransactionQuery{LedgerID: strings.TrimSpace(query.LedgerID)}
 	if !query.From.IsZero() {
 		txnQuery.OccurredFrom = query.From
 		txnQuery.OccurredTo = query.To
 	}
-	txns, err := s.repo.ListTransactions(userID, txnQuery)
+	income, expense, err := s.repo.GetOverviewStats(userID, txnQuery)
 	if err != nil {
 		return OverviewResult{}, err
 	}
 
-	result := OverviewResult{}
-	for _, account := range accounts {
-		result.TotalAssets += account.InitialBalance
+	result := OverviewResult{
+		TotalAssets: totalAssets,
+		Income:      income,
+		Expense:     expense,
+		Net:         income - expense,
 	}
-	for _, txn := range txns {
-		if txn.Type == accounting.TransactionTypeTransfer {
-			continue
-		}
-		switch txn.Type {
-		case accounting.TransactionTypeIncome:
-			result.Income += txn.Amount
-		case accounting.TransactionTypeExpense:
-			result.Expense += txn.Amount
+
+	// Write-back
+	if s.cache != nil {
+		if data, err := json.Marshal(result); err == nil {
+			_ = s.cache.Set(cacheKey, data, overviewCacheTTL)
 		}
 	}
-	result.Net = result.Income - result.Expense
+
 	_ = ctx
 	return result, nil
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type PostgresTransactionRepository struct {
@@ -567,4 +568,99 @@ func (r *PostgresTransactionRepository) MarkStatsInputRecalculated(userID string
 
 func itoa(i int) string {
 	return strconv.Itoa(i)
+}
+
+// GetOverviewStats uses SQL SUM/FILTER to aggregate income and expense without
+// loading transaction rows into Go memory.
+func (r *PostgresTransactionRepository) GetOverviewStats(userID string, query TransactionQuery) (float64, float64, error) {
+	sqlQuery := `
+		SELECT
+			COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0),
+			COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0)
+		FROM transactions
+		WHERE user_id = $1 AND deleted_at IS NULL AND type != 'transfer'
+	`
+	args := []interface{}{userID}
+	argIdx := 2
+
+	if query.LedgerID != "" {
+		sqlQuery += ` AND ledger_id = $` + itoa(argIdx)
+		args = append(args, query.LedgerID)
+		argIdx++
+	}
+	if !query.OccurredFrom.IsZero() {
+		sqlQuery += ` AND occurred_at >= $` + itoa(argIdx)
+		args = append(args, query.OccurredFrom)
+		argIdx++
+	}
+	if !query.OccurredTo.IsZero() {
+		sqlQuery += ` AND occurred_at <= $` + itoa(argIdx)
+		args = append(args, query.OccurredTo)
+		_ = argIdx
+	}
+
+	var income, expense float64
+	if err := r.db.QueryRow(sqlQuery, args...).Scan(&income, &expense); err != nil {
+		return 0, 0, err
+	}
+	return income, expense, nil
+}
+
+// GetTrendStats uses date_trunc + GROUP BY to compute per-bucket income/expense
+// aggregations on the database side.
+func (r *PostgresTransactionRepository) GetTrendStats(userID string, query TransactionQuery, granularity string, loc *time.Location) ([]TrendRow, error) {
+	if loc == nil {
+		loc = time.FixedZone("UTC+8", 8*60*60)
+	}
+	tz := loc.String()
+	// time.FixedZone returns names like "UTC+8" which Postgres doesn't understand;
+	// map to the conventional IANA name used in practice.
+	if tz == "" || strings.HasPrefix(tz, "UTC+") || strings.HasPrefix(tz, "UTC-") {
+		tz = "Asia/Shanghai" // sensible default matching UTC+8
+	}
+
+	sqlQuery := `
+		SELECT
+			date_trunc($1, occurred_at AT TIME ZONE $2) AS bucket,
+			COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0),
+			COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0)
+		FROM transactions
+		WHERE user_id = $3 AND deleted_at IS NULL AND type != 'transfer'
+	`
+	args := []interface{}{granularity, tz, userID}
+	argIdx := 4
+
+	if query.LedgerID != "" {
+		sqlQuery += ` AND ledger_id = $` + itoa(argIdx)
+		args = append(args, query.LedgerID)
+		argIdx++
+	}
+	if !query.OccurredFrom.IsZero() {
+		sqlQuery += ` AND occurred_at >= $` + itoa(argIdx)
+		args = append(args, query.OccurredFrom)
+		argIdx++
+	}
+	if !query.OccurredTo.IsZero() {
+		sqlQuery += ` AND occurred_at <= $` + itoa(argIdx)
+		args = append(args, query.OccurredTo)
+		_ = argIdx
+	}
+
+	sqlQuery += ` GROUP BY bucket ORDER BY bucket ASC`
+
+	rows, err := r.db.Query(sqlQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []TrendRow
+	for rows.Next() {
+		var row TrendRow
+		if err := rows.Scan(&row.BucketStart, &row.Income, &row.Expense); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
 }
