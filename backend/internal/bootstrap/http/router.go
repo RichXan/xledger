@@ -32,6 +32,7 @@ type Dependencies struct {
 	ReportingHandler      *reporting.Handler
 	UserIDResolver        userIDResolver
 	PATService            *portability.PATService
+	CategoryService       *classification.CategoryService
 }
 
 func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin.Engine, error) {
@@ -111,7 +112,13 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		accountingGroup.PATCH("/transactions/:id", accountingHandler.UpdateTransaction)
 		accountingGroup.DELETE("/transactions/:id", accountingHandler.DeleteTransaction)
 
-		quickAddHandler := accounting.NewQuickAddHandler(accountingHandler.GetTransactionService(), accountingHandler.GetLedgerService(), businessDeps.categoryService)
+		var categoryService *classification.CategoryService
+		if businessDeps != nil {
+			categoryService = businessDeps.categoryService
+		} else {
+			categoryService = deps.CategoryService
+		}
+		quickAddHandler := accounting.NewQuickAddHandler(accountingHandler.GetTransactionService(), accountingHandler.GetLedgerService(), categoryService)
 		accountingGroup.POST("/quick-add", quickAddHandler.QuickAdd)
 		accountingGroup.GET("/quick-add/categories", quickAddHandler.ListCategories)
 	}
@@ -218,6 +225,7 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config, redisClient *redis.C
 		ReportingHandler:      reportingHandler,
 		UserIDResolver:        postgresUserIDResolver(db),
 		PATService:            portabilityHandler.GetPATService(),
+		CategoryService:       acctDeps.CategoryService,
 	}
 
 	r, err := NewRouterWithDependencies(cfg.TrustedProxies, deps)
