@@ -25,8 +25,10 @@ async function parseJson<T>(response: Response): Promise<T> {
   }
   try {
     return JSON.parse(text) as T
-  } catch {
-    return {} as T
+  } catch (e) {
+    // Surface JSON parse errors for better debugging
+    console.error('api: failed to parse JSON response:', e, 'body:', text.slice(0, 200))
+    throw new ApiError('服务器响应格式错误', response.status, 'PARSE_ERROR')
   }
 }
 
@@ -57,12 +59,23 @@ export async function requestRaw<T>(input: string, init?: RequestInit): Promise<
     },
     ...init,
   })
-  const payload = await parseJson<T & { error_code?: string }>(response)
 
   if (!response.ok) {
-    const code = typeof payload === 'object' && payload && 'error_code' in payload ? payload.error_code ?? 'UNKNOWN_ERROR' : 'UNKNOWN_ERROR'
-    throw new ApiError('Request failed', response.status, code)
+    const text = await response.text()
+    let message = 'Request failed'
+    let code = 'UNKNOWN_ERROR'
+    if (text) {
+      try {
+        const parsed = JSON.parse(text) as { code?: string; message?: string; error_code?: string }
+        message = parsed.message ?? parsed.error_code ?? message
+        code = parsed.code ?? parsed.error_code ?? code
+      } catch {
+        // use defaults
+      }
+    }
+    throw new ApiError(message, response.status, code)
   }
 
+  const payload = await parseJson<T>(response)
   return payload
 }

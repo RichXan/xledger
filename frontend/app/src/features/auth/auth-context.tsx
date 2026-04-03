@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useRef,
   type PropsWithChildren,
 } from 'react'
 import {
@@ -39,6 +40,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<AuthSession | null>(() => readAuthSession())
   const [isBootstrapping, setIsBootstrapping] = useState(true)
+  const isRefreshing = useRef<Promise<void> | null>(null)
 
   const persistSession = useCallback((nextSession: AuthSession | null) => {
     setSession(nextSession)
@@ -68,29 +70,55 @@ export function AuthProvider({ children }: PropsWithChildren) {
           if (isMounted) {
             persistSession(null)
           }
+          setIsBootstrapping(false)
           return
         }
 
-        try {
-          const tokens = await refreshSession(session.refreshToken)
-          const user = await getCurrentUser(tokens.access_token)
-          if (isMounted) {
-            persistSession({
-              accessToken: tokens.access_token,
-              refreshToken: tokens.refresh_token,
-              email: user.email,
-              name: user.name ?? null,
-            })
+        // If a refresh is already in progress, wait for it instead of starting another
+        if (isRefreshing.current) {
+          try {
+            await isRefreshing.current
+          } catch {
+            // refresh failed, session was cleared by the in-progress refresh
           }
-        } catch {
-          if (isMounted) {
-            persistSession(null)
-          }
-        }
-      } finally {
-        if (isMounted) {
           setIsBootstrapping(false)
+          return
         }
+
+        // Start a new refresh and store the promise so concurrent requests can await it
+        let refreshCompleted = false
+        isRefreshing.current = (async () => {
+          try {
+            const tokens = await refreshSession(session.refreshToken)
+            const user = await getCurrentUser(tokens.access_token)
+            if (isMounted) {
+              persistSession({
+                accessToken: tokens.access_token,
+                refreshToken: tokens.refresh_token,
+                email: user.email,
+                name: user.name ?? null,
+              })
+            }
+            refreshCompleted = true
+          } catch {
+            if (isMounted) {
+              persistSession(null)
+            }
+            refreshCompleted = true
+          } finally {
+            if (isMounted) {
+              isRefreshing.current = null
+            }
+          }
+        })()
+
+        await isRefreshing.current
+        if (!refreshCompleted && isMounted) {
+          persistSession(null)
+        }
+      }
+      if (isMounted) {
+        setIsBootstrapping(false)
       }
     }
 

@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/auth-context'
-import { ApiError } from '@/lib/api'
+import { ApiError, requestEnvelope } from '@/lib/api'
+
+interface ExchangeCodeResponse {
+  access_token: string
+  refresh_token: string
+}
 
 export function GoogleCallbackPage() {
   const [searchParams] = useSearchParams()
@@ -11,8 +16,7 @@ export function GoogleCallbackPage() {
 
   useEffect(() => {
     let canceled = false
-    const accessToken = (searchParams.get('access_token') ?? '').trim()
-    const refreshToken = (searchParams.get('refresh_token') ?? '').trim()
+    const exchangeCode = (searchParams.get('exchange_code') ?? '').trim()
     const errorCode = (searchParams.get('error_code') ?? '').trim()
     const errorReason = (searchParams.get('error_reason') ?? '').trim()
 
@@ -25,13 +29,17 @@ export function GoogleCallbackPage() {
         setError('Google 登录失败，请重试。')
         return
       }
-      if (!accessToken || !refreshToken) {
-        setError('Google login failed: missing token payload.')
+      if (!exchangeCode) {
+        setError('Google login failed: missing exchange code.')
         return
       }
       try {
-        await applyOAuthTokens(accessToken, refreshToken)
+        const tokens = await requestEnvelope<ExchangeCodeResponse>('/auth/google/exchange-code', {
+          method: 'POST',
+          body: JSON.stringify({ code: exchangeCode }),
+        })
         if (!canceled) {
+          await applyOAuthTokens(tokens.access_token, tokens.refresh_token)
           navigate('/dashboard', { replace: true })
         }
       } catch (caughtError) {
