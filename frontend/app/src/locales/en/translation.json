@@ -17,6 +17,7 @@
     "transactions": "Transactions",
     "analytics": "Analytics",
     "accounts": "Accounts",
+    "import": "Import",
     "settings": "Settings",
     "shortcuts": "Shortcuts"
   },
@@ -94,11 +95,16 @@
   "import": {
     "title": "Import Data",
     "selectFile": "Select File",
+    "supportedFormats": "Supported: CSV format",
+    "detectedFormat": "Detected Format",
+    "fieldMapping": "Field Mapping",
     "preview": "Preview",
     "confirm": "Confirm Import",
     "success": "Import Successful",
+    "successRows": "records imported",
     "skipped": "Skipped",
-    "failed": "Failed"
+    "failed": "Failed",
+    "importMore": "Import More"
   },
   "pwa": {
     "installTitle": "Add to Home Screen",

@@ -154,3 +154,39 @@ export function generateShortcut(accessToken: string, name: string = '快捷记�
     body: JSON.stringify(body),
   })
 }
+
+// Import CSV
+export interface ImportPreviewResponse {
+  format: string
+  columns: string[]
+  sample_rows: string[][]
+  mappingSlots: string[]
+  mappingCandidates: Record<string, string[]>
+  suggested_mapping?: Record<string, string>
+}
+
+export interface ImportConfirmResponse {
+  success_count: number
+  skip_count: number
+  fail_count: number
+}
+
+export async function importCSVPreview(formData: FormData) {
+  const response = await fetch('/api/import/csv', {
+    method: 'POST',
+    body: formData,
+  })
+  const json = await response.json()
+  if (!response.ok) throw new Error(json.message)
+  return json.data as ImportPreviewResponse
+}
+
+export async function importCSVConfirm(formData: FormData) {
+  const response = await fetch('/api/import/csv/confirm', {
+    method: 'POST',
+    body: formData,
+  })
+  const json = await response.json()
+  if (!response.ok) throw new Error(json.message)
+  return json.data as ImportConfirmResponse
+}

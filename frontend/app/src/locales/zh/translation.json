@@ -17,6 +17,7 @@
     "transactions": "交易",
     "analytics": "统计",
     "accounts": "账户",
+    "import": "导入",
     "settings": "设置",
     "shortcuts": "快捷指令"
   },
@@ -94,11 +95,16 @@
   "import": {
     "title": "导入数据",
     "selectFile": "选择文件",
+    "supportedFormats": "支持 CSV 格式",
+    "detectedFormat": "检测到格式",
+    "fieldMapping": "字段映射",
     "preview": "预览",
     "confirm": "确认导入",
     "success": "导入成功",
+    "successRows": "条记录已导入",
     "skipped": "跳过",
-    "failed": "失败"
+    "failed": "失败",
+    "importMore": "继续导入"
   },
   "pwa": {
     "installTitle": "添加到主屏幕",

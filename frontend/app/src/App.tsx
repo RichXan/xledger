@@ -10,6 +10,7 @@ import { TransactionsPage } from '@/pages/transactions-page'
 import { GoogleCallbackPage } from '@/pages/google-callback-page'
 import { ShortcutPage } from '@/pages/shortcut-page'
 import { PWAOnboardingPage } from '@/pages/onboarding-pwa-page'
+import { ImportPage } from '@/pages/import-page'
 
 function ProtectedLayout({ children }: { children: JSX.Element }) {
   return <RequireAuth>{children}</RequireAuth>
@@ -67,6 +68,16 @@ export default function App() {
           <ProtectedLayout>
             <AppShell>
               <ShortcutPage />
+            </AppShell>
+          </ProtectedLayout>
+        }
+      />
+      <Route
+        path="/import"
+        element={
+          <ProtectedLayout>
+            <AppShell>
+              <ImportPage />
             </AppShell>
           </ProtectedLayout>
         }

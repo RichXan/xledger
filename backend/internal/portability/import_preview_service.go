@@ -24,10 +24,11 @@ func ErrorCode(err error) string {
 }
 
 type PreviewResponse struct {
-	Columns           []string            `json:"columns"`
-	SampleRows        [][]string          `json:"sample_rows"`
-	MappingSlots      []string            `json:"mappingSlots"`
-	MappingCandidates map[string][]string `json:"mappingCandidates"`
+	Format             string               `json:"format"`
+	Columns           []string             `json:"columns"`
+	SampleRows        [][]string           `json:"sample_rows"`
+	MappingSlots      []string             `json:"mappingSlots"`
+	MappingCandidates map[string][]string  `json:"mappingCandidates"`
 	SuggestedMapping  map[string]string   `json:"suggested_mapping,omitempty"`
 }
 
@@ -44,6 +45,9 @@ func (s *ImportPreviewService) PreviewCSV(reader io.Reader) (PreviewResponse, er
 	if len(columns) == 0 {
 		return PreviewResponse{}, &contractError{code: IMPORT_INVALID_FILE}
 	}
+
+	// Detect CSV format
+	format := DetectCSVFormat(rows[0])
 	sampleRows := make([][]string, 0, min(5, len(rows)-1))
 
 	for _, row := range rows[1:] {
@@ -59,12 +63,25 @@ func (s *ImportPreviewService) PreviewCSV(reader io.Reader) (PreviewResponse, er
 		return PreviewResponse{}, &contractError{code: IMPORT_INVALID_FILE}
 	}
 	mappingSlots := []string{"amount", "date", "description", "category", "account", "tag"}
-	return PreviewResponse{
+	response := PreviewResponse{
+		Format:             string(format),
 		Columns:           columns,
 		SampleRows:        sampleRows,
 		MappingSlots:      mappingSlots,
 		MappingCandidates: buildMappingCandidates(columns, mappingSlots),
-	}, nil
+	}
+
+	// Auto-generate mapping for Alipay format
+	if format == CSVFormatAlipay {
+		response.SuggestedMapping = map[string]string{
+			"description": "商品说明",
+			"amount":      "金额(元)",
+			"direction":  "收/支",
+			"date":       "创建时间",
+		}
+	}
+
+	return response, nil
 }
 
 func normalizeColumns(columns []string) []string {

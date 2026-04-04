@@ -1,6 +1,6 @@
 // frontend/app/src/components/layout/mobile-nav.tsx
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, Receipt, PieChart, Wallet, Settings } from 'lucide-react'
+import { Home, Receipt, PieChart, Wallet, Settings, Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 const navItems = [
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/transactions', icon: Receipt, labelKey: 'nav.transactions' },
   { to: '/analytics', icon: PieChart, labelKey: 'nav.analytics' },
   { to: '/accounts', icon: Wallet, labelKey: 'nav.accounts' },
+  { to: '/import', icon: Upload, labelKey: 'nav.import' },
   { to: '/settings', icon: Settings, labelKey: 'nav.settings' },
 ]
 
