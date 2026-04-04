@@ -5,7 +5,7 @@ import (
     "fmt"
     "time"
 
-    "xledger/internal/accounting"
+    "xledger/backend/internal/accounting"
 )
 
 type Service struct {
@@ -96,6 +96,14 @@ func (s *Service) ListAlerts(ctx context.Context, userID string, limit int) ([]B
         limit = 20
     }
     return s.repo.ListAlerts(ctx, userID, limit)
+}
+
+func (s *Service) GetPreference(ctx context.Context, userID string) (*UserNotificationPref, error) {
+    return s.repo.GetPreference(ctx, userID)
+}
+
+func (s *Service) UpdatePreference(ctx context.Context, pref *UserNotificationPref) error {
+    return s.repo.UpdatePreference(ctx, pref)
 }
 
 func (s *Service) CheckAndAlert(ctx context.Context, userID string, categoryID string, newAmount float64) {

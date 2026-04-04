@@ -120,8 +120,12 @@ func (h *Handler) GetPreferences(c *gin.Context) {
         return
     }
 
-    // Get from repository via service (we need to add this method)
-    httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"prefs": nil})
+    prefs, err := h.service.GetPreference(c.Request.Context(), userID.(string))
+    if err != nil {
+        httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+        return
+    }
+    httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"prefs": prefs})
 }
 
 func (h *Handler) UpdatePreferences(c *gin.Context) {
@@ -141,5 +145,15 @@ func (h *Handler) UpdatePreferences(c *gin.Context) {
         return
     }
 
+    pref := &UserNotificationPref{
+        UserID:         userID.(string),
+        RealtimeAlert:  req.RealtimeAlert,
+        DailyDigest:    req.DailyDigest,
+        WeeklyDigest:   req.WeeklyDigest,
+    }
+    if err := h.service.UpdatePreference(c.Request.Context(), pref); err != nil {
+        httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+        return
+    }
     httpx.JSON(c, http.StatusOK, "OK", "成功", nil)
 }

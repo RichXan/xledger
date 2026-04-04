@@ -3,7 +3,7 @@ package budget
 import (
     "context"
 
-    "xledger/internal/push"
+    "xledger/backend/internal/push"
 )
 
 type AlertService struct {

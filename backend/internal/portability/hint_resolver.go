@@ -4,8 +4,8 @@ import (
     "context"
     "strings"
 
-    "xledger/internal/classification"
-    "xledger/internal/accounting"
+    "xledger/backend/internal/classification"
+    "xledger/backend/internal/accounting"
 )
 
 type HintResolver struct {
@@ -77,7 +77,7 @@ func (r *HintResolver) ResolveAccountHint(ctx context.Context, userID, hint stri
     }
 
     hint = strings.TrimSpace(hint)
-    accounts, err := r.accountRepo.List(ctx, userID)
+    accounts, err := r.accountRepo.ListByUser(userID)
     if err != nil {
         return nil, err
     }
