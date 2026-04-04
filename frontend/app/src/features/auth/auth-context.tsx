@@ -20,6 +20,7 @@ import {
   verifyCode,
 } from './auth-api'
 import { clearAuthSession, readAuthSession, writeAuthSession, type AuthSession } from './auth-storage'
+import { changeLanguage, supportedLanguages } from '@/i18n'
 
 interface AuthContextValue {
   session: AuthSession | null
@@ -65,6 +66,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (isMounted && (session.email !== user.email || session.name !== (user.name ?? null))) {
           persistSession({ ...session, email: user.email, name: user.name ?? null })
         }
+        // Sync language preference from backend (once backend supports it)
+        if (isMounted && user.language && supportedLanguages.includes(user.language as 'en' | 'zh')) {
+          changeLanguage(user.language as 'en' | 'zh')
+        }
       } catch {
         if (!session.refreshToken) {
           if (isMounted) {
@@ -98,6 +103,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
                 email: user.email,
                 name: user.name ?? null,
               })
+              // Sync language preference
+              if (user.language && supportedLanguages.includes(user.language as 'en' | 'zh')) {
+                changeLanguage(user.language as 'en' | 'zh')
+              }
             }
             refreshCompleted = true
           } catch {
@@ -143,6 +152,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         email: user.email,
         name: user.name ?? null,
       })
+      // Sync language preference
+      if (user.language && supportedLanguages.includes(user.language as 'en' | 'zh')) {
+        changeLanguage(user.language as 'en' | 'zh')
+      }
     },
     [persistSession],
   )
@@ -157,6 +170,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         email: user.email,
         name: user.name ?? null,
       })
+      // Sync language preference
+      if (user.language && supportedLanguages.includes(user.language as 'en' | 'zh')) {
+        changeLanguage(user.language as 'en' | 'zh')
+      }
     },
     [persistSession],
   )
@@ -171,6 +188,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         email: user.email,
         name: user.name ?? null,
       })
+      // Sync language preference
+      if (user.language && supportedLanguages.includes(user.language as 'en' | 'zh')) {
+        changeLanguage(user.language as 'en' | 'zh')
+      }
     },
     [persistSession],
   )
@@ -206,6 +227,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         email: user.email,
         name: user.name ?? null,
       })
+      // Sync language preference
+      if (user.language && supportedLanguages.includes(user.language as 'en' | 'zh')) {
+        changeLanguage(user.language as 'en' | 'zh')
+      }
     },
     [persistSession],
   )

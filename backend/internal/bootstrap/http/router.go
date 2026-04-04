@@ -17,6 +17,7 @@ import (
 	"xledger/backend/internal/bootstrap/infrastructure"
 	"xledger/backend/internal/classification"
 	"xledger/backend/internal/portability"
+	"xledger/backend/internal/push"
 	"xledger/backend/internal/reporting"
 )
 
@@ -30,6 +31,7 @@ type Dependencies struct {
 	ClassificationHandler *classification.Handler
 	PortabilityHandler    *portability.Handler
 	ReportingHandler      *reporting.Handler
+	PushHandler           *push.Handler
 	UserIDResolver        userIDResolver
 	PATService            *portability.PATService
 	CategoryService       *classification.CategoryService
@@ -173,6 +175,19 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		reportingGroup.GET("/stats/category", reportingHandler.Category)
 	}
 
+	// Push handler registration
+	pushHandler := deps.PushHandler
+	if pushHandler == nil {
+		pushHandler = push.NewHandler(push.NewService())
+	}
+	if pushHandler != nil {
+		pushGroup := r.Group("/api/push")
+		pushGroup.Use(accountingAuthMiddleware(deps.UserIDResolver, patService))
+		pushGroup.POST("/subscribe", pushHandler.Subscribe)
+		pushGroup.DELETE("/subscribe", pushHandler.Unsubscribe)
+		pushGroup.GET("/vapid-key", pushHandler.GetVAPIDKey)
+	}
+
 	return r, nil
 }
 
@@ -223,6 +238,7 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config, redisClient *redis.C
 		ClassificationHandler: classificationHandler,
 		PortabilityHandler:    portabilityHandler,
 		ReportingHandler:      reportingHandler,
+		PushHandler:           push.NewHandler(push.NewService()),
 		UserIDResolver:        postgresUserIDResolver(db),
 		PATService:            portabilityHandler.GetPATService(),
 		CategoryService:       acctDeps.CategoryService,

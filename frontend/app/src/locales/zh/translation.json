@@ -1,0 +1,117 @@
+{
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "loading": "加载中...",
+    "error": "出错了",
+    "retry": "重试",
+    "success": "操作成功",
+    "noData": "暂无数据"
+  },
+  "nav": {
+    "dashboard": "首页",
+    "transactions": "交易",
+    "analytics": "统计",
+    "accounts": "账户",
+    "settings": "设置",
+    "shortcuts": "快捷指令"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "logout": "退出登录",
+    "email": "邮箱",
+    "code": "验证码",
+    "sendCode": "发送验证码",
+    "codeSent": "验证码已发送",
+    "invalidCode": "验证码无效"
+  },
+  "dashboard": {
+    "title": "财务概览",
+    "income": "收入",
+    "expense": "支出",
+    "totalAssets": "总资产",
+    "monthlyOverview": "月度概览",
+    "recentTransactions": "最近交易",
+    "lastSynced": "最后同步",
+    "minutesAgo": "分钟前"
+  },
+  "transaction": {
+    "add": "记一笔",
+    "type": "类型",
+    "typeExpense": "支出",
+    "typeIncome": "收入",
+    "typeTransfer": "转账",
+    "amount": "金额",
+    "category": "分类",
+    "account": "账户",
+    "tag": "标签",
+    "date": "日期",
+    "memo": "备注",
+    "noAccount": "无账户",
+    "createSuccess": "记账成功",
+    "deleteSuccess": "删除成功",
+    "deleteConfirm": "确认删除这笔交易？"
+  },
+  "account": {
+    "title": "账户",
+    "create": "新建账户",
+    "edit": "编辑账户",
+    "name": "账户名称",
+    "type": "账户类型",
+    "balance": "余额",
+    "archive": "归档",
+    "archived": "已归档"
+  },
+  "analytics": {
+    "title": "统计分析",
+    "trend": "收支趋势",
+    "byCategory": "按分类",
+    "selectPeriod": "选择周期"
+  },
+  "settings": {
+    "title": "设置",
+    "language": "语言",
+    "notifications": "通知设置",
+    "export": "导出数据",
+    "about": "关于"
+  },
+  "budget": {
+    "title": "预算",
+    "create": "创建预算",
+    "edit": "编辑预算",
+    "monthly": "月度预算",
+    "amount": "预算金额",
+    "spent": "已花费",
+    "remaining": "剩余",
+    "overBudget": "已超支",
+    "alertThreshold": "提醒阈值"
+  },
+  "import": {
+    "title": "导入数据",
+    "selectFile": "选择文件",
+    "preview": "预览",
+    "confirm": "确认导入",
+    "success": "导入成功",
+    "skipped": "跳过",
+    "failed": "失败"
+  },
+  "pwa": {
+    "installTitle": "添加到主屏幕",
+    "installDescription": "安装 Xledger 到你的主屏幕，随时快速访问",
+    "step1": "点击 Safari 底部的分享按钮",
+    "step2": "向下滚动，找到「添加到主屏幕」",
+    "step3": "点击右上角「添加」",
+    "gotIt": "知道了"
+  },
+  "errors": {
+    "networkError": "网络错误，请检查连接",
+    "serverError": "服务器错误，请稍后重试",
+    "unauthorized": "未登录或登录已过期",
+    "validationError": "输入数据不合法"
+  }
+}

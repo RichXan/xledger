@@ -12,6 +12,7 @@ export interface VerifyCodeResponse {
 export interface CurrentUserResponse {
   email: string
   name?: string
+  language?: string
 }
 
 export interface RefreshResponse {

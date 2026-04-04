@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useOverviewStats, useTrendStatsRange } from '@/features/reporting/reporting-hooks'
 import { formatCurrency } from '@/lib/format'
 
@@ -77,8 +79,19 @@ function buildLast12MonthBars(points: Array<{ bucket_start: string; income: numb
 }
 
 export function DashboardPage() {
+  const { t } = useTranslation()
   const [period, setPeriod] = useState<Period>('Month')
   const [hoveredBarKey, setHoveredBarKey] = useState<string | null>(null)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    const hasDismissed = localStorage.getItem('pwa-onboarding-dismissed')
+    if (isIOS && !isStandalone && !hasDismissed) {
+      navigate('/pwa-onboarding')
+    }
+  }, [navigate])
 
   const days = getPeriodDays(period)
   const currentRange = useMemo(() => getRangeByDays(days, new Date()), [days])
@@ -119,10 +132,10 @@ export function DashboardPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="font-headline text-[56px] font-extrabold leading-none tracking-tight text-on-surface">
-              Financial Overview
+              {t('dashboard.title')}
             </h2>
             <p className="mt-2 text-sm text-on-surface-variant">
-              Real-time precision analytics for your enterprise accounts.
+              {t('dashboard.subtitle') || 'Real-time precision analytics for your enterprise accounts.'}
             </p>
           </div>
           <div className="inline-flex rounded-xl border border-outline/15 bg-surface-container p-1">
@@ -144,7 +157,7 @@ export function DashboardPage() {
         <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_1fr_0.95fr]">
           <article className="rounded-2xl border border-[#67d79c]/70 bg-white p-5">
             <div className="flex items-center justify-between text-xs font-bold uppercase tracking-[0.14em] text-on-surface-variant">
-              <span>{period} Income</span>
+              <span>{period} {t('dashboard.income')}</span>
               <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] text-emerald-700">
                 {derived.incomeDelta}
               </span>
@@ -155,7 +168,7 @@ export function DashboardPage() {
 
           <article className="rounded-2xl border border-[#f3a0a8]/70 bg-white p-5">
             <div className="flex items-center justify-between text-xs font-bold uppercase tracking-[0.14em] text-on-surface-variant">
-              <span>{period} Expenses</span>
+              <span>{period} {t('dashboard.expense')}</span>
               <span className="rounded-full bg-rose-100 px-2 py-1 text-[10px] text-rose-700">
                 {derived.expenseDelta}
               </span>
@@ -167,28 +180,28 @@ export function DashboardPage() {
           </article>
 
           <article className="overflow-hidden rounded-2xl bg-primary p-5 text-white">
-            <div className="text-xs font-bold uppercase tracking-[0.14em] text-primary-fixed">Total Assets</div>
+            <div className="text-xs font-bold uppercase tracking-[0.14em] text-primary-fixed">{t('dashboard.totalAssets')}</div>
             <p className="mt-4 font-headline text-5xl font-extrabold">
               {formatCurrency(totalOverviewQuery.data?.total_assets ?? 0)}
             </p>
-            <p className="mt-4 text-xs text-primary-fixed">Last synced 2 minutes ago</p>
+            <p className="mt-4 text-xs text-primary-fixed">{t('dashboard.lastSynced')} 2 {t('dashboard.minutesAgo')}</p>
           </article>
         </div>
 
         <article className="mt-6 rounded-2xl border border-outline/15 bg-white p-5 md:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">12-Month Spending Trend</h3>
+              <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">{t('analytics.trend')}</h3>
               <p className="mt-2 text-sm text-on-surface-variant">Hover bars to inspect monthly income/expense totals.</p>
             </div>
             <div className="mt-1 flex items-center gap-4 text-xs font-semibold">
               <span className="flex items-center gap-2 text-on-surface-variant">
                 <span className="h-2 w-2 rounded-full bg-primary" />
-                Income
+                {t('dashboard.income')}
               </span>
               <span className="flex items-center gap-2 text-on-surface-variant">
                 <span className="h-2 w-2 rounded-full bg-rose-500" />
-                Expense
+                {t('dashboard.expense')}
               </span>
             </div>
           </div>
@@ -210,7 +223,7 @@ export function DashboardPage() {
                     onMouseLeave={() => setHoveredBarKey(null)}
                     onFocus={() => setHoveredBarKey(bar.key)}
                     onBlur={() => setHoveredBarKey(null)}
-                    title={`${bar.label} • Income ${formatCurrency(bar.income)} • Expense ${formatCurrency(bar.expense)}`}
+                    title={`${bar.label} • ${t('dashboard.income')} ${formatCurrency(bar.income)} • ${t('dashboard.expense')} ${formatCurrency(bar.expense)}`}
                   >
                     <div
                       className="absolute inset-x-1 bottom-1 rounded-b-md bg-rose-500/90"
@@ -235,14 +248,14 @@ export function DashboardPage() {
           {hoveredBar ? (
             <div className="mt-4 rounded-xl border border-outline/15 bg-surface-container-low px-4 py-3 text-sm text-on-surface">
               <span className="font-semibold">{hoveredBar.label}</span>
-              <span className="ml-4 text-primary">Income: {formatCurrency(hoveredBar.income)}</span>
-              <span className="ml-4 text-rose-600">Expense: {formatCurrency(hoveredBar.expense)}</span>
+              <span className="ml-4 text-primary">{t('dashboard.income')}: {formatCurrency(hoveredBar.income)}</span>
+              <span className="ml-4 text-rose-600">{t('dashboard.expense')}: {formatCurrency(hoveredBar.expense)}</span>
             </div>
           ) : null}
 
           {trend12MonthsQuery.isError || currentOverviewQuery.isError || previousOverviewQuery.isError ? (
             <div className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              Trend query failed, please retry after refreshing.
+              {t('errors.serverError')}
             </div>
           ) : null}
         </article>

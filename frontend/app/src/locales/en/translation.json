@@ -1,0 +1,117 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "success": "Success",
+    "noData": "No data"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "transactions": "Transactions",
+    "analytics": "Analytics",
+    "accounts": "Accounts",
+    "settings": "Settings",
+    "shortcuts": "Shortcuts"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "code": "Verification Code",
+    "sendCode": "Send Code",
+    "codeSent": "Code sent",
+    "invalidCode": "Invalid code"
+  },
+  "dashboard": {
+    "title": "Financial Overview",
+    "income": "Income",
+    "expense": "Expense",
+    "totalAssets": "Total Assets",
+    "monthlyOverview": "Monthly Overview",
+    "recentTransactions": "Recent Transactions",
+    "lastSynced": "Last synced",
+    "minutesAgo": "minutes ago"
+  },
+  "transaction": {
+    "add": "Add Transaction",
+    "type": "Type",
+    "typeExpense": "Expense",
+    "typeIncome": "Income",
+    "typeTransfer": "Transfer",
+    "amount": "Amount",
+    "category": "Category",
+    "account": "Account",
+    "tag": "Tag",
+    "date": "Date",
+    "memo": "Memo",
+    "noAccount": "No Account",
+    "createSuccess": "Transaction added",
+    "deleteSuccess": "Transaction deleted",
+    "deleteConfirm": "Confirm delete this transaction?"
+  },
+  "account": {
+    "title": "Accounts",
+    "create": "Create Account",
+    "edit": "Edit Account",
+    "name": "Account Name",
+    "type": "Account Type",
+    "balance": "Balance",
+    "archive": "Archive",
+    "archived": "Archived"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "trend": "Spending Trend",
+    "byCategory": "By Category",
+    "selectPeriod": "Select Period"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "notifications": "Notifications",
+    "export": "Export Data",
+    "about": "About"
+  },
+  "budget": {
+    "title": "Budget",
+    "create": "Create Budget",
+    "edit": "Edit Budget",
+    "monthly": "Monthly Budget",
+    "amount": "Budget Amount",
+    "spent": "Spent",
+    "remaining": "Remaining",
+    "overBudget": "Over Budget",
+    "alertThreshold": "Alert Threshold"
+  },
+  "import": {
+    "title": "Import Data",
+    "selectFile": "Select File",
+    "preview": "Preview",
+    "confirm": "Confirm Import",
+    "success": "Import Successful",
+    "skipped": "Skipped",
+    "failed": "Failed"
+  },
+  "pwa": {
+    "installTitle": "Add to Home Screen",
+    "installDescription": "Install Xledger on your home screen for quick access",
+    "step1": "Tap the share button at the bottom of Safari",
+    "step2": "Scroll down and find \"Add to Home Screen\"",
+    "step3": "Tap \"Add\" in the top right corner",
+    "gotIt": "Got it"
+  },
+  "errors": {
+    "networkError": "Network error, please check your connection",
+    "serverError": "Server error, please try again later",
+    "unauthorized": "Not logged in or session expired",
+    "validationError": "Invalid input"
+  }
+}

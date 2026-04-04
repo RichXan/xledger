@@ -7,6 +7,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { usePwaInstall } from '@/features/pwa/use-pwa-install'
 import { usePwaUpdate } from '@/features/pwa/use-pwa-update'
 import { ApiError } from '@/lib/api'
+import { changeLanguage, getCurrentLanguage, supportedLanguages } from '@/i18n'
 
 export function TopBar() {
   const { logout, session, updateDisplayName, changePassword } = useAuth()
@@ -20,6 +21,13 @@ export function TopBar() {
   const [notice, setNotice] = useState<string | null>(null)
   const { canInstall, install } = usePwaInstall()
   const { updateAvailable, updating, updateNow } = usePwaUpdate()
+  const [currentLang, setCurrentLang] = useState(getCurrentLanguage())
+
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLang = e.target.value as 'en' | 'zh'
+    changeLanguage(newLang)
+    setCurrentLang(newLang)
+  }
 
   useEffect(() => {
     setDisplayNameInput(displayName)
@@ -78,6 +86,18 @@ export function TopBar() {
           </label>
 
           <div className="ml-auto flex items-center gap-2.5">
+            <select
+              value={currentLang}
+              onChange={handleLanguageChange}
+              className="h-10 rounded-xl border border-outline/20 bg-surface-container-low px-2 text-sm text-on-surface-variant transition hover:bg-surface-container cursor-pointer"
+              aria-label="Select language"
+            >
+              {supportedLanguages.map((lang) => (
+                <option key={lang} value={lang}>
+                  {lang === 'zh' ? '中文' : 'EN'}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               className="grid h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container"

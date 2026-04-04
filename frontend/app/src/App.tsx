@@ -9,6 +9,7 @@ import { SettingsPage } from '@/pages/settings-page'
 import { TransactionsPage } from '@/pages/transactions-page'
 import { GoogleCallbackPage } from '@/pages/google-callback-page'
 import { ShortcutPage } from '@/pages/shortcut-page'
+import { PWAOnboardingPage } from '@/pages/onboarding-pwa-page'
 
 function ProtectedLayout({ children }: { children: JSX.Element }) {
   return <RequireAuth>{children}</RequireAuth>
@@ -19,6 +20,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
+      <Route path="/pwa-onboarding" element={<PWAOnboardingPage />} />
       <Route
         path="/dashboard"
         element={
