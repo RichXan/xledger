@@ -1,0 +1,85 @@
+{
+  "name": "Xledger AI Bookkeeping",
+  "nodes": [
+    {
+      "id": "webhook-entry",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "quick-entry",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "pat-validation",
+      "name": "Validate PAT",
+      "type": "n8n-nodes-base.code",
+      "position": [500, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const pat = $input.first().json.body.pat\nconst item = $input.first().json\n// Validate PAT against /api/auth/me\nconst response = await fetch('https://YOUR_XLEDGER_HOST/api/auth/me', {\n  headers: { 'Authorization': `Bearer ${pat}` }\n})\nif (!response.ok) {\n  throw new Error('Invalid PAT')\n}\nitem.parsed = true\nreturn [{json: item}]"
+      }
+    },
+    {
+      "id": "llm-parse",
+      "name": "LLM Parse",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "position": [750, 300],
+      "parameters": {
+        "operation": "chat",
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a family bookkeeping assistant. Extract structured information from natural language input.\n\nOutput format (return only JSON):\n{\n  \"type\": \"expense|income|transfer\",\n  \"amount\": number,\n  \"category_hint\": \"category name\",\n  \"account_hint\": \"account name\",\n  \"description\": \"transaction description\",\n  \"date\": \"YYYY-MM-DD\"\n}\n\nRules:\n1. type must be determined from context\n2. amount must be positive\n3. category_hint and account_hint can be null if uncertain\n4. date defaults to today"
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.body.text }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "create-transaction",
+      "name": "Create Transaction",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_XLEDGER_HOST/api/transactions",
+        "authentication": "genericCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.pat }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "type", "value": "={{ $json.choices[0].message.content }}" },
+            { "name": "ledger_id", "value": "={{ $('Get Ledgers').item.json.default_ledger_id }}" }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Validate PAT", "type": "main" }]] },
+    "Validate PAT": { "main": [[{ "node": "LLM Parse", "type": "main" }]] },
+    "LLM Parse": { "main": [[{ "node": "Create Transaction", "type": "main" }]] }
+  }
+}
