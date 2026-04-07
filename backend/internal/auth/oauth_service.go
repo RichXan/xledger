@@ -11,6 +11,16 @@ import (
 
 const AUTH_OAUTH_FAILED = "AUTH_OAUTH_FAILED"
 
+const (
+	GoogleOAuthReasonNotConfigured        = "google_oauth_not_configured"
+	GoogleOAuthReasonInvalidCallback      = "oauth_callback_invalid"
+	GoogleOAuthReasonInvalidState         = "oauth_state_invalid_or_expired"
+	GoogleOAuthReasonCodeInvalidOrExpired = "oauth_code_invalid_or_expired"
+	GoogleOAuthReasonTokenExchangeFailed  = "google_token_exchange_failed"
+	GoogleOAuthReasonProfileFetchFailed   = "google_profile_fetch_failed"
+	GoogleOAuthReasonEmailMissing         = "google_email_missing"
+)
+
 type GoogleCallbackInput struct {
 	State string
 	Nonce string
@@ -160,4 +170,30 @@ func (s *OAuthService) ConsumeExchangeCode(code string) (TokenPair, bool) {
 		return TokenPair{}, false
 	}
 	return tokens, ok
+}
+
+func GoogleOAuthErrorReason(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	switch {
+	case strings.Contains(message, "google oauth is not configured"):
+		return GoogleOAuthReasonNotConfigured
+	case strings.Contains(message, "invalid oauth callback input"):
+		return GoogleOAuthReasonInvalidCallback
+	case strings.Contains(message, "invalid or expired oauth state"), strings.Contains(message, "invalid state or nonce"):
+		return GoogleOAuthReasonInvalidState
+	case errors.Is(err, ErrGoogleOAuthCodeInvalidOrExpired):
+		return GoogleOAuthReasonCodeInvalidOrExpired
+	case strings.Contains(message, "google token exchange failed"):
+		return GoogleOAuthReasonTokenExchangeFailed
+	case strings.Contains(message, "google userinfo failed") || strings.Contains(message, "google account email is not verified"):
+		return GoogleOAuthReasonProfileFetchFailed
+	case strings.Contains(message, "google account email is empty"):
+		return GoogleOAuthReasonEmailMissing
+	default:
+		return ""
+	}
 }

@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"errors"
 	"log"
 	"net/http"
 	"net/url"
@@ -145,19 +144,22 @@ func (h *Handler) VerifyCode(c *gin.Context) {
 
 func (h *Handler) GoogleCallback(c *gin.Context) {
 	if h.oauthService == nil {
+		log.Printf("google oauth callback: oauth service not configured")
 		httpx.JSON(c, http.StatusInternalServerError, "AUTH_INTERNAL", "服务内部错误", nil)
 		return
 	}
 
 	code := strings.TrimSpace(c.Query("code"))
 	if code != "" {
+		log.Printf("google oauth callback: code provided, state=%q", c.Query("state"))
 		tokens, err := h.oauthService.GoogleCallbackByCode(c.Request.Context(), c.Query("state"), code)
 		if err != nil {
-			log.Printf("google oauth callback by code failed: state=%q err=%v", c.Query("state"), err)
+			reason := GoogleOAuthErrorReason(err)
+			log.Printf("google oauth callback by code failed: state=%q reason=%q err=%v", c.Query("state"), reason, err)
 			if h.googleFrontendReturnURL != "" {
 				target := h.googleFrontendReturnURL + "?error_code=" + url.QueryEscape(AUTH_OAUTH_FAILED)
-				if errors.Is(err, ErrGoogleOAuthCodeInvalidOrExpired) {
-					target += "&error_reason=" + url.QueryEscape("oauth_code_invalid_or_expired")
+				if reason != "" {
+					target += "&error_reason=" + url.QueryEscape(reason)
 				}
 				c.Redirect(http.StatusTemporaryRedirect, target)
 				return
@@ -171,6 +173,7 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 				return
 			}
 		}
+		log.Printf("google oauth callback by code succeeded")
 		if h.googleFrontendReturnURL != "" {
 			exchangeCode, codeErr := randomHex(24)
 			if codeErr == nil {
@@ -185,12 +188,22 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
+	log.Printf("google oauth callback: using state/nonce flow, state=%q nonce=%q", c.Query("state"), c.Query("nonce"))
 	tokens, err := h.oauthService.GoogleCallback(c.Request.Context(), GoogleCallbackInput{
 		State: c.Query("state"),
 		Nonce: c.Query("nonce"),
 	})
 	if err != nil {
-		log.Printf("google oauth callback failed: state=%q nonce=%q err=%v", c.Query("state"), c.Query("nonce"), err)
+		reason := GoogleOAuthErrorReason(err)
+		log.Printf("google oauth callback failed: state=%q nonce=%q reason=%q err=%v", c.Query("state"), c.Query("nonce"), reason, err)
+		if h.googleFrontendReturnURL != "" {
+			target := h.googleFrontendReturnURL + "?error_code=" + url.QueryEscape(AUTH_OAUTH_FAILED)
+			if reason != "" {
+				target += "&error_reason=" + url.QueryEscape(reason)
+			}
+			c.Redirect(http.StatusTemporaryRedirect, target)
+			return
+		}
 		switch ErrorCode(err) {
 		case AUTH_OAUTH_FAILED:
 			httpx.JSON(c, http.StatusUnauthorized, AUTH_OAUTH_FAILED, "未认证或凭证无效", nil)
@@ -200,6 +213,7 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 			return
 		}
 	}
+	log.Printf("google oauth callback succeeded via state/nonce")
 
 	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"access_token": tokens.AccessToken, "refresh_token": tokens.RefreshToken})
 }
@@ -231,11 +245,13 @@ func (h *Handler) GoogleExchangeCode(c *gin.Context) {
 
 func (h *Handler) GoogleStart(c *gin.Context) {
 	if h.oauthService == nil {
+		log.Printf("google login start: oauth service not configured")
 		httpx.JSON(c, http.StatusInternalServerError, "AUTH_INTERNAL", "服务内部错误", nil)
 		return
 	}
 	loginURL, err := h.oauthService.GoogleLoginURL(c.Request.Context())
 	if err != nil {
+		log.Printf("google login start failed: err=%v", err)
 		switch ErrorCode(err) {
 		case AUTH_OAUTH_FAILED:
 			httpx.JSON(c, http.StatusUnauthorized, AUTH_OAUTH_FAILED, "未认证或凭证无效", nil)
@@ -245,6 +261,7 @@ func (h *Handler) GoogleStart(c *gin.Context) {
 			return
 		}
 	}
+	log.Printf("google login start: redirecting to Google")
 	c.Redirect(http.StatusTemporaryRedirect, loginURL)
 }
 

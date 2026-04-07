@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -480,8 +481,102 @@ func TestOAuthFailure_DoesNotAffectSendCodeFlow(t *testing.T) {
 	}
 }
 
+
+
+type failingGoogleOAuthProvider struct {
+	enabled bool
+	err     error
+}
+
+func (p failingGoogleOAuthProvider) IsEnabled() bool {
+	return p.enabled
+}
+
+func (p failingGoogleOAuthProvider) BuildAuthURL(state string) string {
+	return "https://accounts.google.com/o/oauth2/v2/auth?state=" + state
+}
+
+func (p failingGoogleOAuthProvider) ResolveProfile(ctx context.Context, code string) (GoogleOAuthProfile, error) {
+	return GoogleOAuthProfile{}, p.err
+}
+
+func TestGoogleOAuthErrorReason_MapsCommonFailures(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected string
+	}{
+		{name: "not configured", err: &authError{code: AUTH_OAUTH_FAILED, err: errString("google oauth is not configured")}, expected: GoogleOAuthReasonNotConfigured},
+		{name: "invalid callback", err: &authError{code: AUTH_OAUTH_FAILED, err: errString("invalid oauth callback input")}, expected: GoogleOAuthReasonInvalidCallback},
+		{name: "invalid state", err: &authError{code: AUTH_OAUTH_FAILED, err: errString("invalid or expired oauth state")}, expected: GoogleOAuthReasonInvalidState},
+		{name: "invalid code", err: &authError{code: AUTH_OAUTH_FAILED, err: ErrGoogleOAuthCodeInvalidOrExpired}, expected: GoogleOAuthReasonCodeInvalidOrExpired},
+		{name: "token exchange", err: &authError{code: AUTH_OAUTH_FAILED, err: errString("google token exchange failed: redirect_uri_mismatch")}, expected: GoogleOAuthReasonTokenExchangeFailed},
+		{name: "profile fetch", err: &authError{code: AUTH_OAUTH_FAILED, err: errString("google userinfo failed: 401 Unauthorized")}, expected: GoogleOAuthReasonProfileFetchFailed},
+		{name: "email missing", err: &authError{code: AUTH_OAUTH_FAILED, err: errString("google account email is empty")}, expected: GoogleOAuthReasonEmailMissing},
+	}
+
+	for _, tc := range tests {
+		if got := GoogleOAuthErrorReason(tc.err); got != tc.expected {
+			t.Fatalf("%s: expected reason %q, got %q", tc.name, tc.expected, got)
+		}
+	}
+}
+
+func TestGoogleCallbackByCode_InvalidGrant_MapsReason(t *testing.T) {
+	now := time.Date(2026, 3, 20, 13, 10, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	svc := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
+	svc.SetGoogleProvider(failingGoogleOAuthProvider{enabled: true, err: ErrGoogleOAuthCodeInvalidOrExpired})
+	if err := repo.SaveOAuthStateNonce(context.Background(), "state-code", "state-code", 10*time.Minute); err != nil {
+		t.Fatalf("seed oauth state nonce: %v", err)
+	}
+
+	_, err := svc.GoogleCallbackByCode(context.Background(), "state-code", "google-code")
+	if ErrorCode(err) != AUTH_OAUTH_FAILED {
+		t.Fatalf("expected %s, got %q", AUTH_OAUTH_FAILED, ErrorCode(err))
+	}
+	if got := GoogleOAuthErrorReason(err); got != GoogleOAuthReasonCodeInvalidOrExpired {
+		t.Fatalf("expected reason %q, got %q", GoogleOAuthReasonCodeInvalidOrExpired, got)
+	}
+}
+
+func TestGoogleCallbackByCode_RedirectsWithDetailedReason(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	now := time.Date(2026, 3, 20, 13, 15, 0, 0, time.UTC)
+	repo := NewInMemoryRepository(func() time.Time { return now })
+	oauthSvc := NewOAuthService(repo, NewSessionService(repo, nil, func() time.Time { return now }), func() time.Time { return now })
+	oauthSvc.SetGoogleProvider(failingGoogleOAuthProvider{enabled: true, err: errString("google token exchange failed: redirect_uri_mismatch")})
+	if err := repo.SaveOAuthStateNonce(context.Background(), "state-redirect", "state-redirect", 10*time.Minute); err != nil {
+		t.Fatalf("seed oauth state nonce: %v", err)
+	}
+
+	h := NewHandlerWithServices(NewCodeService(repo, &oauthSessionSender{}, nil, func() time.Time { return now }, func() string { return "123456" }), oauthSvc, NewSessionService(repo, nil, func() time.Time { return now }))
+	h.SetGoogleFrontendReturnURL("http://127.0.0.1:4173/auth/google/callback")
+	r := gin.New()
+	r.GET("/api/auth/google/callback", h.GoogleCallback)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/google/callback?state=state-redirect&code=bad-code", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusTemporaryRedirect {
+		t.Fatalf("expected %d, got %d body=%s", http.StatusTemporaryRedirect, rec.Code, rec.Body.String())
+	}
+	location := rec.Header().Get("Location")
+	if !strings.Contains(location, "error_code=AUTH_OAUTH_FAILED") {
+		t.Fatalf("expected AUTH_OAUTH_FAILED in redirect, got %s", location)
+	}
+	if !strings.Contains(location, "error_reason="+GoogleOAuthReasonTokenExchangeFailed) {
+		t.Fatalf("expected detailed error reason in redirect, got %s", location)
+	}
+}
+
 type oauthSessionSender struct{}
 
 func (oauthSessionSender) Send(to string, subject string, body string) error {
 	return nil
 }
+
+type errString string
+
+func (e errString) Error() string { return string(e) }
