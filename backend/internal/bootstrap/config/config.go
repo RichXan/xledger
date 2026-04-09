@@ -107,6 +107,9 @@ func Load() (Config, error) {
 		googleFrontendReturn = "http://127.0.0.1:4173/auth/google/callback"
 	}
 
+	os.Setenv("AUTH_CODE_PEPPER", strings.TrimSpace(raw.Auth.CodePepper))
+	os.Setenv("AUTH_TOKEN_SECRET", strings.TrimSpace(raw.Auth.TokenSecret))
+
 	return Config{
 		SMTPHost:                 strings.TrimSpace(raw.SMTP.Host),
 		SMTPPort:                 strings.TrimSpace(raw.SMTP.Port),

@@ -9,6 +9,9 @@ auth:
   code_pepper: change-me
   token_secret: change-me
 
+# Enable development login (do not enable in production).
+enable_dev_login: true
+
 # Optional: remove to use in-memory repositories
 database_url: postgres://xledger:xledger_secret@127.0.0.1:5432/xledger?sslmode=disable
 

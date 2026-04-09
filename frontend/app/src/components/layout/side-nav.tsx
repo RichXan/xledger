@@ -7,7 +7,7 @@ const items = [
   { to: '/transactions', label: 'Transactions', icon: ReceiptText },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/accounts', label: 'Accounts', icon: Wallet },
-  { to: '/shortcut', label: '快捷记账', icon: Zap },
+  { to: '/shortcut', label: 'Quick Entry', icon: Zap },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 

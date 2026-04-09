@@ -10,10 +10,15 @@ export function ShortcutPage() {
   const generateMutation = useGenerateShortcut()
 
   async function handleGenerateShortcut() {
-    const result = await generateMutation.mutateAsync({ name: '快捷记账' })
-    setGeneratedToken(result.pat_token)
-    setApiEndpoint(result.api_endpoint)
-    setCopied(false)
+    try {
+      const result = await generateMutation.mutateAsync({ name: 'Quick Entry' })
+      setGeneratedToken(result.pat_token)
+      setApiEndpoint(result.api_endpoint)
+      setCopied(false)
+    } catch (e: any) {
+      console.error('API Error:', e)
+      alert('Failed to generate credentials: ' + (e.message || String(e)))
+    }
   }
 
   function handleCopyToken() {
@@ -34,113 +39,113 @@ export function ShortcutPage() {
     <div className="space-y-8">
       <PageSection
         eyebrow="Quick Entry"
-        title="快捷记账"
-        description="通过 Apple 快捷指令实现快速记账，支持截图识别、语音输入等多种方式。"
+        title="Apple Shortcuts"
+        description="Enable lightning-fast expense tracking using Apple Shortcuts. Supports OCR receipts, natural language voice input, and more."
       >
         <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <article className="rounded-[28px] bg-surface-container-low p-6">
             <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-              快捷指令配置
+              Installation Flow
             </p>
 
             <div className="mt-6 space-y-4">
               <div className="rounded-2xl bg-surface-container-lowest p-4">
-                <p className="text-sm font-medium text-on-surface">第 1 步：生成 Token</p>
+                <p className="text-sm font-medium text-on-surface">Step 1: Generate Credentials</p>
                 <p className="mt-1 text-xs text-on-surface-variant">
-                  点击下方按钮生成专属的访问令牌，用于快捷指令认证。
+                  Generate your unique API token and endpoint needed to authenticate the shortcut.
                 </p>
                 <Button
                   className="mt-3"
                   onClick={() => void handleGenerateShortcut()}
                   disabled={generateMutation.isPending}
                 >
-                  {generateMutation.isPending ? '生成中...' : '生成快捷记账 Token'}
+                  {generateMutation.isPending ? 'Generating...' : 'Generate New Credentials'}
                 </Button>
               </div>
 
               {generatedToken && (
-                <div className="rounded-2xl bg-surface-container-lowest p-4">
-                  <p className="text-sm font-medium text-on-surface">第 2 步：复制配置信息</p>
+                <div className="rounded-2xl border-2 border-primary/20 bg-surface-container-lowest p-4">
+                  <p className="text-sm font-medium text-on-surface">Step 2: Install Shortcut</p>
                   <p className="mt-1 text-xs text-on-surface-variant">
-                    将以下信息填入快捷指令中。
+                    Tap the button below to download the shortcut. Once it opens, paste your URL and Token when prompted.
                   </p>
 
-                  <div className="mt-3 space-y-3">
+                  <div className="mt-4 space-y-3 rounded-xl bg-surface-container p-3">
                     <div>
-                      <p className="text-xs font-medium text-on-surface-variant">API 地址</p>
-                      <div className="mt-1 flex items-center gap-2">
-                        <code className="flex-1 rounded-lg bg-surface-container p-2 text-xs text-on-surface">
+                      <p className="text-xs font-medium text-on-surface-variant">API Endpoint</p>
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <code className="text-xs text-primary font-mono truncate">
                           {apiEndpoint}/api/shortcuts/quick-add
                         </code>
                         <Button variant="ghost" onClick={handleCopyApiEndpoint}>
-                          复制
+                          Copy
                         </Button>
                       </div>
                     </div>
-
+                    <div className="border-t border-outline/10" />
                     <div>
-                      <p className="text-xs font-medium text-on-surface-variant">Token</p>
-                      <div className="mt-1 flex items-center gap-2">
-                        <code className="flex-1 rounded-lg bg-surface-container p-2 text-xs text-on-surface truncate">
+                      <p className="text-xs font-medium text-on-surface-variant">Access Token</p>
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <code className="text-xs text-primary font-mono truncate">
                           {generatedToken}
                         </code>
                         <Button variant="ghost" onClick={handleCopyToken}>
-                          {copied ? '已复制' : '复制'}
+                          {copied ? 'Copied' : 'Copy'}
                         </Button>
                       </div>
                     </div>
                   </div>
+
+                  <div className="mt-4 rounded-xl bg-surface-container-high p-4 text-xs text-on-surface">
+                    <p className="font-bold mb-2">手动创建快捷指令步骤 (Manual Setup):</p>
+                    <ol className="list-decimal pl-4 space-y-1.5 opacity-90">
+                      <li>在您的 iPhone 上打开「快捷指令 (Shortcuts)」App</li>
+                      <li>点击右上角「+」新建快捷指令</li>
+                      <li>添加操作：搜索并选择「获取 URL 内容 (Get Contents of URL)」</li>
+                      <li>填入上方复制的 <strong>API Endpoint</strong></li>
+                      <li>展开该操作，将方法设为 <strong>POST</strong></li>
+                      <li>在头部 (Headers) 中添加：
+                        <br/>键(Key): <code>Authorization</code>
+                        <br/>值(Value): <code>Bearer 您的Token</code> (记得保留Bearer前缀)
+                      </li>
+                      <li>请求体 (Request Body) 选择 JSON，并填入您的账单数据（例如 amount, type, category）</li>
+                    </ol>
+                  </div>
                 </div>
               )}
-
-              <div className="rounded-2xl bg-surface-container-lowest p-4">
-                <p className="text-sm font-medium text-on-surface">第 3 步：创建快捷指令</p>
-                <p className="mt-1 text-xs text-on-surface-variant">
-                  在 iPhone 上打开"快捷指令" App，创建新的快捷指令。
-                </p>
-                <div className="mt-3 space-y-2 text-xs text-on-surface-variant">
-                  <p>1. 添加"询问输入"动作，提示输入金额</p>
-                  <p>2. 添加"从菜单中选择"动作，选项为：支出、收入</p>
-                  <p>3. 添加"从菜单中选择"动作，选项为：餐饮、交通、购物等</p>
-                  <p>4. 添加"URL"动作，填入上方的 API 地址</p>
-                  <p>5. 添加"获取 URL 内容"动作，方法选择 POST</p>
-                  <p>6. 设置请求头：Authorization: Bearer [Token]</p>
-                  <p>7. 设置请求体为 JSON 格式</p>
-                </div>
-              </div>
             </div>
           </article>
 
           <article className="rounded-[28px] bg-surface-container-low p-6">
             <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-              使用说明
+              Features & Usage
             </p>
 
             <div className="mt-6 space-y-4">
               <div className="rounded-2xl bg-surface-container-lowest p-4">
-                <p className="text-sm font-medium text-on-surface">触发方式</p>
+                <p className="text-sm font-medium text-on-surface">Ways to Trigger</p>
                 <ul className="mt-2 space-y-1 text-xs text-on-surface-variant">
-                  <li>• 轻点手机背面两下</li>
-                  <li>• Siri 语音唤醒</li>
-                  <li>• 主屏幕小组件</li>
-                  <li>• 控制中心快捷方式</li>
+                  <li>• iPhone Back Tap (Double/Triple tap)</li>
+                  <li>• "Hey Siri, Quick Entry"</li>
+                  <li>• Home Screen iOS Widgets</li>
+                  <li>• Control Center icon</li>
                 </ul>
               </div>
 
               <div className="rounded-2xl bg-surface-container-lowest p-4">
-                <p className="text-sm font-medium text-on-surface">支持功能</p>
+                <p className="text-sm font-medium text-on-surface">Supported Actions</p>
                 <ul className="mt-2 space-y-1 text-xs text-on-surface-variant">
-                  <li>• 手动输入金额记账</li>
-                  <li>• 截图识别金额（即将支持）</li>
-                  <li>• 语音输入记账（即将支持）</li>
-                  <li>• 自动分类推荐（即将支持）</li>
+                  <li>• Standard manual amount entry</li>
+                  <li>• OCR Receipt scanning (Upcoming)</li>
+                  <li>• Natural language processing (Upcoming)</li>
+                  <li>• Auto-category inference (Upcoming)</li>
                 </ul>
               </div>
 
               <div className="rounded-2xl bg-primary-container p-4">
-                <p className="text-sm font-medium text-on-primary-container">提示</p>
+                <p className="text-sm font-medium text-on-primary-container">Security Note</p>
                 <p className="mt-2 text-xs text-on-primary-container">
-                  Token 默认永久有效。如需更换 Token，只需重新生成即可，旧 Token 将自动失效。
+                  Your token remains valid permanently. If you suspect a leak, generating a new token will instantly invalidate the old one.
                 </p>
               </div>
             </div>
