@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -19,6 +18,7 @@ type Handler struct {
 	sessionService          *SessionService
 	passwordService         *PasswordService
 	googleFrontendReturnURL string
+	enableDevLogin          bool
 }
 
 type sendCodeRequest struct {
@@ -82,9 +82,11 @@ func (h *Handler) SetGoogleFrontendReturnURL(returnURL string) {
 	h.googleFrontendReturnURL = strings.TrimSpace(returnURL)
 }
 
-func IsDevLoginEnabled() bool {
-	val := strings.TrimSpace(strings.ToLower(os.Getenv("ENABLE_DEV_LOGIN")))
-	return val == "1" || val == "true"
+func (h *Handler) SetDevLoginEnabled(enabled bool) {
+	if h == nil {
+		return
+	}
+	h.enableDevLogin = enabled
 }
 
 func (h *Handler) HasOAuthService() bool {
@@ -454,7 +456,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 }
 
 func (h *Handler) DevLogin(c *gin.Context) {
-	if !IsDevLoginEnabled() {
+	if !h.enableDevLogin {
 		httpx.JSON(c, http.StatusNotFound, "RESOURCE_NOT_FOUND", "资源不存在", nil)
 		return
 	}

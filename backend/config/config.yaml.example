@@ -1,0 +1,29 @@
+smtp:
+  host: smtp.example.com
+  port: "587"
+  user: user@example.com
+  pass: replace-me
+  from: notify@example.com
+
+auth:
+  code_pepper: change-me
+  token_secret: change-me
+
+# Optional: remove to use in-memory repositories
+database_url: postgres://xledger:xledger_secret@127.0.0.1:5432/xledger?sslmode=disable
+
+# Optional: remove to skip Redis cache
+redis_url: redis://127.0.0.1:6379/0
+
+# Optional: defaults to :8080
+# api_addr: ":8080"
+
+# Optional: defaults to 127.0.0.1,::1
+# trusted_proxies: "127.0.0.1,::1"
+
+google_auth:
+  client_id: ""
+  client_secret: ""
+  # Optional: defaults shown below
+  # redirect_url: http://127.0.0.1:8080/api/auth/google/callback
+  # frontend_return: http://127.0.0.1:4173/auth/google/callback

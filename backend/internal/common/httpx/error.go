@@ -30,7 +30,7 @@ func RecoveryMiddleware() gin.HandlerFunc {
 // It checks the error's ErrorCode (if it implements the errorCodeGetter interface)
 // against the provided mappings, falling back to defaultMapping if no match found.
 type ErrorHandler struct {
-	mappings      map[string]ErrorMapping
+	mappings       map[string]ErrorMapping
 	defaultMapping ErrorMapping
 }
 
@@ -41,7 +41,7 @@ type errorCodeGetter interface {
 // NewErrorHandler creates an ErrorHandler with the given mappings and default.
 func NewErrorHandler(mappings map[string]ErrorMapping, defaultMapping ErrorMapping) *ErrorHandler {
 	return &ErrorHandler{
-		mappings:      mappings,
+		mappings:       mappings,
 		defaultMapping: defaultMapping,
 	}
 }

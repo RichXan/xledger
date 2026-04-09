@@ -566,7 +566,7 @@ func (s *TransactionService) ListTransactionsWithTotal(ctx context.Context, user
 // GetCategorySpentInPeriod returns total spending for a category within a date range.
 func (s *TransactionService) GetCategorySpentInPeriod(ctx context.Context, userID, categoryID string, start, end time.Time) (float64, error) {
 	query := TransactionQuery{
-		CategoryID:  categoryID,
+		CategoryID:   categoryID,
 		OccurredFrom: start,
 		OccurredTo:   end,
 	}

@@ -86,7 +86,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    const isStandalone = window.matchMedia?.('(display-mode: standalone)').matches ?? false
     const hasDismissed = localStorage.getItem('pwa-onboarding-dismissed')
     if (isIOS && !isStandalone && !hasDismissed) {
       navigate('/pwa-onboarding')

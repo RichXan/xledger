@@ -42,7 +42,7 @@ setup:
 backend:
 	@echo "Starting backend services..."
 	docker compose -f backend/docker-compose.backend.yml up -d
-	cd backend && DATABASE_URL=postgres://xledger:xledger_secret@127.0.0.1:5432/xledger?sslmode=disable REDIS_URL=redis://127.0.0.1:6379/0 SMTP_HOST=smtp.example.com AUTH_CODE_PEPPER=local-pepper go run ./cmd/api serve
+	cd backend && CONFIG_FILE=config/config.yaml go run ./cmd/api serve
 
 frontend:
 	@echo "Starting frontend development server..."
@@ -50,15 +50,15 @@ frontend:
 
 migrate-up:
 	@echo "Running migrations..."
-	cd backend && DATABASE_URL=postgres://xledger:xledger_secret@127.0.0.1:5432/xledger?sslmode=disable go run ./cmd/api migrate up
+	cd backend && CONFIG_FILE=config/config.yaml go run ./cmd/api migrate up
 
 migrate-down:
 	@echo "Rolling back migration..."
-	cd backend && DATABASE_URL=postgres://xledger:xledger_secret@127.0.0.1:5432/xledger?sslmode=disable go run ./cmd/api migrate down
+	cd backend && CONFIG_FILE=config/config.yaml go run ./cmd/api migrate down
 
 migrate-status:
 	@echo "Checking migration status..."
-	cd backend && DATABASE_URL=postgres://xledger:xledger_secret@127.0.0.1:5432/xledger?sslmode=disable go run ./cmd/api migrate status
+	cd backend && CONFIG_FILE=config/config.yaml go run ./cmd/api migrate status
 
 clean:
 	@echo "Stopping all services..."

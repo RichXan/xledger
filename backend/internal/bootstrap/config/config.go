@@ -2,10 +2,47 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
+// yamlConfig mirrors the structure of config/config.yaml.
+type yamlConfig struct {
+	SMTP struct {
+		Host string `yaml:"host"`
+		Port string `yaml:"port"`
+		User string `yaml:"user"`
+		Pass string `yaml:"pass"`
+		From string `yaml:"from"`
+	} `yaml:"smtp"`
+
+	Auth struct {
+		CodePepper  string `yaml:"code_pepper"`
+		TokenSecret string `yaml:"token_secret"`
+	} `yaml:"auth"`
+
+	DatabaseURL string `yaml:"database_url"`
+	RedisURL    string `yaml:"redis_url"`
+	APIAddr     string `yaml:"api_addr"`
+	GinMode     string `yaml:"gin_mode"`
+
+	EnableDevLogin bool `yaml:"enable_dev_login"`
+
+	// Comma-separated list of trusted proxy IPs.
+	TrustedProxies string `yaml:"trusted_proxies"`
+
+	GoogleAuth struct {
+		ClientID       string `yaml:"client_id"`
+		ClientSecret   string `yaml:"client_secret"`
+		RedirectURL    string `yaml:"redirect_url"`
+		FrontendReturn string `yaml:"frontend_return"`
+	} `yaml:"google_auth"`
+}
+
+// Config is the application-wide configuration passed to all subsystems.
 type Config struct {
 	SMTPHost                 string
 	SMTPPort                 string
@@ -15,6 +52,8 @@ type Config struct {
 	AuthCodePepper           string
 	AuthTokenSecret          string
 	APIAddr                  string
+	GinMode                  string
+	EnableDevLogin           bool
 	TrustedProxies           []string
 	DatabaseURL              string
 	RedisURL                 string
@@ -24,53 +63,66 @@ type Config struct {
 	GoogleAuthFrontendReturn string
 }
 
+// Load reads configuration from a YAML file.
+//
+// The file path is resolved in the following order:
+//  1. The CONFIG_FILE environment variable, if set.
+//  2. config/config.yaml relative to the current working directory.
 func Load() (Config, error) {
-	smtpHost := strings.TrimSpace(os.Getenv("SMTP_HOST"))
-
-	authCodePepper := strings.TrimSpace(os.Getenv("AUTH_CODE_PEPPER"))
-	if authCodePepper == "" {
-		return Config{}, errors.New("missing required env var: AUTH_CODE_PEPPER")
+	path := strings.TrimSpace(os.Getenv("CONFIG_FILE"))
+	if path == "" {
+		path = "config/config.yaml"
 	}
 
-	authTokenSecret := strings.TrimSpace(os.Getenv("AUTH_TOKEN_SECRET"))
-	if authTokenSecret == "" {
-		return Config{}, errors.New("missing required env var: AUTH_TOKEN_SECRET")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Config{}, fmt.Errorf("cannot read config file %q: %w", path, err)
 	}
 
-	apiAddr := os.Getenv("API_ADDR")
+	var raw yamlConfig
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return Config{}, fmt.Errorf("cannot parse config file %q: %w", path, err)
+	}
+
+	// Validate required fields.
+	if strings.TrimSpace(raw.Auth.CodePepper) == "" {
+		return Config{}, errors.New("config: auth.code_pepper is required")
+	}
+	if strings.TrimSpace(raw.Auth.TokenSecret) == "" {
+		return Config{}, errors.New("config: auth.token_secret is required")
+	}
+
+	apiAddr := strings.TrimSpace(raw.APIAddr)
 	if apiAddr == "" {
 		apiAddr = ":8080"
 	}
 
-	trustedProxies := parseTrustedProxies(os.Getenv("TRUSTED_PROXIES"))
-
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	redisURL := strings.TrimSpace(os.Getenv("REDIS_URL"))
-	googleClientID := strings.TrimSpace(os.Getenv("GOOGLE_AUTH_CLIENT_ID"))
-	googleClientSecret := strings.TrimSpace(os.Getenv("GOOGLE_AUTH_CLIENT_SECRET"))
-	googleRedirectURL := strings.TrimSpace(os.Getenv("GOOGLE_AUTH_REDIRECT_URL"))
+	googleRedirectURL := strings.TrimSpace(raw.GoogleAuth.RedirectURL)
 	if googleRedirectURL == "" {
 		googleRedirectURL = "http://127.0.0.1:8080/api/auth/google/callback"
 	}
-	googleFrontendReturn := strings.TrimSpace(os.Getenv("GOOGLE_AUTH_FRONTEND_RETURN"))
+
+	googleFrontendReturn := strings.TrimSpace(raw.GoogleAuth.FrontendReturn)
 	if googleFrontendReturn == "" {
 		googleFrontendReturn = "http://127.0.0.1:4173/auth/google/callback"
 	}
 
 	return Config{
-		SMTPHost:                 smtpHost,
-		SMTPPort:                 strings.TrimSpace(os.Getenv("SMTP_PORT")),
-		SMTPUser:                 strings.TrimSpace(os.Getenv("SMTP_USER")),
-		SMTPPass:                 strings.TrimSpace(os.Getenv("SMTP_PASS")),
-		SMTPFrom:                 strings.TrimSpace(os.Getenv("SMTP_FROM")),
-		AuthCodePepper:           authCodePepper,
-		AuthTokenSecret:          authTokenSecret,
+		SMTPHost:                 strings.TrimSpace(raw.SMTP.Host),
+		SMTPPort:                 strings.TrimSpace(raw.SMTP.Port),
+		SMTPUser:                 strings.TrimSpace(raw.SMTP.User),
+		SMTPPass:                 strings.TrimSpace(raw.SMTP.Pass),
+		SMTPFrom:                 strings.TrimSpace(raw.SMTP.From),
+		AuthCodePepper:           strings.TrimSpace(raw.Auth.CodePepper),
+		AuthTokenSecret:          strings.TrimSpace(raw.Auth.TokenSecret),
 		APIAddr:                  apiAddr,
-		TrustedProxies:           trustedProxies,
-		DatabaseURL:              databaseURL,
-		RedisURL:                 redisURL,
-		GoogleAuthClientID:       googleClientID,
-		GoogleAuthClientSecret:   googleClientSecret,
+		GinMode:                  strings.TrimSpace(raw.GinMode),
+		EnableDevLogin:           raw.EnableDevLogin,
+		TrustedProxies:           parseTrustedProxies(raw.TrustedProxies),
+		DatabaseURL:              strings.TrimSpace(raw.DatabaseURL),
+		RedisURL:                 strings.TrimSpace(raw.RedisURL),
+		GoogleAuthClientID:       strings.TrimSpace(raw.GoogleAuth.ClientID),
+		GoogleAuthClientSecret:   strings.TrimSpace(raw.GoogleAuth.ClientSecret),
 		GoogleAuthRedirectURL:    googleRedirectURL,
 		GoogleAuthFrontendReturn: googleFrontendReturn,
 	}, nil

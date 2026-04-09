@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/auth-context'
 import { ApiError, requestEnvelope } from '@/lib/api'
@@ -34,9 +34,12 @@ export function GoogleCallbackPage() {
   const navigate = useNavigate()
   const { applyOAuthTokens } = useAuth()
   const [error, setError] = useState<string | null>(null)
+  const exchangedRef = useRef(false)
 
   useEffect(() => {
-    let canceled = false
+    if (exchangedRef.current) return
+    exchangedRef.current = true
+
     const exchangeCode = (searchParams.get('exchange_code') ?? '').trim()
     const errorCode = (searchParams.get('error_code') ?? '').trim()
     const errorReason = (searchParams.get('error_reason') ?? '').trim()
@@ -55,10 +58,8 @@ export function GoogleCallbackPage() {
           method: 'POST',
           body: JSON.stringify({ code: exchangeCode }),
         })
-        if (!canceled) {
-          await applyOAuthTokens(tokens.access_token, tokens.refresh_token)
-          navigate('/dashboard', { replace: true })
-        }
+        await applyOAuthTokens(tokens.access_token, tokens.refresh_token)
+        navigate('/dashboard', { replace: true })
       } catch (caughtError) {
         if (caughtError instanceof ApiError) {
           setError(caughtError.message)
@@ -69,9 +70,6 @@ export function GoogleCallbackPage() {
     }
 
     void bootstrapFromOAuth()
-    return () => {
-      canceled = true
-    }
   }, [applyOAuthTokens, navigate, searchParams])
 
   return (

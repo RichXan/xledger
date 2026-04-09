@@ -35,6 +35,8 @@ type Dependencies struct {
 	UserIDResolver        userIDResolver
 	PATService            *portability.PATService
 	CategoryService       *classification.CategoryService
+	GinMode               string
+	EnableDevLogin        bool
 }
 
 func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin.Engine, error) {
@@ -53,7 +55,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 
 	handler := deps.AuthHandler
 	if handler == nil {
-		handler = newDefaultAuthHandlerFromEnv()
+		handler = newDefaultAuthHandler()
 	}
 
 	authGroup := r.Group("/api/auth")
@@ -66,7 +68,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		authGroup.POST("/change-password", handler.ChangePassword)
 		authGroup.PATCH("/profile", handler.UpdateProfile)
 	}
-	if !isReleaseMode() && handler.HasSessionService() {
+	if !isReleaseMode(deps.GinMode) && handler.HasSessionService() && deps.EnableDevLogin {
 		authGroup.POST("/dev-login", handler.DevLogin)
 	}
 	authGroup.GET("/me", handler.Me)
@@ -242,6 +244,8 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config, redisClient *redis.C
 		UserIDResolver:        postgresUserIDResolver(db),
 		PATService:            portabilityHandler.GetPATService(),
 		CategoryService:       acctDeps.CategoryService,
+		GinMode:               cfg.GinMode,
+		EnableDevLogin:        cfg.EnableDevLogin,
 	}
 
 	r, err := NewRouterWithDependencies(cfg.TrustedProxies, deps)
@@ -263,10 +267,14 @@ func isPlaceholderSMTP(host string, password string) bool {
 	return password == "" || password == "replace-me"
 }
 
-func isReleaseMode() bool {
-	mode := strings.TrimSpace(strings.ToLower(os.Getenv("GIN_MODE")))
+func isReleaseMode(mode string) bool {
+	mode = strings.TrimSpace(strings.ToLower(mode))
 	if mode != "" {
 		return mode == gin.ReleaseMode
+	}
+	envMode := strings.TrimSpace(strings.ToLower(os.Getenv("GIN_MODE")))
+	if envMode != "" {
+		return envMode == gin.ReleaseMode
 	}
 	return gin.Mode() == gin.ReleaseMode
 }

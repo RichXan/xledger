@@ -311,7 +311,7 @@ func TestPATEndpoints_AccessOnly_GETPOSTDELETE_On_api_settings_tokens(t *testing
 		t.Fatalf("issue session: %v", err)
 	}
 	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
-		AuthHandler:        authHandler,
+		AuthHandler: authHandler,
 		PortabilityHandler: portability.NewHandler(
 			portability.NewImportPreviewService(),
 			portability.NewImportConfirmService(portability.NewRepository(nil)),

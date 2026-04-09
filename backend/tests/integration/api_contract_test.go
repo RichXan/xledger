@@ -112,7 +112,6 @@ func newContractRouter(t *testing.T) http.Handler {
 	return r
 }
 
-
 func issueContractAccessToken(t *testing.T, handler http.Handler) string {
 	t.Helper()
 	pair := issueContractSession(t, handler)

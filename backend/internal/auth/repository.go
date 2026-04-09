@@ -82,8 +82,8 @@ type inMemoryExchangeCode struct {
 }
 
 type inMemoryOAuthState struct {
-	nonce    string
-	email    string
+	nonce     string
+	email     string
 	expiresAt time.Time
 }
 
@@ -419,7 +419,6 @@ func (r *InMemoryRepository) ConsumeOAuthStateNonceForEmail(_ context.Context, s
 	}
 	return record.email, true, nil
 }
-
 
 func (r *InMemoryRepository) StoreOAuthExchangeCode(_ context.Context, code string, tokens TokenPair, expiresAt time.Time) error {
 	r.mu.Lock()

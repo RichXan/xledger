@@ -13,8 +13,8 @@ import (
 
 type QuickAddHandler struct {
 	transactionService *TransactionService
-	ledgerService     *LedgerService
-	categoryService   *classification.CategoryService
+	ledgerService      *LedgerService
+	categoryService    *classification.CategoryService
 }
 
 type QuickAddRequest struct {

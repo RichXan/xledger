@@ -23,9 +23,11 @@ There is no root workspace script setup; backend and frontend are developed inde
 - Run a single Go test:
   - `go test ./internal/accounting -run TestLedgerService_Create -count=1`
 - Run the API with minimal local env (in-memory repositories):
-  - `SMTP_HOST=smtp.example.com AUTH_CODE_PEPPER=local-pepper go run ./cmd/api`
+  - Copy `config/config.yaml.example` to `config/config.yaml`, set `auth.code_pepper` and `auth.token_secret`, remove `database_url`, then:
+  - `go run ./cmd/api`
 - Run the API against local Postgres + Redis:
-  - `DATABASE_URL=postgres://xledger:xledger_secret@127.0.0.1:5432/xledger?sslmode=disable REDIS_URL=redis://127.0.0.1:6379/0 SMTP_HOST=smtp.example.com AUTH_CODE_PEPPER=local-pepper go run ./cmd/api`
+  - Ensure `config/config.yaml` has `database_url` and `redis_url` set, then:
+  - `CONFIG_FILE=config/config.yaml go run ./cmd/api`
 - Start local Postgres + Redis only:
   - `docker compose -f docker-compose.backend.yml up -d`
 - Stop local Postgres + Redis:
@@ -113,7 +115,7 @@ Each domain generally contains handlers, services, and repository implementation
 - Docker local infra lives in `backend/docker-compose.backend.yml`
 - Full containerized backend stack lives in `backend/docker-compose.yml`
 
-Important behavior: the server requires `SMTP_HOST` and `AUTH_CODE_PEPPER` even for local startup. `DATABASE_URL` and `REDIS_URL` are optional.
+Important behavior: the server reads all config from `config/config.yaml` (path overridable via `CONFIG_FILE` env var). Fields `auth.code_pepper` and `auth.token_secret` are required. `database_url` and `redis_url` are optional; omitting them enables in-memory mode.
 
 ### Tests
 

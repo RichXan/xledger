@@ -1,24 +1,28 @@
 package http
 
 import (
-	"os"
-	"strings"
 	"time"
 
 	"xledger/backend/internal/auth"
+	"xledger/backend/internal/bootstrap/config"
 	"xledger/backend/internal/classification"
 )
 
-func newDefaultAuthHandlerFromEnv() *auth.Handler {
+func newDefaultAuthHandler() *auth.Handler {
+	cfg, err := config.Load()
+	if err != nil {
+		panic(err)
+	}
+
 	repo := auth.NewInMemoryRepository(time.Now)
 	var sender auth.SMTPSender = auth.NewSMTPMailSender(auth.SMTPConfig{
-		Host:     os.Getenv("SMTP_HOST"),
-		Port:     os.Getenv("SMTP_PORT"),
-		Username: os.Getenv("SMTP_USER"),
-		Password: os.Getenv("SMTP_PASS"),
-		From:     os.Getenv("SMTP_FROM"),
+		Host:     cfg.SMTPHost,
+		Port:     cfg.SMTPPort,
+		Username: cfg.SMTPUser,
+		Password: cfg.SMTPPass,
+		From:     cfg.SMTPFrom,
 	})
-	if isPlaceholderSMTP(os.Getenv("SMTP_HOST"), os.Getenv("SMTP_PASS")) {
+	if isPlaceholderSMTP(cfg.SMTPHost, cfg.SMTPPass) {
 		sender = auth.NewDevMailSender()
 	}
 	templateService := classification.NewTemplateService(classification.NewInMemoryTemplateRepository())
@@ -27,22 +31,23 @@ func newDefaultAuthHandlerFromEnv() *auth.Handler {
 	}, time.Now)
 	codeService := auth.NewCodeService(repo, sender, auth.NewSessionTokenIssuer(sessionService), time.Now, nil)
 	oauthService := auth.NewOAuthService(repo, sessionService, time.Now)
-	redirectURL := strings.TrimSpace(os.Getenv("GOOGLE_AUTH_REDIRECT_URL"))
+	redirectURL := cfg.GoogleAuthRedirectURL
 	if redirectURL == "" {
 		redirectURL = "http://127.0.0.1:8080/api/auth/google/callback"
 	}
 	oauthService.SetGoogleProvider(auth.NewGoogleOAuthProvider(auth.GoogleOAuthConfig{
-		ClientID:     os.Getenv("GOOGLE_AUTH_CLIENT_ID"),
-		ClientSecret: os.Getenv("GOOGLE_AUTH_CLIENT_SECRET"),
+		ClientID:     cfg.GoogleAuthClientID,
+		ClientSecret: cfg.GoogleAuthClientSecret,
 		RedirectURL:  redirectURL,
 	}))
 
 	handler := auth.NewHandlerWithServices(codeService, oauthService, sessionService)
 	handler.SetPasswordService(auth.NewPasswordService(repo))
-	frontendReturn := strings.TrimSpace(os.Getenv("GOOGLE_AUTH_FRONTEND_RETURN"))
+	frontendReturn := cfg.GoogleAuthFrontendReturn
 	if frontendReturn == "" {
 		frontendReturn = "http://127.0.0.1:4173/auth/google/callback"
 	}
 	handler.SetGoogleFrontendReturnURL(frontendReturn)
+	handler.SetDevLoginEnabled(cfg.EnableDevLogin)
 	return handler
 }

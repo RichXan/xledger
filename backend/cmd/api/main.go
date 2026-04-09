@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 
@@ -21,8 +20,6 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load(".env")
-
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "migrate":

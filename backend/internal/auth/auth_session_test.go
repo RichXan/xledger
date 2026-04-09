@@ -481,8 +481,6 @@ func TestOAuthFailure_DoesNotAffectSendCodeFlow(t *testing.T) {
 	}
 }
 
-
-
 type failingGoogleOAuthProvider struct {
 	enabled bool
 	err     error

@@ -24,11 +24,11 @@ func ErrorCode(err error) string {
 }
 
 type PreviewResponse struct {
-	Format             string               `json:"format"`
-	Columns           []string             `json:"columns"`
-	SampleRows        [][]string           `json:"sample_rows"`
-	MappingSlots      []string             `json:"mappingSlots"`
-	MappingCandidates map[string][]string  `json:"mappingCandidates"`
+	Format            string              `json:"format"`
+	Columns           []string            `json:"columns"`
+	SampleRows        [][]string          `json:"sample_rows"`
+	MappingSlots      []string            `json:"mappingSlots"`
+	MappingCandidates map[string][]string `json:"mappingCandidates"`
 	SuggestedMapping  map[string]string   `json:"suggested_mapping,omitempty"`
 }
 
@@ -64,7 +64,7 @@ func (s *ImportPreviewService) PreviewCSV(reader io.Reader) (PreviewResponse, er
 	}
 	mappingSlots := []string{"amount", "date", "description", "category", "account", "tag"}
 	response := PreviewResponse{
-		Format:             string(format),
+		Format:            string(format),
 		Columns:           columns,
 		SampleRows:        sampleRows,
 		MappingSlots:      mappingSlots,
@@ -76,8 +76,8 @@ func (s *ImportPreviewService) PreviewCSV(reader io.Reader) (PreviewResponse, er
 		response.SuggestedMapping = map[string]string{
 			"description": "商品说明",
 			"amount":      "金额(元)",
-			"direction":  "收/支",
-			"date":       "创建时间",
+			"direction":   "收/支",
+			"date":        "创建时间",
 		}
 	}
 

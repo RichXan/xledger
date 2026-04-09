@@ -7,3 +7,4 @@ frontend/app/manual-qa.mjs
 frontend/app/test-results/
 frontend/app/playwright-report/
 backend/.env
+backend/config/config.yaml
