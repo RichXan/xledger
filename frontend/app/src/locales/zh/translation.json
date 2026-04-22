@@ -29,7 +29,26 @@
     "code": "验证码",
     "sendCode": "发送验证码",
     "codeSent": "验证码已发送",
-    "invalidCode": "验证码无效"
+    "invalidCode": "验证码无效",
+    "loginPage": {
+      "heroTitlePrefix": "每一次财务决策，都更",
+      "heroTitleHighlight": "精准可见。",
+      "liveCashFlow": "实时现金流",
+      "syncedLedgers": "同步账本",
+      "secureAccess": "安全访问",
+      "welcomeBack": "欢迎回来",
+      "signInHint": "使用邮箱和验证码登录，继续管理你的账本。",
+      "emailAddress": "邮箱地址",
+      "emailPlaceholder": "name@company.com",
+      "verificationCode": "验证码",
+      "verificationCodePlaceholder": "6 位验证码",
+      "codeSentTo": "我们已向 {{email}} 发送 6 位验证码。",
+      "verifyAndContinue": "验证并继续",
+      "sendVerificationCode": "发送验证码",
+      "continueWithGoogle": "使用 Google 继续",
+      "sendCodeFailed": "当前无法发送验证码，请稍后重试。",
+      "verifyCodeFailed": "当前无法验证验证码，请稍后重试。"
+    }
   },
   "dashboard": {
     "title": "财务概览",

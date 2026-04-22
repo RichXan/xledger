@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { TextField } from '@/components/ui/text-field'
 import { useAuth } from '@/features/auth/auth-context'
 import { ApiError } from '@/lib/api'
 
 export function LoginPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { sendVerificationCode, verifyVerificationCode } = useAuth()
   const [email, setEmail] = useState('')
@@ -38,7 +40,7 @@ export function LoginPage() {
       if (caughtError instanceof ApiError) {
         setError(caughtError.message)
       } else {
-        setError('Unable to send a verification code right now.')
+        setError(t('auth.loginPage.sendCodeFailed'))
       }
     } finally {
       setPending(false)
@@ -57,7 +59,7 @@ export function LoginPage() {
       if (caughtError instanceof ApiError) {
         setError(caughtError.message)
       } else {
-        setError('Unable to verify your code right now.')
+        setError(t('auth.loginPage.verifyCodeFailed'))
       }
     } finally {
       setPending(false)
@@ -70,16 +72,16 @@ export function LoginPage() {
         <div>
           <p className="font-headline text-4xl font-black tracking-tight">xledger</p>
           <p className="mt-6 max-w-lg font-headline text-5xl font-extrabold leading-tight">
-            Precision in every <span className="text-tertiary-fixed">financial perspective.</span>
+            {t('auth.loginPage.heroTitlePrefix')} <span className="text-tertiary-fixed">{t('auth.loginPage.heroTitleHighlight')}</span>
           </p>
         </div>
         <div className="grid max-w-xl grid-cols-2 gap-4">
           <div className="rounded-[28px] border border-white/10 bg-white/10 p-6 backdrop-blur-md">
-            <p className="font-label text-[10px] uppercase tracking-[0.2em] text-primary-fixed">Live cash flow</p>
+            <p className="font-label text-[10px] uppercase tracking-[0.2em] text-primary-fixed">{t('auth.loginPage.liveCashFlow')}</p>
             <p className="mt-6 font-headline text-4xl font-bold">+24.8%</p>
           </div>
           <div className="rounded-[28px] border border-white/10 bg-white/10 p-6 backdrop-blur-md">
-            <p className="font-label text-[10px] uppercase tracking-[0.2em] text-primary-fixed">Synced ledgers</p>
+            <p className="font-label text-[10px] uppercase tracking-[0.2em] text-primary-fixed">{t('auth.loginPage.syncedLedgers')}</p>
             <p className="mt-6 font-headline text-4xl font-bold">12</p>
           </div>
         </div>
@@ -88,33 +90,33 @@ export function LoginPage() {
       <main className="flex items-center justify-center px-6 py-12 sm:px-10 lg:px-16">
         <div className="w-full max-w-md space-y-8">
           <div>
-            <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Secure access</p>
+            <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-primary">{t('auth.loginPage.secureAccess')}</p>
             <h1 className="mt-3 font-headline text-4xl font-extrabold tracking-tight text-on-surface">
-              Welcome back
+              {t('auth.loginPage.welcomeBack')}
             </h1>
             <p className="mt-3 text-sm text-on-surface-variant">
-              Sign in with your email and verification code to access your ledgers.
+              {t('auth.loginPage.signInHint')}
             </p>
           </div>
 
           <form className="space-y-6" onSubmit={codeSent ? handleVerifyCode : handleSendCode}>
             <TextField
-              label="Email Address"
+              label={t('auth.loginPage.emailAddress')}
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="name@company.com"
+              placeholder={t('auth.loginPage.emailPlaceholder')}
             />
 
             {codeSent ? (
               <>
                 <TextField
-                  label="Verification Code"
+                  label={t('auth.loginPage.verificationCode')}
                   value={code}
                   onChange={(event) => setCode(event.target.value)}
-                  placeholder="6-digit code"
+                  placeholder={t('auth.loginPage.verificationCodePlaceholder')}
                 />
-                <p className="text-sm text-on-surface-variant">We sent a 6-digit code to {email}.</p>
+                <p className="text-sm text-on-surface-variant">{t('auth.loginPage.codeSentTo', { email })}</p>
               </>
             ) : null}
 
@@ -122,10 +124,10 @@ export function LoginPage() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Button className="w-full" type="submit" disabled={pending || !email || (codeSent && !code)}>
-                {codeSent ? 'Verify and Continue' : 'Send Verification Code'}
+                {codeSent ? t('auth.loginPage.verifyAndContinue') : t('auth.loginPage.sendVerificationCode')}
               </Button>
               <Button className="w-full" type="button" variant="secondary" onClick={handleGoogleSignIn}>
-                Continue with Google
+                {t('auth.loginPage.continueWithGoogle')}
               </Button>
             </div>
           </form>

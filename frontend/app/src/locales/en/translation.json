@@ -29,7 +29,26 @@
     "code": "Verification Code",
     "sendCode": "Send Code",
     "codeSent": "Code sent",
-    "invalidCode": "Invalid code"
+    "invalidCode": "Invalid code",
+    "loginPage": {
+      "heroTitlePrefix": "Precision in every",
+      "heroTitleHighlight": "financial perspective.",
+      "liveCashFlow": "Live cash flow",
+      "syncedLedgers": "Synced ledgers",
+      "secureAccess": "Secure access",
+      "welcomeBack": "Welcome back",
+      "signInHint": "Sign in with your email and verification code to access your ledgers.",
+      "emailAddress": "Email Address",
+      "emailPlaceholder": "name@company.com",
+      "verificationCode": "Verification Code",
+      "verificationCodePlaceholder": "6-digit code",
+      "codeSentTo": "We sent a 6-digit code to {{email}}.",
+      "verifyAndContinue": "Verify and Continue",
+      "sendVerificationCode": "Send Verification Code",
+      "continueWithGoogle": "Continue with Google",
+      "sendCodeFailed": "Unable to send a verification code right now.",
+      "verifyCodeFailed": "Unable to verify your code right now."
+    }
   },
   "dashboard": {
     "title": "Financial Overview",

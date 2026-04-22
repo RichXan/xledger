@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 
@@ -115,6 +116,9 @@ func startServer() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config error: %v", err)
+	}
+	if cfg.GinMode != "" {
+		gin.SetMode(cfg.GinMode)
 	}
 
 	ctx := context.Background()
