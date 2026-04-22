@@ -58,7 +58,8 @@
     "monthlyOverview": "Monthly Overview",
     "recentTransactions": "Recent Transactions",
     "lastSynced": "Last synced",
-    "minutesAgo": "minutes ago"
+    "minutesAgo": "minutes ago",
+    "justNow": "just now"
   },
   "transaction": {
     "add": "Add Transaction",

@@ -31,11 +31,11 @@ describe('App shell', () => {
     window.localStorage.clear()
   })
 
-  it('renders the login route by default', () => {
+  it('renders the login route by default', async () => {
     renderApp(['/login'])
 
-    expect(screen.getByRole('heading', { name: /welcome back/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /send verification code/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /welcome back/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /send verification code/i })).toBeInTheDocument()
   })
 
   it('renders main navigation on dashboard routes', async () => {

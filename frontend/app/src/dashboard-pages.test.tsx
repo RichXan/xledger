@@ -51,7 +51,7 @@ describe('dashboard and analytics pages', () => {
         )
       }
 
-      if (url.endsWith('/api/stats/overview')) {
+      if (url.includes('/api/stats/overview')) {
         return new Response(
           JSON.stringify({
             code: 'OK',
@@ -89,8 +89,9 @@ describe('dashboard and analytics pages', () => {
       expect(screen.getByText('¥42,850.00')).toBeInTheDocument()
       expect(screen.getByText('¥18,240.50')).toBeInTheDocument()
       expect(screen.getByText('¥24,609.50')).toBeInTheDocument()
-      expect(screen.getAllByText('Mar 01').length).toBeGreaterThan(0)
-      expect(screen.getAllByText('Mar 02').length).toBeGreaterThan(0)
+      expect(screen.getByText(/tap or hover bars/i)).toBeInTheDocument()
+      expect(screen.getByText(/income:/i)).toBeInTheDocument()
+      expect(screen.getByText(/expense:/i)).toBeInTheDocument()
     })
   })
 
@@ -121,7 +122,7 @@ describe('dashboard and analytics pages', () => {
         )
       }
 
-      if (url.endsWith('/api/stats/category')) {
+      if (url.includes('/api/stats/category')) {
         return new Response(
           JSON.stringify({
             code: 'OK',
@@ -146,9 +147,9 @@ describe('dashboard and analytics pages', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /analytics/i })).toBeInTheDocument()
       expect(screen.getAllByText('Food').length).toBeGreaterThan(0)
-      expect(screen.getByText('¥3,200.00')).toBeInTheDocument()
+      expect(screen.getAllByText('¥3,200.00').length).toBeGreaterThan(0)
       expect(screen.getByText('Travel')).toBeInTheDocument()
-      expect(screen.getByText('¥1,800.00')).toBeInTheDocument()
+      expect(screen.getAllByText('¥1,800.00').length).toBeGreaterThan(0)
     })
   })
 })

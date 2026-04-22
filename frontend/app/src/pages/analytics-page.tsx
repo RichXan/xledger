@@ -1,6 +1,5 @@
-﻿import { useMemo, useState } from 'react'
-import { useTransactionsWithOptions } from '@/features/transactions/transactions-hooks'
-import { useTrendStatsRange } from '@/features/reporting/reporting-hooks'
+import { useEffect, useMemo, useState } from 'react'
+import { useCategoryStats, useTrendStatsRange } from '@/features/reporting/reporting-hooks'
 import { formatCurrency } from '@/lib/format'
 
 type FilterMode = 'month' | 'year'
@@ -41,58 +40,39 @@ export function AnalyticsPage() {
   const [mode, setMode] = useState<FilterMode>('month')
   const [year, setYear] = useState(String(now.getFullYear()))
   const [month, setMonth] = useState(String(now.getMonth() + 1).padStart(2, '0'))
-  const [hoveredCategoryName, setHoveredCategoryName] = useState<string | null>(null)
-  const [hoveredMonth, setHoveredMonth] = useState<string | null>(null)
+  const [activeCategoryName, setActiveCategoryName] = useState<string | null>(null)
+  const [activeBarLabel, setActiveBarLabel] = useState<string | null>(null)
 
   const selectedYear = Number(year)
   const selectedMonth = Number(month)
   const range = useMemo(() => buildRange(mode, selectedYear, selectedMonth), [mode, selectedMonth, selectedYear])
 
-  const txQuery = useTransactionsWithOptions({
-    page: 1,
-    pageSize: 2000,
-    dateFrom: range.from,
-    dateTo: range.to,
-  })
-
+  const categoryQuery = useCategoryStats({ from: range.from, to: range.to })
   const trendQuery = useTrendStatsRange({
     from: range.from,
     to: range.to,
     granularity: 'day',
   })
 
-  const transactions = txQuery.data?.items ?? []
+  const categoryPoints = categoryQuery.data?.items ?? []
   const trendPoints = trendQuery.data?.points ?? []
 
-  const income = useMemo(
-    () => transactions.filter((tx) => tx.type === 'income').reduce((sum, tx) => sum + tx.amount, 0),
-    [transactions],
-  )
-  const expense = useMemo(
-    () => transactions.filter((tx) => tx.type === 'expense').reduce((sum, tx) => sum + tx.amount, 0),
-    [transactions],
-  )
+  const income = useMemo(() => trendPoints.reduce((sum, point) => sum + point.income, 0), [trendPoints])
+  const expense = useMemo(() => trendPoints.reduce((sum, point) => sum + point.expense, 0), [trendPoints])
   const netWorth = income - expense
-  const liquidityRatio = expense > 0 ? (income / expense).toFixed(2) : '0.00'
+  const savingsRate = income > 0 ? ((income - expense) / income) * 100 : 0
+  const savingsRateLabel = `${savingsRate >= 0 ? '+' : ''}${savingsRate.toFixed(1)}%`
 
   const categoryItems = useMemo(() => {
-    const map = new Map<string, number>()
-    transactions
-      .filter((tx) => tx.type === 'expense')
-      .forEach((tx) => {
-        const key = (tx.category_name ?? 'Uncategorized').trim() || 'Uncategorized'
-        map.set(key, (map.get(key) ?? 0) + tx.amount)
-      })
-
-    return Array.from(map.entries())
-      .map(([category_name, amount], index) => ({
-        category_id: `${category_name}-${index}`,
-        category_name,
-        amount,
+    return categoryPoints
+      .map((point, index) => ({
+        category_id: point.category_id || `${point.category_name}-${index}`,
+        category_name: point.category_name || 'Uncategorized',
+        amount: point.amount,
       }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 6)
-  }, [transactions])
+  }, [categoryPoints])
 
   const totalExpense = categoryItems.reduce((sum, item) => sum + item.amount, 0)
 
@@ -119,8 +99,8 @@ export function AnalyticsPage() {
     })
   }, [categoryItems, totalExpense])
 
-  const hoveredCategory =
-    categoryItems.find((item) => item.category_name === hoveredCategoryName) ?? categoryItems[0] ?? null
+  const activeCategory =
+    categoryItems.find((item) => item.category_name === activeCategoryName) ?? categoryItems[0] ?? null
 
   const barsByBucket = useMemo(() => {
     const map = new Map<string, { label: string; revenue: number; investment: number }>()
@@ -140,9 +120,33 @@ export function AnalyticsPage() {
   }, [mode, trendPoints])
 
   const maxCombined = Math.max(...barsByBucket.map((bar) => bar.revenue + bar.investment), 1)
-  const hoveredBar = barsByBucket.find((bar) => bar.label === hoveredMonth) ?? null
+  const activeBar = barsByBucket.find((bar) => bar.label === activeBarLabel) ?? null
 
   const yearOptions = Array.from({ length: 8 }, (_, index) => String(now.getFullYear() - index))
+
+  useEffect(() => {
+    if (categoryItems.length === 0) {
+      setActiveCategoryName(null)
+      return
+    }
+    const hasSelected = activeCategoryName
+      ? categoryItems.some((item) => item.category_name === activeCategoryName)
+      : false
+    if (!hasSelected) {
+      setActiveCategoryName(categoryItems[0].category_name)
+    }
+  }, [activeCategoryName, categoryItems])
+
+  useEffect(() => {
+    if (barsByBucket.length === 0) {
+      setActiveBarLabel(null)
+      return
+    }
+    const hasSelected = activeBarLabel ? barsByBucket.some((bar) => bar.label === activeBarLabel) : false
+    if (!hasSelected) {
+      setActiveBarLabel(barsByBucket[0].label)
+    }
+  }, [activeBarLabel, barsByBucket])
 
   return (
     <div className="space-y-5">
@@ -204,8 +208,8 @@ export function AnalyticsPage() {
           </article>
           <article className="rounded-2xl bg-primary p-5 text-white">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-fixed">Savings Rate</p>
-            <p className="mt-3 font-headline text-5xl font-extrabold">{liquidityRatio}</p>
-            <p className="mt-2 text-xs text-primary-fixed">Income / Expense Ratio</p>
+            <p className="mt-3 font-headline text-5xl font-extrabold">{savingsRateLabel}</p>
+            <p className="mt-2 text-xs text-primary-fixed">Net Income / Income</p>
           </article>
         </div>
 
@@ -229,8 +233,9 @@ export function AnalyticsPage() {
                       strokeDasharray={slice.dashArray}
                       strokeDashoffset={slice.dashOffset}
                       transform="rotate(-90 60 60)"
-                      onMouseEnter={() => setHoveredCategoryName(slice.categoryName)}
-                      onMouseLeave={() => setHoveredCategoryName(null)}
+                      onMouseEnter={() => setActiveCategoryName(slice.categoryName)}
+                      onFocus={() => setActiveCategoryName(slice.categoryName)}
+                      onClick={() => setActiveCategoryName(slice.categoryName)}
                       className="cursor-pointer transition-opacity hover:opacity-85"
                     >
                       <title>{`${slice.categoryName}: ${formatCurrency(slice.amount)}`}</title>
@@ -241,10 +246,10 @@ export function AnalyticsPage() {
                     Total Expense
                   </text>
                   <text x="60" y="66" textAnchor="middle" className="fill-[#191c1e] text-[7px] font-bold">
-                    {formatCurrency(hoveredCategory?.amount ?? totalExpense)}
+                    {formatCurrency(activeCategory?.amount ?? totalExpense)}
                   </text>
                   <text x="60" y="76" textAnchor="middle" className="fill-[#434653] text-[3.8px] font-semibold">
-                    {hoveredCategory?.category_name ?? 'All categories'}
+                    {activeCategory?.category_name ?? 'All categories'}
                   </text>
                 </svg>
 
@@ -253,8 +258,9 @@ export function AnalyticsPage() {
                     <button
                       key={item.category_id}
                       type="button"
-                      onMouseEnter={() => setHoveredCategoryName(item.category_name)}
-                      onMouseLeave={() => setHoveredCategoryName(null)}
+                      onMouseEnter={() => setActiveCategoryName(item.category_name)}
+                      onFocus={() => setActiveCategoryName(item.category_name)}
+                      onClick={() => setActiveCategoryName(item.category_name)}
                       className="rounded-xl bg-surface-container-low p-3 text-left transition hover:bg-surface-container"
                     >
                       <p className="text-xs font-semibold text-on-surface">{item.category_name}</p>
@@ -304,8 +310,9 @@ export function AnalyticsPage() {
                         <button
                           type="button"
                           className="flex h-full flex-col justify-end rounded-xl bg-surface-container-low p-1 text-left"
-                          onMouseEnter={() => setHoveredMonth(point.label)}
-                          onMouseLeave={() => setHoveredMonth(null)}
+                          onMouseEnter={() => setActiveBarLabel(point.label)}
+                          onFocus={() => setActiveBarLabel(point.label)}
+                          onClick={() => setActiveBarLabel(point.label)}
                         >
                           <div className="rounded-t-sm bg-primary" style={{ height: `${revenueHeight}%` }} />
                           <div className="rounded-b-sm bg-[#7dde85]" style={{ height: `${burnHeight}%` }} />
@@ -317,11 +324,11 @@ export function AnalyticsPage() {
                     )
                   })}
                 </div>
-                {hoveredBar ? (
+                {activeBar ? (
                   <div className="mt-3 rounded-xl border border-outline/10 bg-surface-container-low px-3 py-2 text-sm text-on-surface">
-                    <span className="font-semibold">{hoveredBar.label}</span>
-                    <span className="ml-4">Revenue: {formatCurrency(hoveredBar.revenue)}</span>
-                    <span className="ml-4">Burn: {formatCurrency(hoveredBar.investment)}</span>
+                    <span className="font-semibold">{activeBar.label}</span>
+                    <span className="ml-4">Revenue: {formatCurrency(activeBar.revenue)}</span>
+                    <span className="ml-4">Burn: {formatCurrency(activeBar.investment)}</span>
                   </div>
                 ) : null}
               </>

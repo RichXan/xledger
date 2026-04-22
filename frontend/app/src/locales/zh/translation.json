@@ -58,7 +58,8 @@
     "monthlyOverview": "月度概览",
     "recentTransactions": "最近交易",
     "lastSynced": "最后同步",
-    "minutesAgo": "分钟前"
+    "minutesAgo": "分钟前",
+    "justNow": "刚刚"
   },
   "transaction": {
     "add": "记一笔",

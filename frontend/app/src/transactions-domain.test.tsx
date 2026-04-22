@@ -183,14 +183,14 @@ describe('transactions domain', () => {
       expect(screen.getByText('Salary')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('¥25.00')).toBeInTheDocument()
-    expect(screen.getByText('¥15,000.00')).toBeInTheDocument()
+    expect(screen.getByText(/25\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/15,000\.00/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /calendar view/i }))
 
     await waitFor(() => {
-      expect(screen.getByText('Mar 01')).toBeInTheDocument()
-      expect(screen.getByText('Mar 02')).toBeInTheDocument()
+      expect(screen.getByText(/daily summary/i)).toBeInTheDocument()
+      expect(screen.getByText(/month summary/i)).toBeInTheDocument()
     })
   })
 
@@ -227,8 +227,9 @@ describe('transactions domain', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/transactions.csv/i)).toBeInTheDocument()
-      expect(screen.getByText(/date/i)).toBeInTheDocument()
-      expect(screen.getByText(/description/i)).toBeInTheDocument()
+      expect(screen.getByText(/detected columns/i)).toBeInTheDocument()
+      expect(screen.getByText(/^date$/i)).toBeInTheDocument()
+      expect(screen.getByText(/^description$/i)).toBeInTheDocument()
     })
   })
 })

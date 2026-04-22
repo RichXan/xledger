@@ -26,6 +26,12 @@ function renderApp(initialEntries: string[]) {
   )
 }
 
+async function waitForLoginForm() {
+  await screen.findByRole('heading', { name: /welcome back/i })
+  await screen.findByLabelText(/email address/i)
+  await screen.findByRole('button', { name: /send verification code/i })
+}
+
 describe('auth flow', () => {
   afterEach(() => {
     cleanup()
@@ -47,6 +53,7 @@ describe('auth flow', () => {
     global.fetch = fetchMock as typeof fetch
 
     renderApp(['/login'])
+    await waitForLoginForm()
     const user = userEvent.setup()
 
     await user.type(screen.getByLabelText(/email address/i), 'demo@example.com')
@@ -95,6 +102,7 @@ describe('auth flow', () => {
     global.fetch = fetchMock as typeof fetch
 
     renderApp(['/login'])
+    await waitForLoginForm()
     const user = userEvent.setup()
 
     await user.type(screen.getByLabelText(/email address/i), 'demo@example.com')

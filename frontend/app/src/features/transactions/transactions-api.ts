@@ -50,6 +50,7 @@ export interface CreateTransactionInput {
   type: 'income' | 'expense' | 'transfer'
   amount: number
   memo?: string
+  occurred_at?: string
 }
 
 export interface ImportPreviewResponse {

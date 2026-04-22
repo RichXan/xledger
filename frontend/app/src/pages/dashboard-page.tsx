@@ -81,7 +81,8 @@ function buildLast12MonthBars(points: Array<{ bucket_start: string; income: numb
 export function DashboardPage() {
   const { t } = useTranslation()
   const [period, setPeriod] = useState<Period>('Month')
-  const [hoveredBarKey, setHoveredBarKey] = useState<string | null>(null)
+  const [activeBarKey, setActiveBarKey] = useState<string | null>(null)
+  const [nowTick, setNowTick] = useState(() => Date.now())
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -92,6 +93,13 @@ export function DashboardPage() {
       navigate('/pwa-onboarding')
     }
   }, [navigate])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowTick(Date.now())
+    }, 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const days = getPeriodDays(period)
   const currentRange = useMemo(() => getRangeByDays(days, new Date()), [days])
@@ -111,20 +119,41 @@ export function DashboardPage() {
   const bars = useMemo(() => buildLast12MonthBars(trend12MonthsQuery.data?.points ?? []), [trend12MonthsQuery.data?.points])
 
   const derived = useMemo(() => {
-    const currentIncome = currentOverview?.income ?? 0
-    const currentExpense = currentOverview?.expense ?? 0
+    const currentIncome = currentOverview?.income ?? totalOverviewQuery.data?.income ?? 0
+    const currentExpense = currentOverview?.expense ?? totalOverviewQuery.data?.expense ?? 0
     const previousIncome = previousOverview?.income ?? 0
     const previousExpense = previousOverview?.expense ?? 0
     return {
       income: currentIncome,
       expense: currentExpense,
+      net: currentIncome - currentExpense,
       incomeDelta: pctLabel(currentIncome, previousIncome),
       expenseDelta: pctLabel(currentExpense, previousExpense),
     }
-  }, [currentOverview, previousOverview])
+  }, [currentOverview, previousOverview, totalOverviewQuery.data?.expense, totalOverviewQuery.data?.income])
+
+  useEffect(() => {
+    if (bars.length === 0) {
+      setActiveBarKey(null)
+      return
+    }
+    const hasSelected = activeBarKey ? bars.some((bar) => bar.key === activeBarKey) : false
+    if (!hasSelected) {
+      setActiveBarKey(bars[bars.length - 1].key)
+    }
+  }, [activeBarKey, bars])
 
   const maxTotal = Math.max(1, ...bars.map((bar) => bar.total))
-  const hoveredBar = bars.find((bar) => bar.key === hoveredBarKey) ?? bars[bars.length - 1] ?? null
+  const activeBar = bars.find((bar) => bar.key === activeBarKey) ?? bars[bars.length - 1] ?? null
+  const syncedMinutesAgo = totalOverviewQuery.dataUpdatedAt
+    ? Math.max(0, Math.floor((nowTick - totalOverviewQuery.dataUpdatedAt) / 60_000))
+    : null
+  const syncedLabel =
+    syncedMinutesAgo === null
+      ? t('common.loading')
+      : syncedMinutesAgo === 0
+        ? t('dashboard.justNow')
+        : `${syncedMinutesAgo} ${t('dashboard.minutesAgo')}`
 
   return (
     <div className="space-y-5">
@@ -184,7 +213,10 @@ export function DashboardPage() {
             <p className="mt-4 font-headline text-5xl font-extrabold">
               {formatCurrency(totalOverviewQuery.data?.total_assets ?? 0)}
             </p>
-            <p className="mt-4 text-xs text-primary-fixed">{t('dashboard.lastSynced')} 2 {t('dashboard.minutesAgo')}</p>
+            <p className="mt-3 text-sm text-primary-fixed">
+              Net <span>{formatCurrency(derived.net)}</span>
+            </p>
+            <p className="mt-4 text-xs text-primary-fixed">{t('dashboard.lastSynced')} {syncedLabel}</p>
           </article>
         </div>
 
@@ -192,7 +224,7 @@ export function DashboardPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">{t('analytics.trend')}</h3>
-              <p className="mt-2 text-sm text-on-surface-variant">Hover bars to inspect monthly income/expense totals.</p>
+              <p className="mt-2 text-sm text-on-surface-variant">Tap or hover bars to inspect monthly income and expense totals.</p>
             </div>
             <div className="mt-1 flex items-center gap-4 text-xs font-semibold">
               <span className="flex items-center gap-2 text-on-surface-variant">
@@ -215,14 +247,13 @@ export function DashboardPage() {
                   <button
                     type="button"
                     className={`relative h-full rounded-xl border p-1 text-left transition ${
-                      hoveredBar?.key === bar.key
+                      activeBar?.key === bar.key
                         ? 'border-primary/50 bg-surface-container'
                         : 'border-outline/10 bg-surface-container-low'
                     }`}
-                    onMouseEnter={() => setHoveredBarKey(bar.key)}
-                    onMouseLeave={() => setHoveredBarKey(null)}
-                    onFocus={() => setHoveredBarKey(bar.key)}
-                    onBlur={() => setHoveredBarKey(null)}
+                    onMouseEnter={() => setActiveBarKey(bar.key)}
+                    onFocus={() => setActiveBarKey(bar.key)}
+                    onClick={() => setActiveBarKey(bar.key)}
                     title={`${bar.label} • ${t('dashboard.income')} ${formatCurrency(bar.income)} • ${t('dashboard.expense')} ${formatCurrency(bar.expense)}`}
                   >
                     <div
@@ -245,11 +276,11 @@ export function DashboardPage() {
             })}
           </div>
 
-          {hoveredBar ? (
+          {activeBar ? (
             <div className="mt-4 rounded-xl border border-outline/15 bg-surface-container-low px-4 py-3 text-sm text-on-surface">
-              <span className="font-semibold">{hoveredBar.label}</span>
-              <span className="ml-4 text-primary">{t('dashboard.income')}: {formatCurrency(hoveredBar.income)}</span>
-              <span className="ml-4 text-rose-600">{t('dashboard.expense')}: {formatCurrency(hoveredBar.expense)}</span>
+              <span className="font-semibold">{activeBar.label}</span>
+              <span className="ml-4 text-primary">{t('dashboard.income')}: {formatCurrency(activeBar.income)}</span>
+              <span className="ml-4 text-rose-600">{t('dashboard.expense')}: {formatCurrency(activeBar.expense)}</span>
             </div>
           ) : null}
 

@@ -1,5 +1,6 @@
-﻿import { ChevronLeft, ChevronRight, Search, Upload } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight, Search, Upload } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/ui/dialog-shell'
 import { SelectField } from '@/components/ui/select-field'
@@ -34,6 +35,9 @@ function getMonthGrid(baseDate: Date) {
 }
 
 export function TransactionsPage() {
+  const [searchParams] = useSearchParams()
+  const searchParamQ = (searchParams.get('q') ?? '').trim()
+
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
@@ -47,6 +51,13 @@ export function TransactionsPage() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [importFile, setImportFile] = useState<File | null>(null)
   const [dateRangePreset, setDateRangePreset] = useState<'7' | '30' | '120' | '365'>('120')
+  const [listSearchQuery, setListSearchQuery] = useState(searchParamQ)
+  const [selectedAccountFilter, setSelectedAccountFilter] = useState('')
+  const [selectedLedgerFilter, setSelectedLedgerFilter] = useState('')
+
+  useEffect(() => {
+    setListSearchQuery(searchParamQ)
+  }, [searchParamQ])
 
   const monthCells = useMemo(() => getMonthGrid(activeMonth), [activeMonth])
   const monthRange = useMemo(() => {
@@ -79,6 +90,8 @@ export function TransactionsPage() {
     pageSize: 200,
     dateFrom: listRange.from,
     dateTo: listRange.to,
+    accountId: selectedAccountFilter || undefined,
+    ledgerId: selectedLedgerFilter || undefined,
   })
   const options = useTransactionFormOptions()
   const createTransactionMutation = useCreateTransaction()
@@ -91,6 +104,20 @@ export function TransactionsPage() {
   const accounts = options.accountsQuery.data?.items ?? []
   const ledgers = options.ledgersQuery.data?.items ?? []
   const tags = options.tagsQuery.data?.items ?? []
+
+  const selectedAccountName = accounts.find((account) => account.id === selectedAccountFilter)?.name
+  const selectedLedgerName = ledgers.find((ledger) => ledger.id === selectedLedgerFilter)?.name
+  const normalizedListSearchQuery = listSearchQuery.trim().toLowerCase()
+
+  const filteredListTransactions = useMemo(() => {
+    if (!normalizedListSearchQuery) {
+      return listTransactions
+    }
+    return listTransactions.filter((tx) => {
+      const candidates = [tx.id, tx.category_name ?? '', tx.memo ?? '', tx.type, tx.occurred_at]
+      return candidates.join(' ').toLowerCase().includes(normalizedListSearchQuery)
+    })
+  }, [listTransactions, normalizedListSearchQuery])
 
   const txByDay = useMemo(() => {
     const map = new Map<string, TransactionRecord[]>()
@@ -142,6 +169,11 @@ export function TransactionsPage() {
     event.preventDefault()
     const ledger = ledgers[0]
     if (!ledger?.id) return
+
+    const parsedDate = date ? new Date(`${date}T00:00:00`) : null
+    const occurredAt =
+      parsedDate && Number.isFinite(parsedDate.getTime()) ? parsedDate.toISOString() : undefined
+
     await createTransactionMutation.mutateAsync({
       ledger_id: ledger.id,
       account_id: accountId || undefined,
@@ -149,12 +181,14 @@ export function TransactionsPage() {
       type: transactionType,
       amount: Number(amount),
       memo: memo || undefined,
+      occurred_at: occurredAt,
     })
     setShowAddDialog(false)
     setAmount('')
     setCategoryId('')
     setAccountId('')
     setMemo('')
+    setDate(new Date().toISOString().slice(0, 10))
   }
 
   async function handlePreviewImport(event: React.FormEvent<HTMLFormElement>) {
@@ -211,20 +245,41 @@ export function TransactionsPage() {
                   <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Search Ledger</span>
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
-                    <input className="h-11 w-full rounded-xl border border-outline/20 bg-white pl-9 pr-3 text-sm" placeholder="Transaction ID, vendor, or note..." />
+                    <input
+                      className="h-11 w-full rounded-xl border border-outline/20 bg-white pl-9 pr-3 text-sm"
+                      placeholder="Transaction ID, category, or note..."
+                      value={listSearchQuery}
+                      onChange={(event) => setListSearchQuery(event.target.value)}
+                    />
                   </div>
                 </label>
                 <label className="space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Account</span>
-                  <select className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm">
-                    <option>All Accounts</option>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Source</span>
+                  <select
+                    className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm"
+                    value={selectedAccountFilter}
+                    onChange={(event) => setSelectedAccountFilter(event.target.value)}
+                  >
+                    <option value="">All Accounts</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label className="space-y-2">
                   <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Ledger</span>
-                  <select className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm">
-                    {ledgers.slice(0, 1).map((ledger) => (
-                      <option key={ledger.id}>{ledger.name}</option>
+                  <select
+                    className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm"
+                    value={selectedLedgerFilter}
+                    onChange={(event) => setSelectedLedgerFilter(event.target.value)}
+                  >
+                    <option value="">All Ledgers</option>
+                    {ledgers.map((ledger) => (
+                      <option key={ledger.id} value={ledger.id}>
+                        {ledger.name}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -253,15 +308,15 @@ export function TransactionsPage() {
                 <p>Tags</p>
                 <p className="text-right">Amount</p>
               </div>
-              {listTransactions.map((tx) => (
+              {filteredListTransactions.map((tx) => (
                 <div key={tx.id} className="grid grid-cols-[1.7fr_1fr_1fr_1fr_0.8fr_1fr] items-center border-t border-outline/10 px-5 py-4">
                   <div>
                     <p className="font-semibold text-on-surface">{tx.category_name ?? 'Uncategorized'}</p>
                     <p className="text-xs text-on-surface-variant">备注：{tx.memo?.trim() || '暂无备注'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-on-surface">{accounts[0]?.name ?? 'Account'}</p>
-                    <p className="text-xs uppercase text-on-surface-variant">{ledgers[0]?.name ?? 'Ledger'}</p>
+                    <p className="text-sm text-on-surface">{selectedAccountName ?? 'Multiple accounts'}</p>
+                    <p className="text-xs uppercase text-on-surface-variant">{selectedLedgerName ?? 'Multiple ledgers'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-on-surface">{new Date(tx.occurred_at).toLocaleDateString()}</p>
@@ -277,14 +332,13 @@ export function TransactionsPage() {
                     </span>
                   </div>
                   <p className={`text-right text-4xl font-extrabold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {tx.type === 'income' ? '+' : '-'}
                     {formatCurrency(Math.abs(tx.amount))}
                   </p>
                 </div>
               ))}
-              {listTransactions.length === 0 ? (
+              {filteredListTransactions.length === 0 ? (
                 <div className="border-t border-outline/10 px-5 py-8 text-center text-sm text-on-surface-variant">
-                  No transactions yet.
+                  No matching transactions.
                 </div>
               ) : null}
             </article>
@@ -424,7 +478,7 @@ export function TransactionsPage() {
               <p className="mt-4 text-3xl font-semibold text-on-surface">Click to upload or drag and drop</p>
               <p className="mt-2 text-sm text-on-surface-variant">Supported formats: .CSV (max file size 10MB)</p>
               <span className="mt-6 rounded-lg border border-primary px-6 py-2 text-sm font-semibold text-primary">Select Files</span>
-              <input id="csv-file" type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => setImportFile(event.target.files?.[0] ?? null)} />
+              <input id="csv-file" type="file" accept=".csv,text/csv" aria-label="CSV file" className="hidden" onChange={(event) => setImportFile(event.target.files?.[0] ?? null)} />
             </label>
             {importFile ? <p className="text-sm text-on-surface">Selected: {importFile.name}</p> : null}
             {importPreviewMutation.isError ? (
@@ -528,4 +582,3 @@ export function TransactionsPage() {
     </div>
   )
 }
-

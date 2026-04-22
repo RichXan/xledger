@@ -1,5 +1,6 @@
 import { Bell, CircleHelp, Download, RefreshCcw, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/ui/dialog-shell'
 import { TextField } from '@/components/ui/text-field'
@@ -12,7 +13,13 @@ import { changeLanguage, getCurrentLanguage, supportedLanguages } from '@/i18n'
 export function TopBar() {
   const { logout, session, updateDisplayName, changePassword } = useAuth()
   const displayName = useMemo(() => session?.name || session?.email || 'Ledger User', [session?.email, session?.name])
+  const location = useLocation()
+  const navigate = useNavigate()
+
   const [profileOpen, setProfileOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [searchInput, setSearchInput] = useState('')
   const [displayNameInput, setDisplayNameInput] = useState(displayName)
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -32,6 +39,22 @@ export function TopBar() {
   useEffect(() => {
     setDisplayNameInput(displayName)
   }, [displayName])
+
+  useEffect(() => {
+    if (location.pathname !== '/transactions') return
+    const q = new URLSearchParams(location.search).get('q') ?? ''
+    setSearchInput(q)
+  }, [location.pathname, location.search])
+
+  function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const query = searchInput.trim()
+    if (!query) {
+      navigate('/transactions')
+      return
+    }
+    navigate(`/transactions?q=${encodeURIComponent(query)}`)
+  }
 
   async function handleSaveProfile() {
     setPending(true)
@@ -75,21 +98,24 @@ export function TopBar() {
     <>
       <header className="sticky top-0 z-20 border-b border-outline/15 bg-surface-container-lowest/85 px-4 py-3 backdrop-blur md:px-6">
         <div className="mx-auto flex w-full max-w-[1800px] items-center justify-between gap-4">
-          <label className="relative hidden w-full max-w-[460px] lg:block">
+          <form className="relative hidden w-full max-w-[460px] lg:block" onSubmit={handleSearchSubmit}>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
             <input
-              readOnly
-              value=""
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Search transactions..."
-              className="h-11 w-full rounded-xl border border-outline/20 bg-surface-container-low pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant/70"
+              className="h-11 w-full rounded-xl border border-outline/20 bg-surface-container-low pl-9 pr-24 text-sm text-on-surface placeholder:text-on-surface-variant/70"
             />
-          </label>
+            <Button type="submit" variant="ghost" className="absolute right-1.5 top-1.5 h-8 px-3 text-xs">
+              Search
+            </Button>
+          </form>
 
           <div className="ml-auto flex items-center gap-2.5">
             <select
               value={currentLang}
               onChange={handleLanguageChange}
-              className="h-10 rounded-xl border border-outline/20 bg-surface-container-low px-2 text-sm text-on-surface-variant transition hover:bg-surface-container cursor-pointer"
+              className="h-10 cursor-pointer rounded-xl border border-outline/20 bg-surface-container-low px-2 text-sm text-on-surface-variant transition hover:bg-surface-container"
               aria-label="Select language"
             >
               {supportedLanguages.map((lang) => (
@@ -102,6 +128,7 @@ export function TopBar() {
               type="button"
               className="grid h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container"
               aria-label="Notifications"
+              onClick={() => setNotificationsOpen(true)}
             >
               <Bell className="h-4 w-4" />
             </button>
@@ -109,6 +136,7 @@ export function TopBar() {
               type="button"
               className="grid h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container"
               aria-label="Help"
+              onClick={() => setHelpOpen(true)}
             >
               <CircleHelp className="h-4 w-4" />
             </button>
@@ -153,6 +181,57 @@ export function TopBar() {
           </div>
         </div>
       </header>
+
+      {notificationsOpen ? (
+        <DialogShell
+          title="Notifications"
+          description="Recent operational reminders and activity."
+          onClose={() => setNotificationsOpen(false)}
+          className="max-w-xl"
+          footer={
+            <Button variant="secondary" onClick={() => setNotificationsOpen(false)}>
+              Close
+            </Button>
+          }
+        >
+          <div className="space-y-3">
+            <div className="rounded-xl border border-outline/15 bg-surface-container-low p-4 text-sm text-on-surface">
+              No critical alerts right now. Your ledger services are running normally.
+            </div>
+            <div className="rounded-xl border border-outline/15 bg-surface-container-low p-4 text-sm text-on-surface">
+              Tip: Use the search box to jump to transactions by ID, category, or note.
+            </div>
+          </div>
+        </DialogShell>
+      ) : null}
+
+      {helpOpen ? (
+        <DialogShell
+          title="Quick Help"
+          description="Common paths to get value faster."
+          onClose={() => setHelpOpen(false)}
+          className="max-w-xl"
+          footer={
+            <Button
+              onClick={() => {
+                setHelpOpen(false)
+                navigate('/transactions')
+              }}
+            >
+              Go To Transactions
+            </Button>
+          }
+        >
+          <div className="space-y-3 text-sm text-on-surface">
+            <p className="rounded-xl border border-outline/15 bg-surface-container-low p-4">
+              Add entries quickly from <strong>Transactions</strong>, then review trends in <strong>Analytics</strong>.
+            </p>
+            <p className="rounded-xl border border-outline/15 bg-surface-container-low p-4">
+              Use <strong>Settings → Export CSV</strong> for backup, and <strong>Apple Shortcuts</strong> for fast mobile capture.
+            </p>
+          </div>
+        </DialogShell>
+      ) : null}
 
       {profileOpen ? (
         <DialogShell
