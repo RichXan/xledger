@@ -33,6 +33,23 @@ This flow will:
 - run `go test ./...`
 - smoke-run `go run ./cmd/api` to verify startup can connect to both Postgres and Redis
 
+## Full deployment stack
+
+If you want to run the full application stack in a deployment-oriented way, use the root `deploy/` directory instead of the backend-only compose files:
+
+```bash
+cd ../deploy
+docker compose up -d --build
+docker compose ps
+docker compose down
+```
+
+This flow will:
+- start `postgres`, `redis`, `xledger-backend`, and `xledger-frontend`
+- serve the frontend through Nginx on port `4173`
+- expose the backend API on port `8080`
+- use `deploy/backend.config.yaml` as the backend runtime config
+
 ## API contract
 
 - Base prefix: `/api`

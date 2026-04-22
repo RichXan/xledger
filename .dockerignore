@@ -1,0 +1,15 @@
+.git
+.worktrees
+.claude
+.qodo
+.vite
+
+frontend/app/node_modules
+frontend/app/dist
+frontend/app/.npm-cache
+frontend/app/.local
+frontend/app/playwright-report
+frontend/app/test-results
+
+backend/.env
+backend/config/config.yaml

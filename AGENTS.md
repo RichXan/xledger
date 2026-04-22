@@ -1,71 +1,78 @@
-# AGENTS.md (Root)
+# AGENTS.md（根目录）
 
-This file provides guidance to AI coding agents when working with code in this repository.
+本文件为 AI 编码代理在此仓库中工作时提供指引。
 
-## Quick Reference
+## 快速参考
 
 ```bash
-# Backend (from /backend)
-go test ./...                                    # All tests
-go test ./internal/accounting -run TestCreate     # Single test
-go fmt ./... && go vet ./...                      # Format + lint
+# 完整部署（在 /deploy 目录执行）
+docker compose up -d --build                      # 启动完整部署栈
+docker compose ps                                 # 查看服务状态
+docker compose down                               # 停止部署栈
 
-# Frontend (from /frontend/app)
-pnpm run dev                                     # Dev server
-pnpm run test                                    # All tests
-pnpm run test -- src/App.test.tsx                # Single test
-pnpm run check                                   # Lint + test
+# 后端（在 /backend 目录执行）
+go test ./...                                    # 全量测试
+go test ./internal/accounting -run TestCreate     # 单个测试
+go fmt ./... && go vet ./...                      # 格式化 + 静态检查
 
-# Root Makefile
+# 前端（在 /frontend/app 目录执行）
+pnpm run dev                                     # 开发服务器
+pnpm run test                                    # 全量测试
+pnpm run test -- src/App.test.tsx                # 单个测试
+pnpm run check                                   # Lint + 测试
+
+# 根目录 Makefile
 make setup | make backend | make frontend | make migrate-up | make clean
 ```
 
-## Hierarchy
+## 层级说明
 
-| Path | Domain |
-|------|--------|
-| `backend/AGENTS.md` | Backend overview, commands, conventions |
-| `backend/internal/accounting/AGENTS.md` | Ledgers, accounts, transactions, transfers |
-| `backend/internal/auth/AGENTS.md` | Auth, sessions, OAuth |
-| `backend/internal/bootstrap/AGENTS.md` | DI wiring, router, infra |
-| `backend/internal/classification/AGENTS.md` | Categories, tags |
-| `backend/internal/portability/AGENTS.md` | Import/export, PATs |
-| `backend/internal/reporting/AGENTS.md` | Stats, trends |
-| `frontend/app/src/features/AGENTS.md` | Feature pattern, API/hooks convention |
+| 路径 | 领域 |
+|------|------|
+| `backend/AGENTS.md` | 后端概览、命令、约定 |
+| `backend/internal/accounting/AGENTS.md` | 账本、账户、交易、转账 |
+| `backend/internal/auth/AGENTS.md` | 认证、会话、OAuth |
+| `backend/internal/bootstrap/AGENTS.md` | DI 装配、路由、基础设施 |
+| `backend/internal/classification/AGENTS.md` | 分类、标签 |
+| `backend/internal/portability/AGENTS.md` | 导入/导出、PAT |
+| `backend/internal/reporting/AGENTS.md` | 统计、趋势 |
+| `frontend/app/src/features/AGENTS.md` | Feature 模式、API/hooks 约定 |
 
-## Code Style
+## 代码风格
 
 ### TypeScript/React
-- Imports: `@/` alias, group external → internal → relative
-- Components: PascalCase. Functions: camelCase.
-- Types: `interface` for objects, `type` for unions
-- Hooks: `use` prefix, colocate in `*-hooks.ts`
-- Exports: Named preferred, default for pages only
+- Imports：使用 `@/` 别名，按 external → internal → relative 分组
+- Components：使用 PascalCase；函数使用 camelCase
+- Types：对象优先使用 `interface`，联合类型使用 `type`
+- Hooks：使用 `use` 前缀，并与功能代码同目录放在 `*-hooks.ts`
+- Exports：优先使用命名导出，只有 page 允许默认导出
 
 ### Go
-- Error codes: Package constants (`LEDGER_INVALID`)
-- Error types: `contractError` with code
-- Packages: Organize by domain
-- Testing: Table-driven, test files beside implementation
+- 错误码：使用包内常量（如 `LEDGER_INVALID`）
+- 错误类型：使用带 code 的 `contractError`
+- Packages：按领域组织
+- Testing：采用表驱动，测试文件与实现文件同目录
 
-## Anti-Patterns
+## 反模式
 
-1. **No `as any` or `@ts-ignore`** — Fix types properly
-2. **No empty catch blocks** — Always handle errors
-3. **Migrations are append-only** — Never modify existing
-4. **PRD.md is source of truth** — Read before accounting changes
+1. **不要使用 `as any` 或 `@ts-ignore`** — 应正确修复类型问题
+2. **不要写空的 catch 块** — 必须显式处理错误
+3. **迁移文件是追加式的** — 不要修改已有迁移
+4. **`PRD.md` 是事实来源** — 改动记账逻辑前先阅读
 
-## Key Files
+## 关键文件
 
-| File | Purpose |
-|------|---------|
-| `PRD.md` | Product requirements, accounting rules |
-| `backend/openapi/openapi.yaml` | API contract |
-| `frontend/app/src/lib/api.ts` | HTTP client, response types |
-| `backend/internal/bootstrap/http/router.go` | Route registration, DI |
-| `Makefile` | Common dev commands |
+| 文件 | 用途 |
+|------|------|
+| `PRD.md` | 产品需求与记账规则 |
+| `backend/openapi/openapi.yaml` | API 合约 |
+| `frontend/app/src/lib/api.ts` | HTTP 客户端、响应类型 |
+| `backend/internal/bootstrap/http/router.go` | 路由注册、DI |
+| `deploy/docker-compose.yaml` | 完整部署栈入口 |
+| `deploy/README.md` | 部署说明 |
+| `Makefile` | 常用开发命令 |
 
-## Environment Variables
+## 环境变量
 
-Required: `SMTP_HOST`, `AUTH_CODE_PEPPER`
-Optional: `DATABASE_URL` (omit for in-memory), `REDIS_URL`
+必需：`SMTP_HOST`、`AUTH_CODE_PEPPER`
+可选：`DATABASE_URL`（留空则使用内存模式）、`REDIS_URL`

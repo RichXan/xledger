@@ -1,0 +1,82 @@
+# 完整部署编排：Postgres + Redis + Backend + Frontend
+# 在 deploy/ 目录执行：
+#   docker compose up -d --build
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-docker.m.daocloud.io/library/postgres:16-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: xledger
+      POSTGRES_PASSWORD: xledger_secret
+      POSTGRES_DB: xledger
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xledger -d xledger"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: ${REDIS_IMAGE:-docker.m.daocloud.io/library/redis:7-alpine}
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  xledger-backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      args:
+        GOLANG_IMAGE: ${GOLANG_IMAGE:-docker.m.daocloud.io/library/golang:1.22-alpine}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      CONFIG_FILE: /app/config/config.yaml
+    volumes:
+      - ./backend.config.yaml:/app/config/config.yaml:ro
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  xledger-frontend:
+    build:
+      context: ..
+      dockerfile: deploy/frontend.Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-docker.m.daocloud.io/library/node:20-alpine}
+        NGINX_IMAGE: ${NGINX_IMAGE:-docker.m.daocloud.io/library/nginx:1.27-alpine}
+    restart: unless-stopped
+    depends_on:
+      xledger-backend:
+        condition: service_healthy
+    ports:
+      - "4173:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

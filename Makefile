@@ -1,4 +1,4 @@
-.PHONY: help install-node install-pnpm setup backend frontend migrate-up migrate-down migrate-status clean
+.PHONY: help install-node install-pnpm setup backend frontend migrate-up migrate-down migrate-status deploy-up deploy-down deploy-ps deploy-logs clean
 
 NODE_VERSION := 20.19.0
 NODE_DIR := /tmp/node-v$(NODE_VERSION)-linux-x64
@@ -14,6 +14,10 @@ help:
 	@echo "  make migrate-up      - Run all pending migrations"
 	@echo "  make migrate-down    - Rollback the last migration"
 	@echo "  make migrate-status  - Show migration status"
+	@echo "  make deploy-up       - Start full deploy stack with Docker Compose"
+	@echo "  make deploy-down     - Stop full deploy stack"
+	@echo "  make deploy-ps       - Show full deploy stack status"
+	@echo "  make deploy-logs     - Tail full deploy stack logs"
 	@echo "  make clean           - Stop all services"
 
 install-node:
@@ -60,9 +64,26 @@ migrate-status:
 	@echo "Checking migration status..."
 	cd backend && CONFIG_FILE=config/config.yaml go run ./cmd/api migrate status
 
+deploy-up:
+	@echo "Starting full deploy stack..."
+	cd deploy && docker compose up -d --build
+
+deploy-down:
+	@echo "Stopping full deploy stack..."
+	cd deploy && docker compose down
+
+deploy-ps:
+	@echo "Showing full deploy stack status..."
+	cd deploy && docker compose ps
+
+deploy-logs:
+	@echo "Tailing full deploy stack logs..."
+	cd deploy && docker compose logs -f
+
 clean:
 	@echo "Stopping all services..."
 	docker compose -f backend/docker-compose.backend.yml down -v
+	cd deploy && docker compose down 2>/dev/null || true
 	pkill -f "vite" 2>/dev/null || true
 	pkill -f "go run" 2>/dev/null || true
 	@echo "All services stopped!"
