@@ -48,7 +48,7 @@ This flow will:
 - start `postgres`, `redis`, `xledger-backend`, and `xledger-frontend`
 - serve the frontend through Nginx on port `4173`
 - expose the backend API on port `8080`
-- use `deploy/backend.config.yaml` as the backend runtime config
+- use `backend/config/config.yaml` as the backend config source for deployment
 
 ## API contract
 

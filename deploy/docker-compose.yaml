@@ -46,10 +46,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    environment:
-      CONFIG_FILE: /app/config/config.yaml
+    command: ["/bin/sh", "/app/backend-entrypoint.sh"]
     volumes:
-      - ./backend.config.yaml:/app/config/config.yaml:ro
+      - ../backend/config/config.yaml:/app/config/source-config.yaml:ro
+      - ./backend-entrypoint.sh:/app/backend-entrypoint.sh:ro
     ports:
       - "8080:8080"
     healthcheck:
