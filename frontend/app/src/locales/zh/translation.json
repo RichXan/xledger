@@ -52,6 +52,7 @@
   },
   "dashboard": {
     "title": "财务概览",
+    "subtitle": "实时跟踪现金流，按清晰步骤完善你的账本。",
     "income": "收入",
     "expense": "支出",
     "totalAssets": "总资产",

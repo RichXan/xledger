@@ -1,0 +1,32 @@
+{
+  "name": "xledger-e2e-tests",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "e2e": "playwright test --config=playwright.config.ts --grep-invert @visual|@a11y",
+    "e2e:ci": "CI=true playwright test --config=playwright.config.ts --grep-invert @visual|@a11y",
+    "e2e:visual": "playwright test --config=playwright.config.ts --grep @visual",
+    "e2e:visual:update": "playwright test --config=playwright.config.ts --grep @visual --update-snapshots",
+    "e2e:a11y": "playwright test --config=playwright.config.ts --grep @a11y",
+    "e2e:accounts": "playwright test --config=playwright.config.ts e2e/accounts.spec.ts",
+    "e2e:account-ledger": "playwright test --config=playwright.config.ts e2e/account-ledger-management.spec.ts",
+    "e2e:transactions": "playwright test --config=playwright.config.ts e2e/transactions.spec.ts",
+    "e2e:transfer": "playwright test --config=playwright.config.ts e2e/transfer-lifecycle.spec.ts",
+    "e2e:reporting": "playwright test --config=playwright.config.ts e2e/reporting.spec.ts",
+    "e2e:classification": "playwright test --config=playwright.config.ts e2e/classification-export.spec.ts",
+    "e2e:pat": "playwright test --config=playwright.config.ts e2e/pat.spec.ts",
+    "e2e:headed": "playwright test --config=playwright.config.ts --headed",
+    "e2e:ui": "playwright test --config=playwright.config.ts --ui",
+    "e2e:report": "playwright show-report",
+    "e2e:install": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.2",
+    "@midscene/web": "^1.7.5",
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^24.10.0",
+    "dotenv": "^17.2.3",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,4 +1,4 @@
-import { Bell, CircleHelp, Download, RefreshCcw, Search } from 'lucide-react'
+import { Bell, CircleHelp, CircleUserRound, Download, LogOut, RefreshCcw, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -94,6 +94,13 @@ export function TopBar() {
     }
   }
 
+  function openProfileDialog() {
+    setProfileOpen(true)
+    setDisplayNameInput(displayName)
+    setError(null)
+    setNotice(null)
+  }
+
   return (
     <>
       <header className="sticky top-0 z-20 border-b border-outline/15 bg-surface-container-lowest/85 px-4 py-3 backdrop-blur md:px-6">
@@ -111,11 +118,11 @@ export function TopBar() {
             </Button>
           </form>
 
-          <div className="ml-auto flex items-center gap-2.5">
+          <div className="ml-auto flex items-center gap-2 md:gap-2.5">
             <select
               value={currentLang}
               onChange={handleLanguageChange}
-              className="h-10 cursor-pointer rounded-xl border border-outline/20 bg-surface-container-low px-2 text-sm text-on-surface-variant transition hover:bg-surface-container"
+              className="h-10 w-[72px] cursor-pointer rounded-xl border border-outline/20 bg-surface-container-low px-2 text-sm text-on-surface-variant transition hover:bg-surface-container md:w-auto"
               aria-label="Select language"
             >
               {supportedLanguages.map((lang) => (
@@ -126,7 +133,7 @@ export function TopBar() {
             </select>
             <button
               type="button"
-              className="grid h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container"
+              className="hidden h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:grid"
               aria-label="Notifications"
               onClick={() => setNotificationsOpen(true)}
             >
@@ -134,7 +141,7 @@ export function TopBar() {
             </button>
             <button
               type="button"
-              className="grid h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container"
+              className="hidden h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:grid"
               aria-label="Help"
               onClick={() => setHelpOpen(true)}
             >
@@ -143,7 +150,7 @@ export function TopBar() {
             {canInstall ? (
               <Button
                 variant="secondary"
-                className="h-10 px-3"
+                className="hidden h-10 px-3 md:inline-flex"
                 onClick={() => {
                   void install()
                 }}
@@ -153,20 +160,23 @@ export function TopBar() {
               </Button>
             ) : null}
             {updateAvailable ? (
-              <Button variant="secondary" className="h-10 px-3" onClick={() => void updateNow()} disabled={updating}>
+              <Button variant="secondary" className="hidden h-10 px-3 md:inline-flex" onClick={() => void updateNow()} disabled={updating}>
                 <RefreshCcw className="mr-1 h-4 w-4" />
                 {updating ? 'Updating...' : 'Update App'}
               </Button>
             ) : null}
             <button
               type="button"
-              className="hidden items-center gap-3 rounded-xl bg-surface-container-low px-3 py-2 sm:flex"
-              onClick={() => {
-                setProfileOpen(true)
-                setDisplayNameInput(displayName)
-                setError(null)
-                setNotice(null)
-              }}
+              className="grid h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:hidden"
+              aria-label="Open profile"
+              onClick={openProfileDialog}
+            >
+              <CircleUserRound className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="hidden items-center gap-3 rounded-xl bg-surface-container-low px-3 py-2 md:flex"
+              onClick={openProfileDialog}
             >
               <div className="text-right leading-tight">
                 <p className="text-sm font-semibold text-on-surface">{displayName}</p>
@@ -175,8 +185,9 @@ export function TopBar() {
                 {(displayName[0] ?? 'U').toUpperCase()}
               </div>
             </button>
-            <Button variant="ghost" className="px-3 py-2" onClick={() => void logout()}>
-              Logout
+            <Button variant="ghost" className="px-2 py-2 md:px-3" onClick={() => void logout()} aria-label="Logout">
+              <LogOut className="h-4 w-4 md:hidden" />
+              <span className="hidden md:inline">Logout</span>
             </Button>
           </div>
         </div>

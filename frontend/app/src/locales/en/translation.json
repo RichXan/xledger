@@ -52,6 +52,7 @@
   },
   "dashboard": {
     "title": "Financial Overview",
+    "subtitle": "Track cashflow in real time and keep your books healthy with clear next steps.",
     "income": "Income",
     "expense": "Expense",
     "totalAssets": "Total Assets",

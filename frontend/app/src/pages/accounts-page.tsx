@@ -1,4 +1,6 @@
+import { Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/ui/dialog-shell'
 import { PageSection } from '@/components/ui/page-section'
@@ -15,6 +17,7 @@ import {
 import { formatCurrency } from '@/lib/format'
 
 export function AccountsPage() {
+  const navigate = useNavigate()
   const [showDialog, setShowDialog] = useState(false)
   const [editingAccountID, setEditingAccountID] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -26,6 +29,10 @@ export function AccountsPage() {
   const [ledgerName, setLedgerName] = useState('')
   const [editingLedgerID, setEditingLedgerID] = useState<string | null>(null)
   const [editingLedgerName, setEditingLedgerName] = useState('')
+  const [categoryQuery, setCategoryQuery] = useState('')
+  const [tagQuery, setTagQuery] = useState('')
+  const [showAllCategories, setShowAllCategories] = useState(false)
+  const [showAllTags, setShowAllTags] = useState(false)
 
   const { accountsQuery, ledgersQuery, categoriesQuery, tagsQuery } = useManagementOverview()
   const createAccountMutation = useCreateAccount()
@@ -38,6 +45,23 @@ export function AccountsPage() {
   const ledgers = ledgersQuery.data?.items ?? []
   const categories = categoriesQuery.data?.items ?? []
   const tags = tagsQuery.data?.items ?? []
+  const normalizedCategoryQuery = categoryQuery.trim().toLowerCase()
+  const normalizedTagQuery = tagQuery.trim().toLowerCase()
+
+  const filteredCategories = useMemo(() => {
+    if (!normalizedCategoryQuery) return categories
+    return categories.filter((category) => category.name.toLowerCase().includes(normalizedCategoryQuery))
+  }, [categories, normalizedCategoryQuery])
+
+  const filteredTags = useMemo(() => {
+    if (!normalizedTagQuery) return tags
+    return tags.filter((tag) => tag.name.toLowerCase().includes(normalizedTagQuery))
+  }, [normalizedTagQuery, tags])
+
+  const categoryPreviewCount = 16
+  const tagPreviewCount = 14
+  const visibleCategories = showAllCategories ? filteredCategories : filteredCategories.slice(0, categoryPreviewCount)
+  const visibleTags = showAllTags ? filteredTags : filteredTags.slice(0, tagPreviewCount)
 
   const totals = useMemo(
     () => accounts.reduce((acc, account) => acc + (Number.isFinite(account.initial_balance) ? account.initial_balance : 0), 0),
@@ -119,7 +143,13 @@ export function AccountsPage() {
               ))}
               {accounts.length === 0 ? (
                 <div className="rounded-xl border border-outline/10 bg-white p-4 text-sm text-on-surface-variant">
-                  No accounts yet. Create your first account to start tracking balances.
+                  <p>No accounts yet. Create your first account to start tracking balances.</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button className="px-3 py-1.5 text-xs" onClick={() => setShowDialog(true)}>Create first account</Button>
+                    <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => navigate('/transactions')}>
+                      Go to Transactions
+                    </Button>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -155,28 +185,79 @@ export function AccountsPage() {
                     </div>
                   </div>
                 ))}
+                {ledgers.length === 0 ? (
+                  <div className="rounded-xl border border-outline/10 bg-white p-4 text-sm text-on-surface-variant">
+                    No ledgers yet. Create one to organize reporting by scenario.
+                  </div>
+                ) : null}
               </div>
             </article>
 
             <article className="rounded-2xl border border-outline/10 bg-surface-container-low p-5">
-              <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">Categories</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {categories.map((category) => (
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
+                  Categories ({filteredCategories.length})
+                </p>
+                {filteredCategories.length > categoryPreviewCount ? (
+                  <Button className="px-2.5 py-1 text-xs" variant="ghost" onClick={() => setShowAllCategories((current) => !current)}>
+                    {showAllCategories ? 'Show less' : 'Show all'}
+                  </Button>
+                ) : null}
+              </div>
+              <div className="mt-3">
+                <label className="relative block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
+                  <input
+                    value={categoryQuery}
+                    onChange={(event) => setCategoryQuery(event.target.value)}
+                    placeholder="Search categories..."
+                    className="h-10 w-full rounded-xl border border-outline/20 bg-white pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant/70"
+                  />
+                </label>
+              </div>
+              <div className="mt-4 flex max-h-44 flex-wrap gap-2 overflow-auto pr-1">
+                {visibleCategories.map((category) => (
                   <span key={category.id} className="rounded-full border border-outline/10 bg-white px-3 py-1.5 text-sm text-on-surface">
                     {category.name}
                   </span>
                 ))}
+                {visibleCategories.length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">No categories found.</p>
+                ) : null}
               </div>
             </article>
 
             <article className="rounded-2xl border border-outline/10 bg-surface-container-low p-5">
-              <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">Tags</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {tags.map((tag) => (
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
+                  Tags ({filteredTags.length})
+                </p>
+                {filteredTags.length > tagPreviewCount ? (
+                  <Button className="px-2.5 py-1 text-xs" variant="ghost" onClick={() => setShowAllTags((current) => !current)}>
+                    {showAllTags ? 'Show less' : 'Show all'}
+                  </Button>
+                ) : null}
+              </div>
+              <div className="mt-3">
+                <label className="relative block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
+                  <input
+                    value={tagQuery}
+                    onChange={(event) => setTagQuery(event.target.value)}
+                    placeholder="Search tags..."
+                    className="h-10 w-full rounded-xl border border-outline/20 bg-white pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant/70"
+                  />
+                </label>
+              </div>
+              <div className="mt-4 flex max-h-40 flex-wrap gap-2 overflow-auto pr-1">
+                {visibleTags.map((tag) => (
                   <span key={tag.id} className="rounded-full border border-outline/10 bg-white px-3 py-1.5 text-sm text-on-surface">
                     {tag.name}
                   </span>
                 ))}
+                {visibleTags.length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">No tags found.</p>
+                ) : null}
               </div>
             </article>
           </div>

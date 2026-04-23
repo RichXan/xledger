@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 import { useCategoryStats, useTrendStatsRange } from '@/features/reporting/reporting-hooks'
 import { formatCurrency } from '@/lib/format'
 
@@ -36,6 +38,7 @@ function buildRange(mode: FilterMode, year: number, month: number) {
 }
 
 export function AnalyticsPage() {
+  const navigate = useNavigate()
   const now = new Date()
   const [mode, setMode] = useState<FilterMode>('month')
   const [year, setYear] = useState(String(now.getFullYear()))
@@ -161,6 +164,7 @@ export function AnalyticsPage() {
             <select
               value={mode}
               onChange={(event) => setMode(event.target.value as FilterMode)}
+              aria-label="Analytics grouping mode"
               className="h-9 rounded-lg border border-outline/20 bg-white px-3 text-sm"
             >
               <option value="month">By Month</option>
@@ -169,6 +173,7 @@ export function AnalyticsPage() {
             <select
               value={year}
               onChange={(event) => setYear(event.target.value)}
+              aria-label="Analytics year"
               className="h-9 rounded-lg border border-outline/20 bg-white px-3 text-sm"
             >
               {yearOptions.map((value) => (
@@ -181,6 +186,7 @@ export function AnalyticsPage() {
               <select
                 value={month}
                 onChange={(event) => setMonth(event.target.value)}
+                aria-label="Analytics month"
                 className="h-9 rounded-lg border border-outline/20 bg-white px-3 text-sm"
               >
                 {Array.from({ length: 12 }, (_, idx) => String(idx + 1).padStart(2, '0')).map((value) => (
@@ -271,7 +277,13 @@ export function AnalyticsPage() {
               </div>
             ) : (
               <div className="mt-6 rounded-xl bg-surface-container-low p-4 text-sm text-on-surface-variant">
-                No category data for selected range.
+                <p>No category data for selected range.</p>
+                <p className="mt-2">Create a few expense transactions to unlock category concentration insights.</p>
+                <div className="mt-3">
+                  <Button className="px-3 py-1.5 text-xs" onClick={() => navigate('/transactions')}>
+                    Add Transactions
+                  </Button>
+                </div>
               </div>
             )}
           </article>
@@ -310,6 +322,7 @@ export function AnalyticsPage() {
                         <button
                           type="button"
                           className="flex h-full flex-col justify-end rounded-xl bg-surface-container-low p-1 text-left"
+                          aria-label={`${point.label}: revenue ${formatCurrency(point.revenue)}, burn ${formatCurrency(point.investment)}`}
                           onMouseEnter={() => setActiveBarLabel(point.label)}
                           onFocus={() => setActiveBarLabel(point.label)}
                           onClick={() => setActiveBarLabel(point.label)}
@@ -334,7 +347,13 @@ export function AnalyticsPage() {
               </>
             ) : (
               <div className="mt-6 rounded-xl bg-surface-container-low p-4 text-sm text-on-surface-variant">
-                No trend data for selected range.
+                <p>No trend data for selected range.</p>
+                <p className="mt-2">Once you record income or expense entries, trend bars will appear here automatically.</p>
+                <div className="mt-3">
+                  <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => navigate('/transactions')}>
+                    Go to Transactions
+                  </Button>
+                </div>
               </div>
             )}
           </article>

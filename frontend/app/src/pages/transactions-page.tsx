@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, Search, Upload } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/ui/dialog-shell'
 import { SelectField } from '@/components/ui/select-field'
@@ -35,6 +35,7 @@ function getMonthGrid(baseDate: Date) {
 }
 
 export function TransactionsPage() {
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const searchParamQ = (searchParams.get('q') ?? '').trim()
 
@@ -118,6 +119,10 @@ export function TransactionsPage() {
       return candidates.join(' ').toLowerCase().includes(normalizedListSearchQuery)
     })
   }, [listTransactions, normalizedListSearchQuery])
+  const hasActiveListFilters = Boolean(
+    normalizedListSearchQuery || selectedAccountFilter || selectedLedgerFilter || dateRangePreset !== '120',
+  )
+  const isInitialEmptyState = filteredListTransactions.length === 0 && !hasActiveListFilters
 
   const txByDay = useMemo(() => {
     const map = new Map<string, TransactionRecord[]>()
@@ -338,7 +343,20 @@ export function TransactionsPage() {
               ))}
               {filteredListTransactions.length === 0 ? (
                 <div className="border-t border-outline/10 px-5 py-8 text-center text-sm text-on-surface-variant">
-                  No matching transactions.
+                  <p>No matching transactions.</p>
+                  {isInitialEmptyState ? (
+                    <>
+                      <p className="mt-2">Start by creating your first transaction, or jump to Quick Entry on mobile workflows.</p>
+                      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                        <Button className="px-3 py-1.5 text-xs" onClick={() => setShowAddDialog(true)}>
+                          Create First Transaction
+                        </Button>
+                        <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => navigate('/shortcut')}>
+                          Open Quick Entry
+                        </Button>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               ) : null}
             </article>

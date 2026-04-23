@@ -48,6 +48,9 @@ export function SettingsPage() {
               <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">Personal Access Tokens</p>
               <Button onClick={() => void handleCreatePAT()}>Create PAT</Button>
             </div>
+            <div className="mt-4 rounded-2xl border border-outline/15 bg-white p-4 text-sm text-on-surface-variant">
+              Use PAT only for automation tools (Shortcuts, scripts, CI jobs). Never share in chat or screenshots.
+            </div>
             <div className="mt-6 space-y-4">
               {pats.map((pat) => (
                 <div key={pat.id} className="rounded-2xl bg-surface-container-lowest p-4">
@@ -62,13 +65,24 @@ export function SettingsPage() {
                   </div>
                 </div>
               ))}
+              {pats.length === 0 ? (
+                <div className="rounded-2xl border border-outline/10 bg-surface-container-lowest p-4 text-sm text-on-surface-variant">
+                  <p>No active PAT yet.</p>
+                  <p className="mt-2">Create one when you connect external automation, then revoke it immediately after the task is done.</p>
+                  <div className="mt-3">
+                    <Button className="px-3 py-1.5 text-xs" onClick={() => void handleCreatePAT()}>
+                      Create First PAT
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </article>
 
           <article className="rounded-[28px] bg-surface-container-low p-6">
             <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">Latest secret</p>
             <div className="mt-6 rounded-2xl bg-surface-container-lowest p-4">
-              <p className="text-sm text-on-surface-variant">Store this token securely after creation.</p>
+              <p className="text-sm text-on-surface-variant">Store this token securely after creation. It is displayed once and cannot be fetched again.</p>
               <p className="mt-3 font-mono text-sm text-on-surface">{latestSecret ?? 'No PAT generated yet.'}</p>
             </div>
           </article>

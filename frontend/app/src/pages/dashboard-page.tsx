@@ -163,9 +163,7 @@ export function DashboardPage() {
             <h2 className="font-headline text-[56px] font-extrabold leading-none tracking-tight text-on-surface">
               {t('dashboard.title')}
             </h2>
-            <p className="mt-2 text-sm text-on-surface-variant">
-              {t('dashboard.subtitle') || 'Real-time precision analytics for your enterprise accounts.'}
-            </p>
+            <p className="mt-2 text-sm text-on-surface-variant">{t('dashboard.subtitle')}</p>
           </div>
           <div className="inline-flex rounded-xl border border-outline/15 bg-surface-container p-1">
             {periods.map((item) => (
