@@ -3,11 +3,13 @@ import { SideNav } from './side-nav'
 import { TopBar } from './top-bar'
 import { OfflineBanner } from './offline-banner'
 import { MobileNav } from './mobile-nav'
+import { FirstLoginOnboarding } from './first-login-onboarding'
 
 export function AppShell({ children }: PropsWithChildren) {
   return (
     <div className="min-h-screen bg-transparent text-on-surface md:flex">
       <OfflineBanner />
+      <FirstLoginOnboarding />
       <SideNav />
       <div className="flex min-h-screen flex-1 flex-col pb-16 md:pb-0">
         <TopBar />

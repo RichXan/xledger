@@ -118,4 +118,55 @@ describe('auth flow', () => {
       expect(screen.getByText(/demo@example.com/i)).toBeInTheDocument()
     })
   })
+
+  it('supports password registration flow without verification code', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/register')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: '鎴愬姛',
+            data: {
+              access_token: 'access.password.token',
+              refresh_token: 'refresh.password.token',
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.endsWith('/api/auth/me')) {
+        expect(init?.headers).toMatchObject({ Authorization: 'Bearer access.password.token' })
+        return new Response(
+          JSON.stringify({ code: 'OK', message: '鎴愬姛', data: { email: 'password.user@example.com' } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderApp(['/login'])
+    await waitForLoginForm()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /password/i }))
+    await user.click(screen.getByRole('button', { name: /register/i }))
+    await user.type(screen.getByLabelText(/email address/i), 'password.user@example.com')
+    await user.type(screen.getByLabelText(/display name/i), 'Password User')
+    await user.type(screen.getByLabelText(/^password$/i), 'Strong-pass-1234')
+    await user.type(screen.getByLabelText(/confirm password/i), 'Strong-pass-1234')
+    await user.click(screen.getByRole('button', { name: /create account/i }))
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem('xledger.auth')).toContain('access.password.token')
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText(/password.user@example.com/i)).toBeInTheDocument()
+    })
+  })
 })

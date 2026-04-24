@@ -51,11 +51,8 @@ test('classification flow: category/tag usage and CSV export', async ({ page, re
   expect(exportedCsv).toContain(',333,expense,')
   expect(exportedCsv).toContain(categoryName)
 
-  const deleteCategoryResult = await apiClient.deleteCategory(accessToken, category.id)
-  expect(deleteCategoryResult.deleted).toBeTruthy()
-  expect(deleteCategoryResult.archived).toBeTruthy()
-
   await openAccounts(page)
+  await page.getByPlaceholder('Search categories...').fill(categoryName)
   await expect(page.getByText(categoryName)).toBeVisible()
   await expect(page.getByText(tagName)).toBeVisible()
 
@@ -66,4 +63,8 @@ test('classification flow: category/tag usage and CSV export', async ({ page, re
   await recordToReport('Classification and export verified', {
     content: `category=${categoryName}, tag=${tagName}, memo=${memo}`,
   })
+
+  const deleteCategoryResult = await apiClient.deleteCategory(accessToken, category.id)
+  expect(deleteCategoryResult.deleted).toBeTruthy()
+  expect(deleteCategoryResult.archived).toBeTruthy()
 })

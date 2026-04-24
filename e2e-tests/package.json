@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "e2e": "playwright test --config=playwright.config.ts --grep-invert @visual|@a11y",
-    "e2e:ci": "CI=true playwright test --config=playwright.config.ts --grep-invert @visual|@a11y",
+    "e2e": "playwright test --config=playwright.config.ts --grep-invert \"@visual|@a11y\"",
+    "e2e:ci": "CI=true playwright test --config=playwright.config.ts --grep-invert \"@visual|@a11y\"",
     "e2e:visual": "playwright test --config=playwright.config.ts --grep @visual",
     "e2e:visual:update": "playwright test --config=playwright.config.ts --grep @visual --update-snapshots",
     "e2e:a11y": "playwright test --config=playwright.config.ts --grep @a11y",

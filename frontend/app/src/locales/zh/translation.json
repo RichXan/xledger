@@ -37,7 +37,7 @@
       "syncedLedgers": "同步账本",
       "secureAccess": "安全访问",
       "welcomeBack": "欢迎回来",
-      "signInHint": "使用邮箱和验证码登录，继续管理你的账本。",
+      "signInHint": "可使用邮箱验证码、密码或 Google 登录以访问账本。",
       "emailAddress": "邮箱地址",
       "emailPlaceholder": "name@company.com",
       "verificationCode": "验证码",
@@ -47,7 +47,22 @@
       "sendVerificationCode": "发送验证码",
       "continueWithGoogle": "使用 Google 继续",
       "sendCodeFailed": "当前无法发送验证码，请稍后重试。",
-      "verifyCodeFailed": "当前无法验证验证码，请稍后重试。"
+      "verifyCodeFailed": "当前无法验证验证码，请稍后重试。",
+      "authMethodCode": "验证码",
+      "authMethodPassword": "密码",
+      "verificationCodeDevHint": "本地开发提示：未配置 SMTP 时，可在后端日志中查看 [DEV MAIL] 验证码。",
+      "passwordLoginTab": "密码登录",
+      "passwordRegisterTab": "密码注册",
+      "displayName": "显示名称",
+      "displayNamePlaceholder": "我们该如何称呼你？",
+      "password": "密码",
+      "passwordPlaceholder": "至少 8 位字符",
+      "confirmPassword": "确认密码",
+      "confirmPasswordPlaceholder": "再次输入密码",
+      "signInWithPassword": "使用密码登录",
+      "createAccount": "创建账号",
+      "passwordMismatch": "两次输入的密码不一致。",
+      "passwordAuthFailed": "当前无法完成密码登录，请稍后重试。"
     }
   },
   "dashboard": {

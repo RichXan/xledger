@@ -90,4 +90,90 @@ describe('App shell', () => {
       expect(screen.getByText(/demo@example.com/i)).toBeInTheDocument()
     })
   })
+
+  it('shows first-time onboarding when ledger setup is still empty', async () => {
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({ code: 'OK', message: '鎴愬姛', data: { email: 'first@example.com' } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.endsWith('/api/stats/overview')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: '鎴愬姛',
+            data: { total_assets: 0, income: 0, expense: 0, net: 0 },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/trend?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: '鎴愬姛',
+            data: { points: [] },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.endsWith('/api/accounts')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: '鎴愬姛',
+            data: { items: [], pagination: { page: 1, page_size: 20, total: 0, total_pages: 0 } },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.endsWith('/api/ledgers')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: '鎴愬姛',
+            data: { items: [], pagination: { page: 1, page_size: 20, total: 0, total_pages: 0 } },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/transactions?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: '鎴愬姛',
+            data: { items: null, pagination: { page: 1, page_size: 1, total: 0, total_pages: 0 } },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    }) as typeof fetch
+
+    window.localStorage.setItem(
+      'xledger.auth',
+      JSON.stringify({
+        accessToken: 'access.first.token',
+        refreshToken: 'refresh.first.token',
+        email: 'first@example.com',
+      }),
+    )
+
+    renderApp(['/dashboard'])
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /getting started/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /set up accounts/i })).toBeInTheDocument()
+    })
+  })
 })

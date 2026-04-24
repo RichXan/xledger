@@ -45,5 +45,6 @@ export async function injectSession(page: Page, session: AuthSessionPayload) {
     window.localStorage.setItem('xledger.auth', JSON.stringify(payload))
     window.localStorage.setItem('i18nextLng', 'en')
     window.localStorage.setItem('pwa-onboarding-dismissed', '1')
+    window.localStorage.setItem(`xledger.first-login-onboarding.dismissed:${payload.email.toLowerCase()}`, '1')
   }, session)
 }
