@@ -14,15 +14,19 @@ export async function installVisualStabilizers(page: Page) {
   await page.addInitScript(({ fixedTimeISO }) => {
     const fixedTime = new Date(fixedTimeISO).valueOf()
     const RealDate = Date
+    type DateArgs = [] | [string | number | Date] | [number, number, number?, number?, number?, number?, number?]
 
     class MockDate extends RealDate {
-      constructor(...args: any[]) {
+      constructor(...args: DateArgs) {
         if (args.length === 0) {
           super(fixedTime)
           return
         }
-        const constructed = Reflect.construct(RealDate, args) as Date
-        super(constructed.getTime())
+        if (args.length === 1) {
+          super(args[0])
+          return
+        }
+        super(args[0], args[1], args[2], args[3], args[4], args[5], args[6])
       }
 
       static now() {
@@ -30,8 +34,11 @@ export async function installVisualStabilizers(page: Page) {
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(globalThis as any).Date = MockDate
+    Object.defineProperty(globalThis, 'Date', {
+      configurable: true,
+      writable: true,
+      value: MockDate,
+    })
 
     const style = document.createElement('style')
     style.setAttribute('data-e2e-visual-stable', 'true')

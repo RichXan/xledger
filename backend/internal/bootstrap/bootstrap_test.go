@@ -11,6 +11,9 @@ import (
 )
 
 func TestRouter_Healthz(t *testing.T) {
+	t.Setenv("AUTH_CODE_PEPPER", "test-pepper")
+	t.Setenv("AUTH_TOKEN_SECRET", "test-token-secret")
+
 	router, err := bootstraphttp.NewRouter([]string{"127.0.0.1", "::1"})
 	if err != nil {
 		t.Fatalf("expected router creation to succeed, got error: %v", err)

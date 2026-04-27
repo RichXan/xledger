@@ -52,6 +52,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [])
 
+  const syncLanguage = useCallback((language?: string) => {
+    if (language && supportedLanguages.includes(language as 'en' | 'zh')) {
+      changeLanguage(language as 'en' | 'zh')
+    }
+  }, [])
+
+  const applyTokens = useCallback(
+    async (accessToken: string, refreshToken: string) => {
+      const user = await getCurrentUser(accessToken)
+      persistSession({
+        accessToken,
+        refreshToken,
+        email: user.email,
+        name: user.name ?? null,
+      })
+      syncLanguage(user.language)
+    },
+    [persistSession, syncLanguage],
+  )
+
   useEffect(() => {
     let isMounted = true
 
@@ -66,9 +86,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (isMounted && (session.email !== user.email || session.name !== (user.name ?? null))) {
           persistSession({ ...session, email: user.email, name: user.name ?? null })
         }
-        // Sync language preference from backend (once backend supports it)
-        if (isMounted && user.language && supportedLanguages.includes(user.language as 'en' | 'zh')) {
-          changeLanguage(user.language as 'en' | 'zh')
+        if (isMounted) {
+          syncLanguage(user.language)
         }
       } catch {
         if (!session.refreshToken) {
@@ -95,18 +114,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         isRefreshing.current = (async () => {
           try {
             const tokens = await refreshSession(session.refreshToken)
-            const user = await getCurrentUser(tokens.access_token)
             if (isMounted) {
-              persistSession({
-                accessToken: tokens.access_token,
-                refreshToken: tokens.refresh_token,
-                email: user.email,
-                name: user.name ?? null,
-              })
-              // Sync language preference
-              if (user.language && supportedLanguages.includes(user.language as 'en' | 'zh')) {
-                changeLanguage(user.language as 'en' | 'zh')
-              }
+              await applyTokens(tokens.access_token, tokens.refresh_token)
             }
             refreshCompleted = true
           } catch {
@@ -136,7 +145,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       isMounted = false
     }
-  }, [persistSession, session?.accessToken, session?.email, session?.refreshToken])
+  }, [applyTokens, persistSession, session?.accessToken, session?.email, session?.refreshToken, syncLanguage])
 
   const sendVerificationCode = useCallback(async (email: string) => {
     await sendCode(email)
@@ -145,55 +154,25 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const verifyVerificationCode = useCallback(
     async (email: string, code: string) => {
       const tokens = await verifyCode(email, code)
-      const user = await getCurrentUser(tokens.access_token)
-      persistSession({
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        email: user.email,
-        name: user.name ?? null,
-      })
-      // Sync language preference
-      if (user.language && supportedLanguages.includes(user.language as 'en' | 'zh')) {
-        changeLanguage(user.language as 'en' | 'zh')
-      }
+      await applyTokens(tokens.access_token, tokens.refresh_token)
     },
-    [persistSession],
+    [applyTokens],
   )
 
   const loginWithPasswordFn = useCallback(
     async (email: string, password: string) => {
       const tokens = await loginWithPassword(email, password)
-      const user = await getCurrentUser(tokens.access_token)
-      persistSession({
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        email: user.email,
-        name: user.name ?? null,
-      })
-      // Sync language preference
-      if (user.language && supportedLanguages.includes(user.language as 'en' | 'zh')) {
-        changeLanguage(user.language as 'en' | 'zh')
-      }
+      await applyTokens(tokens.access_token, tokens.refresh_token)
     },
-    [persistSession],
+    [applyTokens],
   )
 
   const registerWithPasswordFn = useCallback(
     async (email: string, password: string, displayName?: string) => {
       const tokens = await registerWithPassword({ email, password, displayName })
-      const user = await getCurrentUser(tokens.access_token)
-      persistSession({
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        email: user.email,
-        name: user.name ?? null,
-      })
-      // Sync language preference
-      if (user.language && supportedLanguages.includes(user.language as 'en' | 'zh')) {
-        changeLanguage(user.language as 'en' | 'zh')
-      }
+      await applyTokens(tokens.access_token, tokens.refresh_token)
     },
-    [persistSession],
+    [applyTokens],
   )
 
   const updateDisplayNameFn = useCallback(
@@ -220,19 +199,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const applyOAuthTokens = useCallback(
     async (accessToken: string, refreshToken: string) => {
-      const user = await getCurrentUser(accessToken)
-      persistSession({
-        accessToken,
-        refreshToken,
-        email: user.email,
-        name: user.name ?? null,
-      })
-      // Sync language preference
-      if (user.language && supportedLanguages.includes(user.language as 'en' | 'zh')) {
-        changeLanguage(user.language as 'en' | 'zh')
-      }
+      await applyTokens(accessToken, refreshToken)
     },
-    [persistSession],
+    [applyTokens],
   )
 
   const logout = useCallback(async () => {

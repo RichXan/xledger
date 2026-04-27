@@ -70,26 +70,28 @@ type Config struct {
 //  2. config/config.yaml relative to the current working directory.
 func Load() (Config, error) {
 	path := strings.TrimSpace(os.Getenv("CONFIG_FILE"))
+	explicitPath := path != ""
 	if path == "" {
 		path = "config/config.yaml"
 	}
 
+	var raw yamlConfig
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return Config{}, fmt.Errorf("cannot read config file %q: %w", path, err)
-	}
-
-	var raw yamlConfig
-	if err := yaml.Unmarshal(data, &raw); err != nil {
+		if explicitPath || !os.IsNotExist(err) {
+			return Config{}, fmt.Errorf("cannot read config file %q: %w", path, err)
+		}
+		raw = yamlConfigFromEnv()
+	} else if err := yaml.Unmarshal(data, &raw); err != nil {
 		return Config{}, fmt.Errorf("cannot parse config file %q: %w", path, err)
 	}
 
 	// Validate required fields.
 	if strings.TrimSpace(raw.Auth.CodePepper) == "" {
-		return Config{}, errors.New("config: auth.code_pepper is required")
+		return Config{}, errors.New("config: AUTH_CODE_PEPPER (auth.code_pepper) is required")
 	}
 	if strings.TrimSpace(raw.Auth.TokenSecret) == "" {
-		return Config{}, errors.New("config: auth.token_secret is required")
+		return Config{}, errors.New("config: AUTH_TOKEN_SECRET (auth.token_secret) is required")
 	}
 
 	apiAddr := strings.TrimSpace(raw.APIAddr)
@@ -129,6 +131,28 @@ func Load() (Config, error) {
 		GoogleAuthRedirectURL:    googleRedirectURL,
 		GoogleAuthFrontendReturn: googleFrontendReturn,
 	}, nil
+}
+
+func yamlConfigFromEnv() yamlConfig {
+	var raw yamlConfig
+	raw.SMTP.Host = os.Getenv("SMTP_HOST")
+	raw.SMTP.Port = os.Getenv("SMTP_PORT")
+	raw.SMTP.User = os.Getenv("SMTP_USER")
+	raw.SMTP.Pass = os.Getenv("SMTP_PASS")
+	raw.SMTP.From = os.Getenv("SMTP_FROM")
+	raw.Auth.CodePepper = os.Getenv("AUTH_CODE_PEPPER")
+	raw.Auth.TokenSecret = os.Getenv("AUTH_TOKEN_SECRET")
+	raw.DatabaseURL = os.Getenv("DATABASE_URL")
+	raw.RedisURL = os.Getenv("REDIS_URL")
+	raw.APIAddr = os.Getenv("API_ADDR")
+	raw.GinMode = os.Getenv("GIN_MODE")
+	raw.EnableDevLogin = strings.EqualFold(os.Getenv("ENABLE_DEV_LOGIN"), "true") || os.Getenv("ENABLE_DEV_LOGIN") == "1"
+	raw.TrustedProxies = os.Getenv("TRUSTED_PROXIES")
+	raw.GoogleAuth.ClientID = os.Getenv("GOOGLE_AUTH_CLIENT_ID")
+	raw.GoogleAuth.ClientSecret = os.Getenv("GOOGLE_AUTH_CLIENT_SECRET")
+	raw.GoogleAuth.RedirectURL = os.Getenv("GOOGLE_AUTH_REDIRECT_URL")
+	raw.GoogleAuth.FrontendReturn = os.Getenv("GOOGLE_AUTH_FRONTEND_RETURN")
+	return raw
 }
 
 func parseTrustedProxies(value string) []string {

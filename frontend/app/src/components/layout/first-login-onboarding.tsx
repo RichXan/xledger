@@ -9,6 +9,10 @@ function getDismissKey(email: string) {
   return `xledger.first-login-onboarding.dismissed:${email.toLowerCase()}`
 }
 
+function getItemCount(data?: { items?: unknown }) {
+  return Array.isArray(data?.items) ? data.items.length : 0
+}
+
 export function FirstLoginOnboarding() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -26,10 +30,10 @@ export function FirstLoginOnboarding() {
     setDismissed(window.localStorage.getItem(key) === '1')
   }, [session?.email])
 
-  const shouldEvaluate = location.pathname !== '/login' && location.pathname !== '/auth/google/callback'
-  const accountsCount = Array.isArray(accountsQuery.data?.items) ? accountsQuery.data.items.length : 0
-  const ledgersCount = Array.isArray(ledgersQuery.data?.items) ? ledgersQuery.data.items.length : 0
-  const transactionsCount = Array.isArray(transactionsQuery.data?.items) ? transactionsQuery.data.items.length : 0
+  const shouldEvaluate = !['/login', '/auth/google/callback'].includes(location.pathname)
+  const accountsCount = getItemCount(accountsQuery.data)
+  const ledgersCount = getItemCount(ledgersQuery.data)
+  const transactionsCount = getItemCount(transactionsQuery.data)
 
   const isReady =
     shouldEvaluate &&

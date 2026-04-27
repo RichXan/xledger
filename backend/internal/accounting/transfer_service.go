@@ -3,6 +3,8 @@ package accounting
 import (
 	"database/sql"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 type TransferService struct {
@@ -14,7 +16,7 @@ func NewTransferService(repo TransactionRepository) *TransferService {
 }
 
 func (s *TransferService) Create(userID string, fromInput TransactionCreateInput, toInput TransactionCreateInput) (Transaction, []string, error) {
-	pairID := nextID()
+	pairID := uuid.NewString()
 	err := s.repo.WithTransferPairLock(userID, pairID, func(tx *sql.Tx) error {
 		_, createErr := s.repo.CreateTransferPair(userID, pairID, fromInput, toInput)
 		return createErr

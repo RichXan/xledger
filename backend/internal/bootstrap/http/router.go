@@ -55,7 +55,12 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 
 	handler := deps.AuthHandler
 	if handler == nil {
-		handler = newDefaultAuthHandler()
+		var cfg config.Config
+		handler, cfg = newDefaultAuthHandlerWithConfig()
+		if deps.GinMode == "" {
+			deps.GinMode = cfg.GinMode
+		}
+		deps.EnableDevLogin = cfg.EnableDevLogin
 	}
 
 	authGroup := r.Group("/api/auth")
@@ -221,8 +226,8 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config, redisClient *redis.C
 	authHandler.SetGoogleFrontendReturnURL(cfg.GoogleAuthFrontendReturn)
 
 	acctDeps := newAccountingHandlerWithPostgreSQL(db)
-	classificationHandler := classification.NewHandler(acctDeps.CategoryService, nil)
-	reportingRepo := reporting.NewRepository(nil, acctDeps.TxnRepo, acctDeps.CategoryService)
+	classificationHandler := classification.NewHandler(acctDeps.CategoryService, acctDeps.TagService)
+	reportingRepo := reporting.NewRepository(acctDeps.AccountRepo, acctDeps.TxnRepo, acctDeps.CategoryService)
 	var reportingCache reporting.Cache
 	if redisClient != nil {
 		reportingCache = infrastructure.NewRedisReportingCache(redisClient)

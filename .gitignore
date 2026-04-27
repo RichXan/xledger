@@ -1,4 +1,9 @@
 .worktrees/
+.claude/worktrees/
+*.tsbuildinfo
+session/
+xledger_app.pen
+xledger_web.pen
 frontend/app/.local/
 frontend/app/.npm-cache/
 frontend/app/node_modules/
@@ -6,5 +11,10 @@ frontend/app/dist/
 frontend/app/manual-qa.mjs
 frontend/app/test-results/
 frontend/app/playwright-report/
+e2e-tests/playwright-report/
+e2e-tests/test-results/
+e2e-tests/midscene_run/
 backend/.env
 backend/config/config.yaml
+.qodo/
+.vite/

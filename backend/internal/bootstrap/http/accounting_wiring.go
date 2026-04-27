@@ -57,7 +57,9 @@ func (d *defaultBusinessDeps) accountService() *accounting.AccountService {
 // needed by both the accounting handler and other domains (e.g., reporting, portability).
 type AccountingHandlerWithPostgreSQL struct {
 	AccountingHandler *accounting.Handler
+	AccountRepo       accounting.AccountRepository
 	CategoryService   *classification.CategoryService
+	TagService        *classification.TagService
 	TxnService        *accounting.TransactionService
 	LedgerService     *accounting.LedgerService
 	TxnRepo           accounting.TransactionRepository
@@ -75,7 +77,9 @@ func newAccountingHandlerWithPostgreSQL(db *sql.DB) AccountingHandlerWithPostgre
 	accountingHandler := accounting.NewHandler(ledgerService, accounting.NewAccountService(accountRepo), txnService)
 	return AccountingHandlerWithPostgreSQL{
 		AccountingHandler: accountingHandler,
+		AccountRepo:       accountRepo,
 		CategoryService:   categoryService,
+		TagService:        tagService,
 		TxnService:        txnService,
 		LedgerService:     ledgerService,
 		TxnRepo:           txnRepo,

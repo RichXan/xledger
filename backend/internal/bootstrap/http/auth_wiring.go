@@ -8,7 +8,7 @@ import (
 	"xledger/backend/internal/classification"
 )
 
-func newDefaultAuthHandler() *auth.Handler {
+func newDefaultAuthHandlerWithConfig() (*auth.Handler, config.Config) {
 	cfg, err := config.Load()
 	if err != nil {
 		panic(err)
@@ -49,5 +49,5 @@ func newDefaultAuthHandler() *auth.Handler {
 	}
 	handler.SetGoogleFrontendReturnURL(frontendReturn)
 	handler.SetDevLoginEnabled(cfg.EnableDevLogin)
-	return handler
+	return handler, cfg
 }

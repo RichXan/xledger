@@ -20,6 +20,7 @@ func (r *PostgresTransactionRepository) Create(userID string, input TransactionC
 	var txn Transaction
 	var accountID, categoryID, transferPairID, transferSide *string
 	var fromAccountID, toAccountID *string
+	var categoryName sql.NullString
 
 	err := r.db.QueryRow(`
 		INSERT INTO transactions (
@@ -34,10 +35,10 @@ func (r *PostgresTransactionRepository) Create(userID string, input TransactionC
 		RETURNING id, user_id, ledger_id, account_id, category_id, category_name, memo,
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
 			type, amount, version, occurred_at
-	`, userID, input.LedgerID, input.AccountID, input.CategoryID, nil, strings.TrimSpace(input.Memo),
+		`, userID, input.LedgerID, input.AccountID, input.CategoryID, nil, strings.TrimSpace(input.Memo),
 		input.FromAccountID, input.ToAccountID, nil, nil,
 		input.Type, input.Amount, input.OccurredAt).Scan(
-		&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName, &txn.Memo,
+		&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &categoryName, &txn.Memo,
 		&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 		&txn.Type, &txn.Amount, &txn.Version, &txn.OccurredAt,
 	)
@@ -47,6 +48,9 @@ func (r *PostgresTransactionRepository) Create(userID string, input TransactionC
 
 	txn.AccountID = accountID
 	txn.CategoryID = categoryID
+	if categoryName.Valid {
+		txn.CategoryName = categoryName.String
+	}
 	txn.FromAccountID = fromAccountID
 	txn.ToAccountID = toAccountID
 	txn.TransferPairID = transferPairID
@@ -60,6 +64,7 @@ func (r *PostgresTransactionRepository) GetByIDForUser(userID string, txnID stri
 	var txn Transaction
 	var accountID, categoryID, transferPairID, transferSide *string
 	var fromAccountID, toAccountID *string
+	var categoryName sql.NullString
 	var memo sql.NullString
 
 	err := r.db.QueryRow(`
@@ -68,8 +73,8 @@ func (r *PostgresTransactionRepository) GetByIDForUser(userID string, txnID stri
 			type, amount, version, occurred_at
 		FROM transactions
 		WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
-	`, txnID, userID).Scan(
-		&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName, &memo,
+		`, txnID, userID).Scan(
+		&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &categoryName, &memo,
 		&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 		&txn.Type, &txn.Amount, &txn.Version, &txn.OccurredAt,
 	)
@@ -82,6 +87,9 @@ func (r *PostgresTransactionRepository) GetByIDForUser(userID string, txnID stri
 
 	txn.AccountID = accountID
 	txn.CategoryID = categoryID
+	if categoryName.Valid {
+		txn.CategoryName = categoryName.String
+	}
 	if memo.Valid {
 		txn.Memo = memo.String
 	}
@@ -98,6 +106,7 @@ func (r *PostgresTransactionRepository) SaveByIDForUser(userID string, txnID str
 	var updated Transaction
 	var accountID, categoryID, transferPairID, transferSide *string
 	var fromAccountID, toAccountID *string
+	var categoryName sql.NullString
 
 	err := r.db.QueryRow(`
 		UPDATE transactions
@@ -106,8 +115,8 @@ func (r *PostgresTransactionRepository) SaveByIDForUser(userID string, txnID str
 		RETURNING id, user_id, ledger_id, account_id, category_id, category_name, memo,
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
 			type, amount, version, occurred_at
-	`, txnID, userID, txn.Amount, txn.CategoryID, txn.CategoryName, strings.TrimSpace(txn.Memo), txn.Version).Scan(
-		&updated.ID, &updated.UserID, &updated.LedgerID, &accountID, &categoryID, &updated.CategoryName, &updated.Memo,
+		`, txnID, userID, txn.Amount, txn.CategoryID, txn.CategoryName, strings.TrimSpace(txn.Memo), txn.Version).Scan(
+		&updated.ID, &updated.UserID, &updated.LedgerID, &accountID, &categoryID, &categoryName, &updated.Memo,
 		&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 		&updated.Type, &updated.Amount, &updated.Version, &updated.OccurredAt,
 	)
@@ -120,6 +129,9 @@ func (r *PostgresTransactionRepository) SaveByIDForUser(userID string, txnID str
 
 	updated.AccountID = accountID
 	updated.CategoryID = categoryID
+	if categoryName.Valid {
+		updated.CategoryName = categoryName.String
+	}
 	updated.FromAccountID = fromAccountID
 	updated.ToAccountID = toAccountID
 	updated.TransferPairID = transferPairID
@@ -208,9 +220,10 @@ func (r *PostgresTransactionRepository) GetTransferPairByTxnID(userID string, tx
 		var txn Transaction
 		var accountID, categoryID, transferPairID, transferSide *string
 		var fromAccountID, toAccountID *string
+		var categoryName sql.NullString
 		var memo sql.NullString
 		if err := rows.Scan(
-			&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName, &memo,
+			&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &categoryName, &memo,
 			&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 			&txn.Type, &txn.Amount, &txn.Version, &txn.OccurredAt,
 		); err != nil {
@@ -218,6 +231,9 @@ func (r *PostgresTransactionRepository) GetTransferPairByTxnID(userID string, tx
 		}
 		txn.AccountID = accountID
 		txn.CategoryID = categoryID
+		if categoryName.Valid {
+			txn.CategoryName = categoryName.String
+		}
 		if memo.Valid {
 			txn.Memo = memo.String
 		}
@@ -267,6 +283,7 @@ func (r *PostgresTransactionRepository) UpdateTransferPairAmount(tx *sql.Tx, use
 	var updated Transaction
 	var accountID, categoryID, transferPairID, transferSide *string
 	var fromAccountID, toAccountID *string
+	var categoryName sql.NullString
 	var memo sql.NullString
 	err = tx.QueryRow(`
 		WITH updated AS (
@@ -283,8 +300,8 @@ func (r *PostgresTransactionRepository) UpdateTransferPairAmount(tx *sql.Tx, use
 		FROM updated
 		WHERE transfer_side = 'from'
 		LIMIT 1
-	`, pairID, userID, amount).Scan(
-		&updated.ID, &updated.UserID, &updated.LedgerID, &accountID, &categoryID, &updated.CategoryName, &memo,
+		`, pairID, userID, amount).Scan(
+		&updated.ID, &updated.UserID, &updated.LedgerID, &accountID, &categoryID, &categoryName, &memo,
 		&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 		&updated.Type, &updated.Amount, &updated.Version, &updated.OccurredAt,
 	)
@@ -294,6 +311,9 @@ func (r *PostgresTransactionRepository) UpdateTransferPairAmount(tx *sql.Tx, use
 
 	updated.AccountID = accountID
 	updated.CategoryID = categoryID
+	if categoryName.Valid {
+		updated.CategoryName = categoryName.String
+	}
 	if memo.Valid {
 		updated.Memo = memo.String
 	}
@@ -450,9 +470,10 @@ func (r *PostgresTransactionRepository) ListByUser(userID string, query Transact
 		var txn Transaction
 		var accountID, categoryID, transferPairID, transferSide *string
 		var fromAccountID, toAccountID *string
+		var categoryName sql.NullString
 		var memo sql.NullString
 		if err := rows.Scan(
-			&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName, &memo,
+			&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &categoryName, &memo,
 			&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 			&txn.Type, &txn.Amount, &txn.Version, &txn.OccurredAt,
 		); err != nil {
@@ -460,6 +481,9 @@ func (r *PostgresTransactionRepository) ListByUser(userID string, query Transact
 		}
 		txn.AccountID = accountID
 		txn.CategoryID = categoryID
+		if categoryName.Valid {
+			txn.CategoryName = categoryName.String
+		}
 		if memo.Valid {
 			txn.Memo = memo.String
 		}
@@ -541,9 +565,10 @@ func (r *PostgresTransactionRepository) ListByTransferPairForUser(userID string,
 		var txn Transaction
 		var accountID, categoryID, transferPairID, transferSide *string
 		var fromAccountID, toAccountID *string
+		var categoryName sql.NullString
 		var memo sql.NullString
 		if err := rows.Scan(
-			&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &txn.CategoryName, &memo,
+			&txn.ID, &txn.UserID, &txn.LedgerID, &accountID, &categoryID, &categoryName, &memo,
 			&fromAccountID, &toAccountID, &transferPairID, &transferSide,
 			&txn.Type, &txn.Amount, &txn.Version, &txn.OccurredAt,
 		); err != nil {
@@ -551,6 +576,9 @@ func (r *PostgresTransactionRepository) ListByTransferPairForUser(userID string,
 		}
 		txn.AccountID = accountID
 		txn.CategoryID = categoryID
+		if categoryName.Valid {
+			txn.CategoryName = categoryName.String
+		}
 		if memo.Valid {
 			txn.Memo = memo.String
 		}
