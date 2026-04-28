@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -146,7 +147,7 @@ func yamlConfigFromEnv() yamlConfig {
 	raw.RedisURL = os.Getenv("REDIS_URL")
 	raw.APIAddr = os.Getenv("API_ADDR")
 	raw.GinMode = os.Getenv("GIN_MODE")
-	raw.EnableDevLogin = strings.EqualFold(os.Getenv("ENABLE_DEV_LOGIN"), "true") || os.Getenv("ENABLE_DEV_LOGIN") == "1"
+	raw.EnableDevLogin, _ = strconv.ParseBool(os.Getenv("ENABLE_DEV_LOGIN"))
 	raw.TrustedProxies = os.Getenv("TRUSTED_PROXIES")
 	raw.GoogleAuth.ClientID = os.Getenv("GOOGLE_AUTH_CLIENT_ID")
 	raw.GoogleAuth.ClientSecret = os.Getenv("GOOGLE_AUTH_CLIENT_SECRET")

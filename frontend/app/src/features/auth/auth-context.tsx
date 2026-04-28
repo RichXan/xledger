@@ -110,19 +110,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
 
         // Start a new refresh and store the promise so concurrent requests can await it
-        let refreshCompleted = false
         isRefreshing.current = (async () => {
           try {
             const tokens = await refreshSession(session.refreshToken)
             if (isMounted) {
               await applyTokens(tokens.access_token, tokens.refresh_token)
             }
-            refreshCompleted = true
           } catch {
             if (isMounted) {
               persistSession(null)
             }
-            refreshCompleted = true
           } finally {
             if (isMounted) {
               isRefreshing.current = null
@@ -131,9 +128,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
         })()
 
         await isRefreshing.current
-        if (!refreshCompleted && isMounted) {
-          persistSession(null)
-        }
       }
       if (isMounted) {
         setIsBootstrapping(false)
@@ -197,13 +191,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [session?.accessToken],
   )
 
-  const applyOAuthTokens = useCallback(
-    async (accessToken: string, refreshToken: string) => {
-      await applyTokens(accessToken, refreshToken)
-    },
-    [applyTokens],
-  )
-
   const logout = useCallback(async () => {
     if (session?.refreshToken) {
       try {
@@ -226,11 +213,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       registerWithPassword: registerWithPasswordFn,
       updateDisplayName: updateDisplayNameFn,
       changePassword: changePasswordFn,
-      applyOAuthTokens,
+      applyOAuthTokens: applyTokens,
       logout,
     }),
     [
-      applyOAuthTokens,
+      applyTokens,
       changePasswordFn,
       isBootstrapping,
       loginWithPasswordFn,
