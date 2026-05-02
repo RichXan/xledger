@@ -1,15 +1,7 @@
 import { NavLink } from 'react-router-dom'
-import { BarChart3, LayoutDashboard, ReceiptText, Settings, Wallet, Zap } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { primaryNavItems } from './nav-items'
 import { cn } from '@/lib/utils'
-
-const items = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/transactions', label: 'Transactions', icon: ReceiptText },
-  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/accounts', label: 'Accounts', icon: Wallet },
-  { to: '/shortcut', label: 'Quick Entry', icon: Zap },
-  { to: '/settings', label: 'Settings', icon: Settings },
-]
 
 function BrandMark() {
   return (
@@ -22,6 +14,8 @@ function BrandMark() {
 }
 
 export function SideNav() {
+  const { t } = useTranslation()
+
   return (
     <aside className="hidden w-[230px] shrink-0 border-r border-outline/15 bg-surface-container-lowest/90 px-4 py-5 md:flex md:flex-col md:sticky md:top-0 md:h-screen">
       <div className="mb-7 rounded-2xl px-2 py-3">
@@ -35,7 +29,7 @@ export function SideNav() {
       </div>
 
       <nav aria-label="Primary" className="flex flex-1 flex-col gap-1.5">
-        {items.map(({ to, label, icon: Icon }) => (
+        {primaryNavItems.map(({ to, labelKey, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -51,7 +45,7 @@ export function SideNav() {
             <span className="grid h-6 w-6 place-items-center rounded-md bg-surface-container text-on-surface-variant group-hover:bg-primary-fixed group-hover:text-primary">
               <Icon className="h-3.5 w-3.5" />
             </span>
-            <span className="font-label text-[11px] uppercase tracking-[0.13em]">{label}</span>
+            <span className="font-label text-[11px] uppercase tracking-[0.13em]">{t(labelKey)}</span>
           </NavLink>
         ))}
       </nav>

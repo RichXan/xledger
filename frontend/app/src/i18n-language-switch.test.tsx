@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
@@ -127,6 +127,14 @@ describe('language switching', () => {
       expect(screen.getByRole('heading', { name: '财务概览' })).toBeInTheDocument()
       expect(screen.getByRole('option', { name: '中文' })).toBeInTheDocument()
     })
+
+    const primaryNav = screen.getByRole('navigation', { name: /primary/i })
+    expect(within(primaryNav).getByRole('link', { name: '首页' })).toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '交易' })).toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '统计' })).toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '账户' })).toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '快捷记账' })).toBeInTheDocument()
+    expect(within(primaryNav).getByRole('link', { name: '设置' })).toBeInTheDocument()
   })
 
   it('normalizes regional browser language codes for app state', async () => {
