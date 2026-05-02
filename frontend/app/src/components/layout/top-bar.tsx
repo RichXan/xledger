@@ -1,5 +1,6 @@
 import { Bell, CircleHelp, CircleUserRound, Download, LogOut, RefreshCcw, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/ui/dialog-shell'
@@ -8,13 +9,14 @@ import { useAuth } from '@/features/auth/auth-context'
 import { usePwaInstall } from '@/features/pwa/use-pwa-install'
 import { usePwaUpdate } from '@/features/pwa/use-pwa-update'
 import { ApiError } from '@/lib/api'
-import { changeLanguage, getCurrentLanguage, supportedLanguages } from '@/i18n'
+import { changeLanguage, resolveSupportedLanguage, supportedLanguages } from '@/i18n'
 
 export function TopBar() {
   const { logout, session, updateDisplayName, changePassword } = useAuth()
   const displayName = useMemo(() => session?.name || session?.email || 'Ledger User', [session?.email, session?.name])
   const location = useLocation()
   const navigate = useNavigate()
+  const { i18n } = useTranslation()
 
   const [profileOpen, setProfileOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -28,12 +30,12 @@ export function TopBar() {
   const [notice, setNotice] = useState<string | null>(null)
   const { canInstall, install } = usePwaInstall()
   const { updateAvailable, updating, updateNow } = usePwaUpdate()
-  const [currentLang, setCurrentLang] = useState(getCurrentLanguage())
+  const currentLang = resolveSupportedLanguage(i18n.resolvedLanguage ?? i18n.language)
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newLang = e.target.value as 'en' | 'zh'
-    changeLanguage(newLang)
-    setCurrentLang(newLang)
+    void changeLanguage(e.target.value).catch((caughtError) => {
+      console.error('Failed to change language:', caughtError)
+    })
   }
 
   useEffect(() => {

@@ -20,7 +20,7 @@ import {
   verifyCode,
 } from './auth-api'
 import { clearAuthSession, readAuthSession, writeAuthSession, type AuthSession } from './auth-storage'
-import { changeLanguage, supportedLanguages } from '@/i18n'
+import { changeLanguage, resolveSupportedLanguage } from '@/i18n'
 
 interface AuthContextValue {
   session: AuthSession | null
@@ -53,8 +53,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [])
 
   const syncLanguage = useCallback((language?: string) => {
-    if (language && supportedLanguages.includes(language as 'en' | 'zh')) {
-      changeLanguage(language as 'en' | 'zh')
+    if (language) {
+      void changeLanguage(resolveSupportedLanguage(language)).catch((caughtError) => {
+        console.error('Failed to sync profile language:', caughtError)
+      })
     }
   }, [])
 
