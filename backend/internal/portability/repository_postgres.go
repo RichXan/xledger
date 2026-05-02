@@ -134,6 +134,18 @@ func (r *PostgresRepository) SaveImportedTransaction(userID string, row ImportRo
 		return err
 	}
 
+	var accountID sql.NullString
+	err = r.db.QueryRow(`
+		SELECT id::text
+		FROM accounts
+		WHERE user_id = $1 AND archived_at IS NULL
+		ORDER BY created_at ASC, id ASC
+		LIMIT 1
+	`, trimmedUserID).Scan(&accountID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
 	occurredAt, err := parseImportOccurredAt(trimmedDate)
 	if err != nil {
 		return err
@@ -148,11 +160,18 @@ func (r *PostgresRepository) SaveImportedTransaction(userID string, row ImportRo
 
 	_, err = r.db.Exec(`
 		INSERT INTO transactions (
-			id, user_id, ledger_id, type, amount, occurred_at, category_name, memo, created_at
+			id, user_id, ledger_id, account_id, type, amount, occurred_at, category_name, memo, created_at
 		)
-		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, NOW())
-	`, trimmedUserID, ledgerID, txnType, amount, occurredAt.UTC(), categoryName, trimmedDescription)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW())
+	`, trimmedUserID, ledgerID, nullableString(accountID), txnType, amount, occurredAt.UTC(), categoryName, trimmedDescription)
 	return err
+}
+
+func nullableString(value sql.NullString) interface{} {
+	if !value.Valid {
+		return nil
+	}
+	return value.String
 }
 
 func parseImportOccurredAt(value string) (time.Time, error) {

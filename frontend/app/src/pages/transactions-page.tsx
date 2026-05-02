@@ -35,6 +35,72 @@ function getMonthGrid(baseDate: Date) {
   return cells
 }
 
+function bytesToHex(bytes: Uint8Array) {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function readFileBuffer(file: File): Promise<ArrayBuffer> {
+  const readableFile = file as File & {
+    arrayBuffer?: () => Promise<ArrayBuffer>
+    text?: () => Promise<string>
+  }
+
+  if (typeof readableFile.arrayBuffer === 'function') {
+    return readableFile.arrayBuffer()
+  }
+  if (typeof readableFile.text === 'function') {
+    const bytes = new TextEncoder().encode(await readableFile.text())
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (reader.result instanceof ArrayBuffer) {
+        resolve(reader.result)
+        return
+      }
+      reject(new Error('Unsupported file reader result'))
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('Unable to read import file'))
+    reader.readAsArrayBuffer(file)
+  })
+}
+
+export async function buildImportIdempotencyKey(file: File) {
+  const buffer = await readFileBuffer(file)
+  if (globalThis.crypto?.subtle) {
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', buffer)
+    return `ui-file-${bytesToHex(new Uint8Array(digest))}`
+  }
+
+  const bytes = new Uint8Array(buffer)
+  let hash = 0
+  bytes.forEach((byte) => {
+    hash = (hash * 31 + byte) % 4294967295
+  })
+  return `ui-file-${file.size}-${hash.toString(16).padStart(8, '0')}`
+}
+
+export function getTransactionAccountLabel(
+  tx: TransactionRecord,
+  accountNameById: ReadonlyMap<string, string>,
+  fallback: string,
+) {
+  const accountID = tx.account_id ?? tx.from_account_id ?? tx.to_account_id
+  if (!accountID) return fallback
+  return accountNameById.get(accountID) ?? accountID
+}
+
+export function getTransactionLedgerLabel(
+  tx: TransactionRecord,
+  ledgerNameById: ReadonlyMap<string, string>,
+  fallback: string,
+) {
+  if (!tx.ledger_id) return fallback
+  return ledgerNameById.get(tx.ledger_id) ?? tx.ledger_id
+}
+
 export function TransactionsPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -108,8 +174,8 @@ export function TransactionsPage() {
   const ledgers = options.ledgersQuery.data?.items ?? []
   const tags = options.tagsQuery.data?.items ?? []
 
-  const selectedAccountName = accounts.find((account) => account.id === selectedAccountFilter)?.name
-  const selectedLedgerName = ledgers.find((ledger) => ledger.id === selectedLedgerFilter)?.name
+  const accountNameById = useMemo(() => new Map(accounts.map((account) => [account.id, account.name])), [accounts])
+  const ledgerNameById = useMemo(() => new Map(ledgers.map((ledger) => [ledger.id, ledger.name])), [ledgers])
   const normalizedListSearchQuery = listSearchQuery.trim().toLowerCase()
 
   const filteredListTransactions = useMemo(() => {
@@ -206,7 +272,7 @@ export function TransactionsPage() {
 
   async function handleConfirmImport() {
     if (!importFile) return
-    const idempotencyKey = `ui-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    const idempotencyKey = await buildImportIdempotencyKey(importFile)
     await importConfirmMutation.mutateAsync({ file: importFile, idempotencyKey })
     setShowImportDialog(false)
     setImportFile(null)
@@ -337,8 +403,12 @@ export function TransactionsPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-on-surface">{selectedAccountName ?? t('transactionsPage.table.multipleAccounts')}</p>
-                    <p className="text-xs uppercase text-on-surface-variant">{selectedLedgerName ?? t('transactionsPage.table.multipleLedgers')}</p>
+                    <p className="text-sm text-on-surface">
+                      {getTransactionAccountLabel(tx, accountNameById, t('transactionsPage.table.noAccount'))}
+                    </p>
+                    <p className="text-xs uppercase text-on-surface-variant">
+                      {getTransactionLedgerLabel(tx, ledgerNameById, t('transactionsPage.table.noLedger'))}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-on-surface">{new Date(tx.occurred_at).toLocaleDateString(locale)}</p>

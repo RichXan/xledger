@@ -80,7 +80,6 @@ func (s *ImportConfirmService) Confirm(userID string, idempotencyKey string, req
 			result.Rows = append(result.Rows, ImportConfirmRowResult{RowIndex: idx, Status: "skipped", Reason: "duplicate: amount+date+description match"})
 			continue
 		}
-		s.repo.SaveRow(userID, stored)
 		if hasTxnWriter {
 			if err := txnWriter.SaveImportedTransaction(userID, row); err != nil {
 				result.FailCount++
@@ -88,6 +87,7 @@ func (s *ImportConfirmService) Confirm(userID string, idempotencyKey string, req
 				continue
 			}
 		}
+		s.repo.SaveRow(userID, stored)
 		result.SuccessCount++
 		result.Rows = append(result.Rows, ImportConfirmRowResult{RowIndex: idx, Status: "success"})
 	}

@@ -254,6 +254,8 @@
       "action": "操作",
       "memoLabel": "备注：",
       "noMemo": "暂无备注",
+      "noAccount": "未指定账户",
+      "noLedger": "未指定账本",
       "multipleAccounts": "多个账户",
       "multipleLedgers": "多个账本",
       "incomingFlow": "收入流水",

@@ -3,6 +3,7 @@ package portability
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -42,6 +43,69 @@ func TestImportConfirm_ReturnsSuccessSkipFailBreakdown(t *testing.T) {
 	}
 	if result.SuccessCount != 1 || result.SkipCount != 1 || result.FailCount != 1 {
 		t.Fatalf("expected 1/1/1 breakdown, got %#v", result)
+	}
+}
+
+func TestImportConfirm_SkipsExistingRowsAcrossRequestKeys(t *testing.T) {
+	repo := NewRepository(func() time.Time { return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC) })
+	service := NewImportConfirmService(repo)
+	req := ImportConfirmRequest{Rows: []ImportRow{{Date: "2026-03-01", Amount: 10, Description: "ok"}}}
+
+	first, err := service.Confirm("user-1", "import-a", req)
+	if err != nil {
+		t.Fatalf("unexpected first confirm error: %v", err)
+	}
+	if first.SuccessCount != 1 || first.SkipCount != 0 {
+		t.Fatalf("expected first request to import one row, got %#v", first)
+	}
+
+	second, err := service.Confirm("user-1", "import-b", req)
+	if err != nil {
+		t.Fatalf("unexpected second confirm error: %v", err)
+	}
+	if second.SuccessCount != 0 || second.SkipCount != 1 {
+		t.Fatalf("expected second request to skip duplicate row, got %#v", second)
+	}
+	if repo.StoredRowCount("user-1") != 1 {
+		t.Fatalf("expected duplicate row to avoid another stored import row, got %d", repo.StoredRowCount("user-1"))
+	}
+}
+
+type toggleImportWriterRepo struct {
+	*Repository
+	failPersist bool
+}
+
+func (r *toggleImportWriterRepo) SaveImportedTransaction(userID string, row ImportRow) error {
+	if r.failPersist {
+		return errors.New("persist failed")
+	}
+	return r.Repository.SaveImportedTransaction(userID, row)
+}
+
+func TestImportConfirm_DoesNotDedupRowsThatFailedPersistence(t *testing.T) {
+	repo := &toggleImportWriterRepo{
+		Repository:  NewRepository(func() time.Time { return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC) }),
+		failPersist: true,
+	}
+	service := NewImportConfirmService(repo)
+	req := ImportConfirmRequest{Rows: []ImportRow{{Date: "2026-03-01", Amount: 10, Description: "ok"}}}
+
+	failed, err := service.Confirm("user-1", "import-failed", req)
+	if ErrorCode(err) != IMPORT_PARTIAL_FAILED {
+		t.Fatalf("expected persist failure to return %s, got result=%#v err=%v", IMPORT_PARTIAL_FAILED, failed, err)
+	}
+	if repo.StoredRowCount("user-1") != 0 {
+		t.Fatalf("expected failed persistence to avoid writing dedup row, got %d", repo.StoredRowCount("user-1"))
+	}
+
+	repo.failPersist = false
+	retried, err := service.Confirm("user-1", "import-retry", req)
+	if err != nil {
+		t.Fatalf("expected retry after persistence recovery to succeed, got %v", err)
+	}
+	if retried.SuccessCount != 1 || retried.SkipCount != 0 {
+		t.Fatalf("expected retry to import row instead of skipping it, got %#v", retried)
 	}
 }
 

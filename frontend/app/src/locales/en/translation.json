@@ -254,6 +254,8 @@
       "action": "Action",
       "memoLabel": "Memo:",
       "noMemo": "No memo",
+      "noAccount": "No account",
+      "noLedger": "No ledger",
       "multipleAccounts": "Multiple accounts",
       "multipleLedgers": "Multiple ledgers",
       "incomingFlow": "Incoming flow",

@@ -12,6 +12,10 @@ export interface PaginatedResponse<T> {
 
 export interface TransactionRecord {
   id: string
+  ledger_id: string
+  account_id?: string
+  from_account_id?: string
+  to_account_id?: string
   type: 'income' | 'expense' | 'transfer'
   amount: number
   category_name?: string
