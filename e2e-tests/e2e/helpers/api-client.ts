@@ -81,6 +81,14 @@ export interface CategoryStatsResult {
   }>
 }
 
+export interface KeywordStatsResult {
+  items: Array<{
+    text: string
+    amount: number
+    count: number
+  }>
+}
+
 interface Envelope<T> {
   code: string
   message: string
@@ -379,6 +387,19 @@ export class XledgerApiClient {
     if (query?.to) params.set('to', query.to)
     const suffix = params.toString() ? `?${params.toString()}` : ''
     return this.requestEnvelope<CategoryStatsResult>(`/stats/category${suffix}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+  }
+
+  getKeywordStats(accessToken: string, query?: { from?: string; to?: string; limit?: number }) {
+    const params = new URLSearchParams()
+    if (query?.from) params.set('from', query.from)
+    if (query?.to) params.set('to', query.to)
+    if (query?.limit) params.set('limit', String(query.limit))
+    const suffix = params.toString() ? `?${params.toString()}` : ''
+    return this.requestEnvelope<KeywordStatsResult>(`/stats/keywords${suffix}`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },

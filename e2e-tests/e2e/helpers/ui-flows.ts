@@ -77,6 +77,12 @@ export async function createTransactionOnTransactionsPage(
   await form.getByLabel('Amount').fill(input.amount)
   await form.getByLabel('Memo').fill(input.memo)
   await form.getByLabel('Type').selectOption(input.type)
+  const accountSelect = form.getByLabel('Account')
+  const accountOptions = await accountSelect.locator('option').allTextContents()
+  const firstAccount = accountOptions.find((option) => option !== 'Select account')
+  if (firstAccount) {
+    await accountSelect.selectOption({ label: firstAccount })
+  }
 
   const createRequest = page.waitForResponse((response) => {
     return response.request().method() === 'POST' && response.url().includes('/api/transactions')
