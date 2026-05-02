@@ -36,6 +36,14 @@ type ImportConfirmResponse struct {
 	Rows         []ImportConfirmRowResult `json:"rows"`
 }
 
+func normalizeImportTransactionType(value string) string {
+	normalized := strings.TrimSpace(strings.ToLower(value))
+	if normalized == "income" || normalized == "expense" {
+		return normalized
+	}
+	return "expense"
+}
+
 type ImportConfirmRepository interface {
 	FindJob(userID string, path string, idempotencyKey string) (importJob, bool)
 	SaveJob(job importJob)
@@ -74,10 +82,10 @@ func (s *ImportConfirmService) Confirm(userID string, idempotencyKey string, req
 			result.Rows = append(result.Rows, ImportConfirmRowResult{RowIndex: idx, Status: "failed", Reason: "invalid_row"})
 			continue
 		}
-		stored := storedImportRow{Date: trimmedDate, Amount: row.Amount, Description: trimmedDescription}
+		stored := storedImportRow{Date: trimmedDate, Amount: row.Amount, Description: trimmedDescription, Type: normalizeImportTransactionType(row.Type)}
 		if s.repo.HasTriple(userID, stored) {
 			result.SkipCount++
-			result.Rows = append(result.Rows, ImportConfirmRowResult{RowIndex: idx, Status: "skipped", Reason: "duplicate: amount+date+description match"})
+			result.Rows = append(result.Rows, ImportConfirmRowResult{RowIndex: idx, Status: "skipped", Reason: "duplicate_transaction"})
 			continue
 		}
 		if hasTxnWriter {

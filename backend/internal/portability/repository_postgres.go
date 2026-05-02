@@ -60,13 +60,21 @@ func (r *PostgresRepository) SaveJob(job importJob) {
 
 func (r *PostgresRepository) HasTriple(userID string, row storedImportRow) bool {
 	var exists bool
-	tripleKey := r.tripleKey(userID, row)
-	err := r.db.QueryRow(`
+	occurredAt, err := parseImportOccurredAt(row.Date)
+	if err != nil {
+		return false
+	}
+	err = r.db.QueryRow(`
 		SELECT EXISTS(
-			SELECT 1 FROM import_dedup
-			WHERE user_id = $1 AND triple_key = $2
+			SELECT 1 FROM transactions
+			WHERE user_id = $1
+				AND deleted_at IS NULL
+				AND type = $2
+				AND occurred_at = $3
+				AND ROUND(amount::numeric, 2) = ROUND($4::numeric, 2)
+				AND lower(trim(coalesce(memo, ''))) = lower(trim($5))
 		)
-	`, userID, tripleKey).Scan(&exists)
+	`, strings.TrimSpace(userID), normalizeImportTransactionType(row.Type), occurredAt.UTC(), math.Abs(row.Amount), strings.TrimSpace(row.Description)).Scan(&exists)
 	if err != nil {
 		return false
 	}
@@ -74,7 +82,7 @@ func (r *PostgresRepository) HasTriple(userID string, row storedImportRow) bool 
 }
 
 func (r *PostgresRepository) SaveRow(userID string, row storedImportRow) {
-	tripleKey := r.tripleKey(userID, row)
+	tripleKey := r.importRowKey(userID, row)
 	r.db.Exec(`
 		INSERT INTO import_rows (user_id, date, amount, description, triple_key, created_at)
 		VALUES ($1, $2, $3, $4, $5, NOW())
@@ -97,8 +105,8 @@ func (r *PostgresRepository) StoredRowCount(userID string) int {
 	return count
 }
 
-func (r *PostgresRepository) tripleKey(userID string, row storedImportRow) string {
-	return strings.TrimSpace(userID) + "|" + strings.TrimSpace(row.Date) + "|" + strconv.FormatFloat(row.Amount, 'f', 2, 64) + "|" + strings.TrimSpace(strings.ToLower(row.Description))
+func (r *PostgresRepository) importRowKey(userID string, row storedImportRow) string {
+	return strings.TrimSpace(userID) + "|" + normalizeImportTransactionType(row.Type) + "|" + strings.TrimSpace(row.Date) + "|" + strconv.FormatFloat(math.Abs(row.Amount), 'f', 2, 64) + "|" + strings.TrimSpace(strings.ToLower(row.Description))
 }
 
 type PostgresImportJob struct {
@@ -151,10 +159,7 @@ func (r *PostgresRepository) SaveImportedTransaction(userID string, row ImportRo
 		return err
 	}
 
-	txnType := strings.TrimSpace(strings.ToLower(row.Type))
-	if txnType != "income" && txnType != "expense" {
-		txnType = "expense"
-	}
+	txnType := normalizeImportTransactionType(row.Type)
 	amount := math.Abs(row.Amount)
 	categoryName := strings.TrimSpace(row.Category)
 

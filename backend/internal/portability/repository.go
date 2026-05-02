@@ -10,11 +10,11 @@ import (
 )
 
 type Repository struct {
-	mu          sync.Mutex
-	now         func() time.Time
-	jobs        map[string]importJob
-	rows        map[string][]storedImportRow
-	tripleDedup map[string]bool
+	mu           sync.Mutex
+	now          func() time.Time
+	jobs         map[string]importJob
+	rows         map[string][]storedImportRow
+	transactions map[string]bool
 }
 
 type importJob struct {
@@ -30,6 +30,7 @@ type storedImportRow struct {
 	Date        string
 	Amount      float64
 	Description string
+	Type        string
 }
 
 func NewRepository(now func() time.Time) *Repository {
@@ -37,10 +38,10 @@ func NewRepository(now func() time.Time) *Repository {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Repository{
-		now:         now,
-		jobs:        map[string]importJob{},
-		rows:        map[string][]storedImportRow{},
-		tripleDedup: map[string]bool{},
+		now:          now,
+		jobs:         map[string]importJob{},
+		rows:         map[string][]storedImportRow{},
+		transactions: map[string]bool{},
 	}
 }
 
@@ -76,14 +77,13 @@ func (r *Repository) SaveJob(job importJob) {
 func (r *Repository) HasTriple(userID string, row storedImportRow) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.tripleDedup[r.tripleKey(userID, row)]
+	return r.transactions[r.transactionKey(userID, row)]
 }
 
 func (r *Repository) SaveRow(userID string, row storedImportRow) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.rows[userID] = append(r.rows[userID], row)
-	r.tripleDedup[r.tripleKey(userID, row)] = true
 }
 
 func (r *Repository) StoredRowCount(userID string) int {
@@ -98,6 +98,10 @@ func (r *Repository) SaveImportedTransaction(userID string, row ImportRow) error
 	if trimmedDate == "" || trimmedDesc == "" || row.Amount <= 0 || math.IsNaN(row.Amount) || math.IsInf(row.Amount, 0) {
 		return errors.New("invalid import row")
 	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	stored := storedImportRow{Date: trimmedDate, Amount: row.Amount, Description: trimmedDesc, Type: normalizeImportTransactionType(row.Type)}
+	r.transactions[r.transactionKey(userID, stored)] = true
 	return nil
 }
 
@@ -111,6 +115,6 @@ func (r *Repository) jobKey(userID string, path string, key string) string {
 	return strings.TrimSpace(userID) + "|" + strings.TrimSpace(path) + "|" + strings.TrimSpace(key)
 }
 
-func (r *Repository) tripleKey(userID string, row storedImportRow) string {
-	return strings.TrimSpace(userID) + "|" + strings.TrimSpace(row.Date) + "|" + strconv.FormatFloat(row.Amount, 'f', 2, 64) + "|" + strings.TrimSpace(strings.ToLower(row.Description))
+func (r *Repository) transactionKey(userID string, row storedImportRow) string {
+	return strings.TrimSpace(userID) + "|" + normalizeImportTransactionType(row.Type) + "|" + strings.TrimSpace(row.Date) + "|" + strconv.FormatFloat(math.Abs(row.Amount), 'f', 2, 64) + "|" + strings.TrimSpace(strings.ToLower(row.Description))
 }

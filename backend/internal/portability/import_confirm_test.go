@@ -71,6 +71,25 @@ func TestImportConfirm_SkipsExistingRowsAcrossRequestKeys(t *testing.T) {
 	}
 }
 
+func TestImportConfirm_DeduplicatesAgainstExistingTransactions(t *testing.T) {
+	repo := NewRepository(func() time.Time { return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC) })
+	if err := repo.SaveImportedTransaction("user-1", ImportRow{Date: "2026-03-01", Amount: 10, Description: "ok"}); err != nil {
+		t.Fatalf("seed transaction: %v", err)
+	}
+	service := NewImportConfirmService(repo)
+
+	result, err := service.Confirm("user-1", "import-existing-transaction", ImportConfirmRequest{Rows: []ImportRow{{Date: "2026-03-01", Amount: 10, Description: "ok"}}})
+	if err != nil {
+		t.Fatalf("expected duplicate transaction skip without error, got %v", err)
+	}
+	if result.SuccessCount != 0 || result.SkipCount != 1 {
+		t.Fatalf("expected existing transaction to be skipped, got %#v", result)
+	}
+	if repo.StoredRowCount("user-1") != 0 {
+		t.Fatalf("expected transaction-based dedup to avoid writing an import row, got %d", repo.StoredRowCount("user-1"))
+	}
+}
+
 type toggleImportWriterRepo struct {
 	*Repository
 	failPersist bool
