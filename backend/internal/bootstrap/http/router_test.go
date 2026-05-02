@@ -143,6 +143,7 @@ func TestStatsEndpoints_AcceptsAccessAndPAT(t *testing.T) {
 		reporting.NewOverviewService(reportingRepo, nil),
 		reporting.NewTrendService(reportingRepo, nil),
 		reporting.NewCategoryService(reportingRepo),
+		reporting.NewKeywordService(reportingRepo),
 	)
 
 	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
@@ -162,6 +163,9 @@ func TestStatsEndpoints_AcceptsAccessAndPAT(t *testing.T) {
 	}
 	if len(performJSON(t, r, http.MethodGet, "/api/stats/category", ``, pair.AccessToken, http.StatusOK)) == 0 {
 		t.Fatalf("expected category payload")
+	}
+	if len(performJSON(t, r, http.MethodGet, "/api/stats/keywords", ``, pair.AccessToken, http.StatusOK)) == 0 {
+		t.Fatalf("expected keyword payload")
 	}
 }
 

@@ -11,5 +11,6 @@ func newDefaultReportingHandler(deps *defaultBusinessDeps) *reporting.Handler {
 		reporting.NewOverviewService(repo, deps.reportingCache),
 		reporting.NewTrendService(repo, deps.reportingCache),
 		reporting.NewCategoryService(repo),
+		reporting.NewKeywordService(repo),
 	)
 }

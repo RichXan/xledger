@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useAuth } from '@/features/auth/auth-context'
-import { getCategoryStats, getOverviewStats, getTrendStats } from './reporting-api'
+import { getCategoryStats, getKeywordStats, getOverviewStats, getTrendStats } from './reporting-api'
 
 function getDefaultRange(days = 365) {
   const end = new Date()
@@ -65,6 +65,19 @@ export function useCategoryStats(options?: RangeOptions) {
   return useQuery({
     queryKey: ['reporting', 'category', from, to],
     queryFn: () => getCategoryStats(session!.accessToken, { from: options?.from, to: options?.to }),
+    enabled: Boolean(session?.accessToken),
+  })
+}
+
+export function useKeywordStats(options?: RangeOptions & { limit?: number }) {
+  const { session } = useAuth()
+  const from = options?.from ?? ''
+  const to = options?.to ?? ''
+  const limit = options?.limit ?? 30
+
+  return useQuery({
+    queryKey: ['reporting', 'keywords', from, to, limit],
+    queryFn: () => getKeywordStats(session!.accessToken, { from: options?.from, to: options?.to, limit }),
     enabled: Boolean(session?.accessToken),
   })
 }

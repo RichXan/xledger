@@ -180,6 +180,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		reportingGroup.GET("/stats/overview", reportingHandler.Overview)
 		reportingGroup.GET("/stats/trend", reportingHandler.Trend)
 		reportingGroup.GET("/stats/category", reportingHandler.Category)
+		reportingGroup.GET("/stats/keywords", reportingHandler.Keywords)
 	}
 
 	// Push handler registration
@@ -236,6 +237,7 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config, redisClient *redis.C
 		reporting.NewOverviewService(reportingRepo, reportingCache),
 		reporting.NewTrendService(reportingRepo, reportingCache),
 		reporting.NewCategoryService(reportingRepo),
+		reporting.NewKeywordService(reportingRepo),
 	)
 	portabilityHandler := newPortabilityHandlerWithPostgreSQL(db, acctDeps.TxnRepo, acctDeps.LedgerService, acctDeps.CategoryService)
 

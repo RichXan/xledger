@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { useCategoryStats, useTrendStatsRange } from '@/features/reporting/reporting-hooks'
+import { useCategoryStats, useKeywordStats, useTrendStatsRange } from '@/features/reporting/reporting-hooks'
 import { formatCurrency } from '@/lib/format'
 
 type FilterMode = 'month' | 'year'
@@ -20,6 +20,12 @@ type CategoryItem = {
   category_id: string
   category_name: string
   amount: number
+}
+
+type KeywordItem = {
+  text: string
+  amount: number
+  count: number
 }
 
 type TrendBucket = {
@@ -110,6 +116,7 @@ export function AnalyticsPage() {
   const [year, setYear] = useState(String(now.getFullYear()))
   const [month, setMonth] = useState(String(now.getMonth() + 1).padStart(2, '0'))
   const [activeCategoryName, setActiveCategoryName] = useState<string | null>(null)
+  const [activeKeywordText, setActiveKeywordText] = useState<string | null>(null)
   const [activeBarLabel, setActiveBarLabel] = useState<string | null>(null)
 
   const selectedYear = Number(year)
@@ -117,6 +124,7 @@ export function AnalyticsPage() {
   const range = useMemo(() => buildRange(mode, selectedYear, selectedMonth), [mode, selectedMonth, selectedYear])
 
   const categoryQuery = useCategoryStats({ from: range.from, to: range.to })
+  const keywordQuery = useKeywordStats({ from: range.from, to: range.to, limit: 30 })
   const trendQuery = useTrendStatsRange({
     from: range.from,
     to: range.to,
@@ -124,6 +132,7 @@ export function AnalyticsPage() {
   })
 
   const categoryPoints = categoryQuery.data?.items ?? []
+  const keywordPoints = keywordQuery.data?.items ?? []
   const trendPoints = trendQuery.data?.points ?? []
 
   const income = useMemo(() => trendPoints.reduce((sum, point) => sum + point.income, 0), [trendPoints])
@@ -174,7 +183,18 @@ export function AnalyticsPage() {
   const activeCategory =
     displayCategoryItems.find((item) => item.category_name === activeCategoryName) ?? displayCategoryItems[0] ?? null
 
-  const wordCloudItems = useMemo(() => categoryItems.slice(0, 14), [categoryItems])
+  const wordCloudItems = useMemo<KeywordItem[]>(() => {
+    return keywordPoints
+      .map((point) => ({
+        text: point.text,
+        amount: point.amount,
+        count: point.count,
+      }))
+      .filter((point) => point.text.trim() !== '')
+      .slice(0, 24)
+  }, [keywordPoints])
+  const maxKeywordAmount = Math.max(...wordCloudItems.map((item) => item.amount), 1)
+  const activeKeyword = wordCloudItems.find((item) => item.text === activeKeywordText) ?? wordCloudItems[0] ?? null
 
   const barsByBucket = useMemo(
     () => buildTrendBuckets(trendPoints, mode, selectedYear, selectedMonth, i18n.language),
@@ -211,6 +231,17 @@ export function AnalyticsPage() {
       setActiveBarLabel(barsByBucket[0].label)
     }
   }, [activeBarLabel, barsByBucket])
+
+  useEffect(() => {
+    if (wordCloudItems.length === 0) {
+      setActiveKeywordText(null)
+      return
+    }
+    const hasSelected = activeKeywordText ? wordCloudItems.some((item) => item.text === activeKeywordText) : false
+    if (!hasSelected) {
+      setActiveKeywordText(wordCloudItems[0].text)
+    }
+  }, [activeKeywordText, wordCloudItems])
 
   return (
     <div className="space-y-5">
@@ -388,30 +419,41 @@ export function AnalyticsPage() {
           </article>
 
           <article className="rounded-2xl border border-outline/10 bg-white p-5">
-            <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">{t('analyticsPage.spendingCloud')}</h3>
-            <p className="mt-2 text-sm text-on-surface-variant">{t('analyticsPage.spendingCloudHint')}</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">{t('analyticsPage.spendingCloud')}</h3>
+                <p className="mt-2 text-sm text-on-surface-variant">{t('analyticsPage.spendingCloudHint')}</p>
+              </div>
+              {activeKeyword ? (
+                <div className="rounded-xl bg-surface-container-low px-4 py-3 text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('analyticsPage.keywordSpend')}</p>
+                  <p className="mt-1 text-sm font-bold text-on-surface">{formatCurrency(activeKeyword.amount)}</p>
+                  <p className="mt-1 text-xs text-on-surface-variant">{t('analyticsPage.keywordCount', { count: activeKeyword.count })}</p>
+                </div>
+              ) : null}
+            </div>
 
             {wordCloudItems.length > 0 ? (
               <div className="mt-6 flex min-h-[310px] flex-wrap content-center items-center justify-center gap-x-4 gap-y-3 rounded-2xl bg-surface-container-low p-6">
                 {wordCloudItems.map((item, index) => {
-                  const weight = totalExpense > 0 ? item.amount / totalExpense : 0
-                  const fontSize = Math.round(14 + Math.min(1, weight * 4) * 22)
-                  const isActive = activeCategory?.category_name === item.category_name
+                  const weight = item.amount / maxKeywordAmount
+                  const fontSize = Math.round(15 + Math.min(1, weight) * 24)
+                  const isActive = activeKeyword?.text === item.text
                   return (
                     <button
-                      key={item.category_id}
+                      key={item.text}
                       type="button"
-                      aria-label={`${item.category_name}: ${formatCurrency(item.amount)}`}
+                      aria-label={`${item.text}: ${formatCurrency(item.amount)}`}
                       className={`font-headline font-extrabold leading-none transition hover:scale-105 ${isActive ? 'opacity-100' : 'opacity-75 hover:opacity-100'}`}
                       style={{
                         color: CHART_PALETTE[index % CHART_PALETTE.length],
                         fontSize,
                       }}
-                      onMouseEnter={() => setActiveCategoryName(item.category_name)}
-                      onFocus={() => setActiveCategoryName(item.category_name)}
-                      onClick={() => setActiveCategoryName(item.category_name)}
+                      onMouseEnter={() => setActiveKeywordText(item.text)}
+                      onFocus={() => setActiveKeywordText(item.text)}
+                      onClick={() => setActiveKeywordText(item.text)}
                     >
-                      {item.category_name}
+                      {item.text}
                     </button>
                   )
                 })}

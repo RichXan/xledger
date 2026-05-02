@@ -1106,6 +1106,26 @@ paths:
       responses:
         '200':
           description: 分类统计数据
+  /stats/keywords:
+    get:
+      summary: 获取支出关键词统计
+      tags: [Stats]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FromParam'
+        - $ref: '#/components/parameters/ToParam'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+      responses:
+        '200':
+          description: 从支出交易备注和分类中聚合的关键词统计
   /import/csv:
     post:
       summary: 预览 CSV 导入

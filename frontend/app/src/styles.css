@@ -5,7 +5,7 @@
 :root {
   color: #161b26;
   background: #eef2f8;
-  font-family: 'Manrope', 'Inter', sans-serif;
+  font-family: 'Manrope', 'Inter', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Source Han Sans SC', sans-serif;
   text-rendering: geometricPrecision;
 }
 

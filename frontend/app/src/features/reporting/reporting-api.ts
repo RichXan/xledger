@@ -27,10 +27,21 @@ export interface CategoryStats {
   items: CategoryPoint[]
 }
 
+export interface KeywordPoint {
+  text: string
+  amount: number
+  count: number
+}
+
+export interface KeywordStats {
+  items: KeywordPoint[]
+}
+
 type RangeOptions = {
   from?: string
   to?: string
   ledgerId?: string
+  limit?: number
 }
 
 export function getOverviewStats(accessToken: string, options?: RangeOptions) {
@@ -77,6 +88,21 @@ export function getCategoryStats(accessToken: string, options?: Pick<RangeOption
   const path = suffix ? `/stats/category?${suffix}` : '/stats/category'
 
   return requestEnvelope<CategoryStats>(path, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+}
+
+export function getKeywordStats(accessToken: string, options?: Pick<RangeOptions, 'from' | 'to' | 'limit'>) {
+  const params = new URLSearchParams()
+  if (options?.from) params.set('from', options.from)
+  if (options?.to) params.set('to', options.to)
+  if (options?.limit) params.set('limit', String(options.limit))
+  const suffix = params.toString()
+  const path = suffix ? `/stats/keywords?${suffix}` : '/stats/keywords'
+
+  return requestEnvelope<KeywordStats>(path, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

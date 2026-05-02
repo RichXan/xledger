@@ -42,9 +42,9 @@ export default {
         'on-error-container': '#93000a',
       },
       fontFamily: {
-        headline: ['Manrope', 'sans-serif'],
-        body: ['Inter', 'sans-serif'],
-        label: ['Inter', 'sans-serif'],
+        headline: ['Manrope', 'Inter', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Source Han Sans SC', 'sans-serif'],
+        body: ['Inter', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Source Han Sans SC', 'sans-serif'],
+        label: ['Inter', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Source Han Sans SC', 'sans-serif'],
       },
       boxShadow: {
         ambient: '0px 12px 32px rgba(25, 28, 30, 0.04)',

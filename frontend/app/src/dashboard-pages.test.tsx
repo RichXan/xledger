@@ -138,6 +138,22 @@ describe('dashboard and analytics pages', () => {
         )
       }
 
+      if (url.includes('/api/stats/keywords')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: '成功',
+            data: {
+              items: [
+                { text: 'Coffee', amount: 680, count: 4 },
+                { text: 'Lunch', amount: 420, count: 3 },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
       throw new Error(`Unexpected URL: ${url}`)
     })
     global.fetch = fetchMock as typeof fetch
@@ -152,6 +168,7 @@ describe('dashboard and analytics pages', () => {
       expect(screen.getAllByText('¥3,200.00').length).toBeGreaterThan(0)
       expect(screen.getAllByText('Travel').length).toBeGreaterThan(0)
       expect(screen.getAllByText('¥1,800.00').length).toBeGreaterThan(0)
+      expect(screen.getByText('Coffee')).toBeInTheDocument()
     })
   })
 })
