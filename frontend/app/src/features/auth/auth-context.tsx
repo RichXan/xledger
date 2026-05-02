@@ -20,7 +20,6 @@ import {
   verifyCode,
 } from './auth-api'
 import { clearAuthSession, readAuthSession, writeAuthSession, type AuthSession } from './auth-storage'
-import { changeLanguage, resolveSupportedLanguage } from '@/i18n'
 
 interface AuthContextValue {
   session: AuthSession | null
@@ -52,14 +51,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [])
 
-  const syncLanguage = useCallback((language?: string) => {
-    if (language) {
-      void changeLanguage(resolveSupportedLanguage(language)).catch((caughtError) => {
-        console.error('Failed to sync profile language:', caughtError)
-      })
-    }
-  }, [])
-
   const applyTokens = useCallback(
     async (accessToken: string, refreshToken: string) => {
       const user = await getCurrentUser(accessToken)
@@ -69,9 +60,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         email: user.email,
         name: user.name ?? null,
       })
-      syncLanguage(user.language)
     },
-    [persistSession, syncLanguage],
+    [persistSession],
   )
 
   useEffect(() => {
@@ -87,9 +77,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const user = await getCurrentUser(session.accessToken)
         if (isMounted && (session.email !== user.email || session.name !== (user.name ?? null))) {
           persistSession({ ...session, email: user.email, name: user.name ?? null })
-        }
-        if (isMounted) {
-          syncLanguage(user.language)
         }
       } catch {
         if (!session.refreshToken) {
@@ -141,7 +128,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       isMounted = false
     }
-  }, [applyTokens, persistSession, session?.accessToken, session?.email, session?.refreshToken, syncLanguage])
+  }, [applyTokens, persistSession, session?.accessToken, session?.email, session?.refreshToken])
 
   const sendVerificationCode = useCallback(async (email: string) => {
     await sendCode(email)

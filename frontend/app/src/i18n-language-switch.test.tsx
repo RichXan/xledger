@@ -135,11 +135,17 @@ describe('language switching', () => {
     expect(getCurrentLanguage()).toBe('zh')
   })
 
-  it('syncs regional language codes returned by the current-user endpoint', async () => {
+  it('only restores language from an explicit saved selection', () => {
+    const detectionOptions = i18n.options.detection as { order?: string[] } | undefined
+
+    expect(detectionOptions?.order).toEqual(['localStorage'])
+  })
+
+  it('keeps English when the current-user endpoint returns Chinese before the user chooses it', async () => {
     mockDashboardApi('zh-CN')
 
     renderApp(['/dashboard'])
 
-    expect(await screen.findByRole('heading', { name: '财务概览' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /financial overview/i })).toBeInTheDocument()
   })
 })

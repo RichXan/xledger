@@ -42,8 +42,7 @@ i18n
     supportedLngs: supportedLanguages,
     nonExplicitSupportedLngs: true,
     detection: {
-      order: ['querystring', 'localStorage', 'navigator'],
-      lookupQuerystring: 'lang',
+      order: ['localStorage'],
       caches: ['localStorage'],
     },
     interpolation: {
