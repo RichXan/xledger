@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './features/auth/auth-context'
-import i18n, { getCurrentLanguage } from './i18n'
+import i18n, { getCurrentLanguage, supportedLanguageOptions } from './i18n'
 
 const originalFetch = global.fetch
 
@@ -196,6 +196,13 @@ describe('language switching', () => {
     const detectionOptions = i18n.options.detection as { order?: string[] } | undefined
 
     expect(detectionOptions?.order).toEqual(['localStorage'])
+  })
+
+  it('keeps supported languages in one registry for selectors and resources', () => {
+    expect(supportedLanguageOptions).toEqual([
+      { code: 'en', label: 'EN' },
+      { code: 'zh', label: '中文' },
+    ])
   })
 
   it('keeps English when the current-user endpoint returns Chinese before the user chooses it', async () => {

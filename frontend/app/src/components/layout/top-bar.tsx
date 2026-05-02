@@ -9,7 +9,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { usePwaInstall } from '@/features/pwa/use-pwa-install'
 import { usePwaUpdate } from '@/features/pwa/use-pwa-update'
 import { ApiError } from '@/lib/api'
-import { changeLanguage, resolveSupportedLanguage, supportedLanguages } from '@/i18n'
+import { changeLanguage, resolveSupportedLanguage, supportedLanguageOptions } from '@/i18n'
 
 export function TopBar() {
   const { logout, session, updateDisplayName, changePassword } = useAuth()
@@ -130,9 +130,9 @@ export function TopBar() {
               className="h-10 w-[72px] cursor-pointer rounded-xl border border-outline/20 bg-surface-container-low px-2 text-sm text-on-surface-variant transition hover:bg-surface-container md:w-auto"
               aria-label={t('layout.topBar.languageLabel')}
             >
-              {supportedLanguages.map((lang) => (
-                <option key={lang} value={lang}>
-                  {lang === 'zh' ? '中文' : 'EN'}
+              {supportedLanguageOptions.map((language) => (
+                <option key={language.code} value={language.code}>
+                  {language.label}
                 </option>
               ))}
             </select>
