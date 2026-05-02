@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useCategoryStats, useTrendStatsRange } from '@/features/reporting/reporting-hooks'
@@ -38,6 +39,7 @@ function buildRange(mode: FilterMode, year: number, month: number) {
 }
 
 export function AnalyticsPage() {
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const now = new Date()
   const [mode, setMode] = useState<FilterMode>('month')
@@ -70,12 +72,12 @@ export function AnalyticsPage() {
     return categoryPoints
       .map((point, index) => ({
         category_id: point.category_id || `${point.category_name}-${index}`,
-        category_name: point.category_name || 'Uncategorized',
+        category_name: point.category_name || t('analyticsPage.uncategorized'),
         amount: point.amount,
       }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 6)
-  }, [categoryPoints])
+  }, [categoryPoints, t])
 
   const totalExpense = categoryItems.reduce((sum, item) => sum + item.amount, 0)
 
@@ -110,7 +112,10 @@ export function AnalyticsPage() {
     trendPoints.forEach((point) => {
       const dt = new Date(point.bucket_start)
       const key = mode === 'year' ? `${dt.getMonth()}` : `${dt.getDate()}`
-      const label = mode === 'year' ? dt.toLocaleString('en-US', { month: 'short' }).toUpperCase() : String(dt.getDate())
+      const label =
+        mode === 'year'
+          ? dt.toLocaleString(i18n.language === 'zh' ? 'zh-CN' : 'en-US', { month: 'short' }).toUpperCase()
+          : String(dt.getDate())
       const bucket = map.get(key) ?? { label, revenue: 0, investment: 0 }
       bucket.revenue += point.income
       bucket.investment += point.expense
@@ -120,7 +125,7 @@ export function AnalyticsPage() {
     const values = Array.from(map.values())
     if (mode === 'year') return values.slice(0, 12)
     return values.slice(0, 10)
-  }, [mode, trendPoints])
+  }, [i18n.language, mode, trendPoints])
 
   const maxCombined = Math.max(...barsByBucket.map((bar) => bar.revenue + bar.investment), 1)
   const activeBar = barsByBucket.find((bar) => bar.label === activeBarLabel) ?? null
@@ -156,24 +161,24 @@ export function AnalyticsPage() {
       <section className="rounded-[28px] border border-outline/15 bg-surface-container-lowest p-6 shadow-ambient md:p-7">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="font-headline text-[56px] font-extrabold leading-none tracking-tight text-on-surface">Analytics</h2>
-            <p className="mt-2 text-sm text-on-surface-variant">Comparative insight across category concentration and cashflow rhythm.</p>
+            <h2 className="font-headline text-[56px] font-extrabold leading-none tracking-tight text-on-surface">{t('analyticsPage.title')}</h2>
+            <p className="mt-2 text-sm text-on-surface-variant">{t('analyticsPage.description')}</p>
           </div>
 
           <div className="flex items-center gap-2 rounded-xl border border-outline/15 bg-surface-container p-2">
             <select
               value={mode}
               onChange={(event) => setMode(event.target.value as FilterMode)}
-              aria-label="Analytics grouping mode"
+              aria-label={t('analyticsPage.groupingModeLabel')}
               className="h-9 rounded-lg border border-outline/20 bg-white px-3 text-sm"
             >
-              <option value="month">By Month</option>
-              <option value="year">By Year</option>
+              <option value="month">{t('analyticsPage.byMonth')}</option>
+              <option value="year">{t('analyticsPage.byYear')}</option>
             </select>
             <select
               value={year}
               onChange={(event) => setYear(event.target.value)}
-              aria-label="Analytics year"
+              aria-label={t('analyticsPage.yearLabel')}
               className="h-9 rounded-lg border border-outline/20 bg-white px-3 text-sm"
             >
               {yearOptions.map((value) => (
@@ -186,7 +191,7 @@ export function AnalyticsPage() {
               <select
                 value={month}
                 onChange={(event) => setMonth(event.target.value)}
-                aria-label="Analytics month"
+                aria-label={t('analyticsPage.monthLabel')}
                 className="h-9 rounded-lg border border-outline/20 bg-white px-3 text-sm"
               >
                 {Array.from({ length: 12 }, (_, idx) => String(idx + 1).padStart(2, '0')).map((value) => (
@@ -201,31 +206,31 @@ export function AnalyticsPage() {
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-2xl border border-[#67d79c]/70 bg-white p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Total Net Worth</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('analyticsPage.totalNetWorth')}</p>
             <p className="mt-3 font-headline text-5xl font-extrabold text-on-surface">{formatCurrency(netWorth)}</p>
           </article>
           <article className="rounded-2xl bg-white p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Income</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('analyticsPage.income')}</p>
             <p className="mt-3 font-headline text-5xl font-extrabold text-on-surface">{formatCurrency(income)}</p>
           </article>
           <article className="rounded-2xl bg-white p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Expense</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('analyticsPage.expense')}</p>
             <p className="mt-3 font-headline text-5xl font-extrabold text-on-surface">{formatCurrency(expense)}</p>
           </article>
           <article className="rounded-2xl bg-primary p-5 text-white">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-fixed">Savings Rate</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-fixed">{t('analyticsPage.savingsRate')}</p>
             <p className="mt-3 font-headline text-5xl font-extrabold">{savingsRateLabel}</p>
-            <p className="mt-2 text-xs text-primary-fixed">Net Income / Income</p>
+            <p className="mt-2 text-xs text-primary-fixed">{t('analyticsPage.savingsFormula')}</p>
           </article>
         </div>
 
         <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_1.25fr]">
           <article className="rounded-2xl border border-outline/10 bg-white p-5">
-            <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">Expense Categories</h3>
+            <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">{t('analyticsPage.expenseCategories')}</h3>
 
             {categoryItems.length > 0 ? (
               <div className="mt-6 flex flex-col items-center">
-                <svg viewBox="0 0 120 120" className="h-56 w-56" aria-label="Expense categories donut chart">
+                <svg viewBox="0 0 120 120" className="h-56 w-56" aria-label={t('analyticsPage.donutAria')}>
                   <circle cx="60" cy="60" r="42" fill="none" stroke="#e6e8eb" strokeWidth="16" />
                   {donutSlices.map((slice) => (
                     <circle
@@ -249,13 +254,13 @@ export function AnalyticsPage() {
                   ))}
                   <circle cx="60" cy="60" r="30" fill="white" />
                   <text x="60" y="52" textAnchor="middle" className="fill-[#434653] text-[4px] font-bold tracking-[0.14em] uppercase">
-                    Total Expense
+                    {t('analyticsPage.totalExpense')}
                   </text>
                   <text x="60" y="66" textAnchor="middle" className="fill-[#191c1e] text-[7px] font-bold">
                     {formatCurrency(activeCategory?.amount ?? totalExpense)}
                   </text>
                   <text x="60" y="76" textAnchor="middle" className="fill-[#434653] text-[3.8px] font-semibold">
-                    {activeCategory?.category_name ?? 'All categories'}
+                    {activeCategory?.category_name ?? t('analyticsPage.allCategories')}
                   </text>
                 </svg>
 
@@ -277,11 +282,11 @@ export function AnalyticsPage() {
               </div>
             ) : (
               <div className="mt-6 rounded-xl bg-surface-container-low p-4 text-sm text-on-surface-variant">
-                <p>No category data for selected range.</p>
-                <p className="mt-2">Create a few expense transactions to unlock category concentration insights.</p>
+                <p>{t('analyticsPage.noCategoryData')}</p>
+                <p className="mt-2">{t('analyticsPage.categoryEmptyHint')}</p>
                 <div className="mt-3">
                   <Button className="px-3 py-1.5 text-xs" onClick={() => navigate('/transactions')}>
-                    Add Transactions
+                    {t('analyticsPage.addTransactions')}
                   </Button>
                 </div>
               </div>
@@ -289,9 +294,11 @@ export function AnalyticsPage() {
           </article>
 
           <article className="rounded-2xl border border-outline/10 bg-white p-5">
-            <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">Revenue vs Burn Rate</h3>
+            <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">{t('analyticsPage.revenueVsBurn')}</h3>
             <p className="mt-2 text-sm text-on-surface-variant">
-              {mode === 'year' ? `Monthly comparison for ${year}` : `Daily comparison for ${year}-${month}`}
+              {mode === 'year'
+                ? t('analyticsPage.monthlyComparison', { year })
+                : t('analyticsPage.dailyComparison', { year, month })}
             </p>
 
             {barsByBucket.length > 0 ? (
@@ -322,7 +329,11 @@ export function AnalyticsPage() {
                         <button
                           type="button"
                           className="flex h-full flex-col justify-end rounded-xl bg-surface-container-low p-1 text-left"
-                          aria-label={`${point.label}: revenue ${formatCurrency(point.revenue)}, burn ${formatCurrency(point.investment)}`}
+                          aria-label={t('analyticsPage.barAria', {
+                            label: point.label,
+                            revenue: formatCurrency(point.revenue),
+                            burn: formatCurrency(point.investment),
+                          })}
                           onMouseEnter={() => setActiveBarLabel(point.label)}
                           onFocus={() => setActiveBarLabel(point.label)}
                           onClick={() => setActiveBarLabel(point.label)}
@@ -340,18 +351,18 @@ export function AnalyticsPage() {
                 {activeBar ? (
                   <div className="mt-3 rounded-xl border border-outline/10 bg-surface-container-low px-3 py-2 text-sm text-on-surface">
                     <span className="font-semibold">{activeBar.label}</span>
-                    <span className="ml-4">Revenue: {formatCurrency(activeBar.revenue)}</span>
-                    <span className="ml-4">Burn: {formatCurrency(activeBar.investment)}</span>
+                    <span className="ml-4">{t('analyticsPage.revenue')}: {formatCurrency(activeBar.revenue)}</span>
+                    <span className="ml-4">{t('analyticsPage.burn')}: {formatCurrency(activeBar.investment)}</span>
                   </div>
                 ) : null}
               </>
             ) : (
               <div className="mt-6 rounded-xl bg-surface-container-low p-4 text-sm text-on-surface-variant">
-                <p>No trend data for selected range.</p>
-                <p className="mt-2">Once you record income or expense entries, trend bars will appear here automatically.</p>
+                <p>{t('analyticsPage.noTrendData')}</p>
+                <p className="mt-2">{t('analyticsPage.trendEmptyHint')}</p>
                 <div className="mt-3">
                   <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => navigate('/transactions')}>
-                    Go to Transactions
+                    {t('analyticsPage.goToTransactions')}
                   </Button>
                 </div>
               </div>

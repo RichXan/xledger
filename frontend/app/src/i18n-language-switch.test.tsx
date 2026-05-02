@@ -78,6 +78,28 @@ function mockDashboardApi(language?: string) {
       )
     }
 
+    if (url.endsWith('/api/categories') || url.endsWith('/api/tags') || url.endsWith('/api/personal-access-tokens')) {
+      return new Response(
+        JSON.stringify({
+          code: 'OK',
+          message: 'success',
+          data: { items: [], pagination: { page: 1, page_size: 20, total: 0, total_pages: 0 } },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    if (url.includes('/api/stats/category?')) {
+      return new Response(
+        JSON.stringify({
+          code: 'OK',
+          message: 'success',
+          data: { items: [] },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
     if (url.includes('/api/transactions?')) {
       return new Response(
         JSON.stringify({
@@ -128,13 +150,40 @@ describe('language switching', () => {
       expect(screen.getByRole('option', { name: '中文' })).toBeInTheDocument()
     })
 
-    const primaryNav = screen.getByRole('navigation', { name: /primary/i })
+    const primaryNav = screen.getByRole('navigation', { name: '主导航' })
     expect(within(primaryNav).getByRole('link', { name: '首页' })).toBeInTheDocument()
     expect(within(primaryNav).getByRole('link', { name: '交易' })).toBeInTheDocument()
     expect(within(primaryNav).getByRole('link', { name: '统计' })).toBeInTheDocument()
     expect(within(primaryNav).getByRole('link', { name: '账户' })).toBeInTheDocument()
     expect(within(primaryNav).getByRole('link', { name: '快捷记账' })).toBeInTheDocument()
     expect(within(primaryNav).getByRole('link', { name: '设置' })).toBeInTheDocument()
+  })
+
+  it('switches protected page content to readable Chinese', async () => {
+    const pageExpectations = [
+      { path: '/transactions', english: /transactions/i, chinese: '交易' },
+      { path: '/analytics', english: /analytics/i, chinese: '统计分析' },
+      { path: '/accounts', english: /accounts/i, chinese: '账户' },
+      { path: '/shortcut', english: /apple shortcuts/i, chinese: 'Apple 快捷指令' },
+      { path: '/settings', english: /settings/i, chinese: '设置' },
+    ]
+
+    for (const { path, english, chinese } of pageExpectations) {
+      mockDashboardApi()
+      const user = userEvent.setup()
+      const view = renderApp([path])
+
+      expect(await screen.findByRole('heading', { name: english })).toBeInTheDocument()
+
+      await user.selectOptions(screen.getByLabelText(/select language/i), 'zh')
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: chinese })).toBeInTheDocument()
+      })
+
+      view.unmount()
+      await i18n.changeLanguage('en')
+    }
   })
 
   it('normalizes regional browser language codes for app state', async () => {

@@ -23,12 +23,14 @@ export function SideNav() {
           <BrandMark />
           <div>
             <p className="font-headline text-[40px] font-extrabold leading-none tracking-tight text-primary">xledger</p>
-            <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">Financial Precision</p>
+            <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
+              {t('layout.brandTagline')}
+            </p>
           </div>
         </div>
       </div>
 
-      <nav aria-label="Primary" className="flex flex-1 flex-col gap-1.5">
+      <nav aria-label={t('layout.primaryNavigation')} className="flex flex-1 flex-col gap-1.5">
         {primaryNavItems.map(({ to, labelKey, icon: Icon }) => (
           <NavLink
             key={to}

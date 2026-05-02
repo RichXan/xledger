@@ -13,10 +13,13 @@ import { changeLanguage, resolveSupportedLanguage, supportedLanguages } from '@/
 
 export function TopBar() {
   const { logout, session, updateDisplayName, changePassword } = useAuth()
-  const displayName = useMemo(() => session?.name || session?.email || 'Ledger User', [session?.email, session?.name])
   const location = useLocation()
   const navigate = useNavigate()
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const displayName = useMemo(
+    () => session?.name || session?.email || t('layout.topBar.ledgerUser'),
+    [session?.email, session?.name, t],
+  )
 
   const [profileOpen, setProfileOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -64,12 +67,12 @@ export function TopBar() {
     setNotice(null)
     try {
       await updateDisplayName(displayNameInput)
-      setNotice('Profile updated.')
+      setNotice(t('layout.topBar.profileUpdated'))
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
         setError(caughtError.message)
       } else {
-        setError('Failed to update profile.')
+        setError(t('layout.topBar.profileUpdateFailed'))
       }
     } finally {
       setPending(false)
@@ -84,12 +87,12 @@ export function TopBar() {
       await changePassword(oldPassword, newPassword)
       setOldPassword('')
       setNewPassword('')
-      setNotice('Password updated.')
+      setNotice(t('layout.topBar.passwordUpdated'))
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
         setError(caughtError.message)
       } else {
-        setError('Failed to change password.')
+        setError(t('layout.topBar.passwordUpdateFailed'))
       }
     } finally {
       setPending(false)
@@ -112,11 +115,11 @@ export function TopBar() {
             <input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search transactions..."
+              placeholder={t('layout.topBar.searchPlaceholder')}
               className="h-11 w-full rounded-xl border border-outline/20 bg-surface-container-low pl-9 pr-24 text-sm text-on-surface placeholder:text-on-surface-variant/70"
             />
             <Button type="submit" variant="ghost" className="absolute right-1.5 top-1.5 h-8 px-3 text-xs">
-              Search
+              {t('common.search')}
             </Button>
           </form>
 
@@ -125,7 +128,7 @@ export function TopBar() {
               value={currentLang}
               onChange={handleLanguageChange}
               className="h-10 w-[72px] cursor-pointer rounded-xl border border-outline/20 bg-surface-container-low px-2 text-sm text-on-surface-variant transition hover:bg-surface-container md:w-auto"
-              aria-label="Select language"
+              aria-label={t('layout.topBar.languageLabel')}
             >
               {supportedLanguages.map((lang) => (
                 <option key={lang} value={lang}>
@@ -136,7 +139,7 @@ export function TopBar() {
             <button
               type="button"
               className="hidden h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:grid"
-              aria-label="Notifications"
+              aria-label={t('layout.topBar.notifications')}
               onClick={() => setNotificationsOpen(true)}
             >
               <Bell className="h-4 w-4" />
@@ -144,7 +147,7 @@ export function TopBar() {
             <button
               type="button"
               className="hidden h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:grid"
-              aria-label="Help"
+              aria-label={t('layout.topBar.help')}
               onClick={() => setHelpOpen(true)}
             >
               <CircleHelp className="h-4 w-4" />
@@ -158,19 +161,19 @@ export function TopBar() {
                 }}
               >
                 <Download className="mr-1 h-4 w-4" />
-                Install App
+                {t('layout.topBar.installApp')}
               </Button>
             ) : null}
             {updateAvailable ? (
               <Button variant="secondary" className="hidden h-10 px-3 md:inline-flex" onClick={() => void updateNow()} disabled={updating}>
                 <RefreshCcw className="mr-1 h-4 w-4" />
-                {updating ? 'Updating...' : 'Update App'}
+                {updating ? t('layout.topBar.updating') : t('layout.topBar.updateApp')}
               </Button>
             ) : null}
             <button
               type="button"
               className="grid h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:hidden"
-              aria-label="Open profile"
+              aria-label={t('layout.topBar.openProfile')}
               onClick={openProfileDialog}
             >
               <CircleUserRound className="h-4 w-4" />
@@ -187,9 +190,9 @@ export function TopBar() {
                 {(displayName[0] ?? 'U').toUpperCase()}
               </div>
             </button>
-            <Button variant="ghost" className="px-2 py-2 md:px-3" onClick={() => void logout()} aria-label="Logout">
+            <Button variant="ghost" className="px-2 py-2 md:px-3" onClick={() => void logout()} aria-label={t('layout.topBar.logout')}>
               <LogOut className="h-4 w-4 md:hidden" />
-              <span className="hidden md:inline">Logout</span>
+              <span className="hidden md:inline">{t('layout.topBar.logout')}</span>
             </Button>
           </div>
         </div>
@@ -197,22 +200,22 @@ export function TopBar() {
 
       {notificationsOpen ? (
         <DialogShell
-          title="Notifications"
-          description="Recent operational reminders and activity."
+          title={t('layout.topBar.notifications')}
+          description={t('layout.topBar.notificationsDescription')}
           onClose={() => setNotificationsOpen(false)}
           className="max-w-xl"
           footer={
             <Button variant="secondary" onClick={() => setNotificationsOpen(false)}>
-              Close
+              {t('common.close')}
             </Button>
           }
         >
           <div className="space-y-3">
             <div className="rounded-xl border border-outline/15 bg-surface-container-low p-4 text-sm text-on-surface">
-              No critical alerts right now. Your ledger services are running normally.
+              {t('layout.topBar.noCriticalAlerts')}
             </div>
             <div className="rounded-xl border border-outline/15 bg-surface-container-low p-4 text-sm text-on-surface">
-              Tip: Use the search box to jump to transactions by ID, category, or note.
+              {t('layout.topBar.searchTip')}
             </div>
           </div>
         </DialogShell>
@@ -220,8 +223,8 @@ export function TopBar() {
 
       {helpOpen ? (
         <DialogShell
-          title="Quick Help"
-          description="Common paths to get value faster."
+          title={t('layout.topBar.quickHelp')}
+          description={t('layout.topBar.quickHelpDescription')}
           onClose={() => setHelpOpen(false)}
           className="max-w-xl"
           footer={
@@ -231,16 +234,16 @@ export function TopBar() {
                 navigate('/transactions')
               }}
             >
-              Go To Transactions
+              {t('layout.topBar.goToTransactions')}
             </Button>
           }
         >
           <div className="space-y-3 text-sm text-on-surface">
             <p className="rounded-xl border border-outline/15 bg-surface-container-low p-4">
-              Add entries quickly from <strong>Transactions</strong>, then review trends in <strong>Analytics</strong>.
+              {t('layout.topBar.helpTransactions')}
             </p>
             <p className="rounded-xl border border-outline/15 bg-surface-container-low p-4">
-              Use <strong>Settings → Export CSV</strong> for backup, and <strong>Apple Shortcuts</strong> for fast mobile capture.
+              {t('layout.topBar.helpSettings')}
             </p>
           </div>
         </DialogShell>
@@ -248,42 +251,44 @@ export function TopBar() {
 
       {profileOpen ? (
         <DialogShell
-          title="Profile"
-          description="Review your account details, update display name, and change password."
+          title={t('layout.topBar.profile')}
+          description={t('layout.topBar.profileDescription')}
           onClose={() => setProfileOpen(false)}
           className="max-w-2xl"
           footer={
             <>
               <Button variant="secondary" onClick={() => setProfileOpen(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={() => void handleSaveProfile()} disabled={pending || !displayNameInput.trim()}>
-                Save Profile
+                {t('layout.topBar.saveProfile')}
               </Button>
             </>
           }
         >
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2">
-              <TextField label="Email" value={session?.email ?? ''} disabled />
+              <TextField label={t('layout.topBar.email')} value={session?.email ?? ''} disabled />
               <TextField
-                label="Display Name"
+                label={t('layout.topBar.displayName')}
                 value={displayNameInput}
                 onChange={(event) => setDisplayNameInput(event.target.value)}
-                placeholder="Your name"
+                placeholder={t('layout.topBar.displayNamePlaceholder')}
               />
             </div>
             <div className="rounded-2xl border border-outline/15 bg-surface-container-low p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-on-surface-variant">Change Password</p>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                {t('layout.topBar.changePassword')}
+              </p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <TextField
-                  label="Current Password"
+                  label={t('layout.topBar.currentPassword')}
                   type="password"
                   value={oldPassword}
                   onChange={(event) => setOldPassword(event.target.value)}
                 />
                 <TextField
-                  label="New Password"
+                  label={t('layout.topBar.newPassword')}
                   type="password"
                   value={newPassword}
                   onChange={(event) => setNewPassword(event.target.value)}
@@ -295,7 +300,7 @@ export function TopBar() {
                   onClick={() => void handleChangePassword()}
                   disabled={pending || !oldPassword || newPassword.length < 8}
                 >
-                  Update Password
+                  {t('layout.topBar.updatePassword')}
                 </Button>
               </div>
             </div>

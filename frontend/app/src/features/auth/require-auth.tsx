@@ -1,14 +1,16 @@
 import { Navigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from './auth-context'
 
 export function RequireAuth({ children }: { children: JSX.Element }) {
+  const { t } = useTranslation()
   const location = useLocation()
   const { isAuthenticated, isBootstrapping } = useAuth()
 
   if (isBootstrapping) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-on-surface">
-        <p className="font-headline text-2xl font-bold tracking-tight">Syncing your ledger…</p>
+        <p className="font-headline text-2xl font-bold tracking-tight">{t('layout.authGuard.syncing')}</p>
       </div>
     )
   }

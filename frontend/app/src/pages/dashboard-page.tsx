@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useOverviewStats, useTrendStatsRange } from '@/features/reporting/reporting-hooks'
 import { formatCurrency } from '@/lib/format'
 
-const periods = ['Today', 'Week', 'Month', 'Year'] as const
+const periods = ['today', 'week', 'month', 'year'] as const
 
 type Period = (typeof periods)[number]
 
@@ -29,9 +29,9 @@ function endOfDay(date: Date) {
 }
 
 function getPeriodDays(period: Period) {
-  if (period === 'Today') return 1
-  if (period === 'Week') return 7
-  if (period === 'Month') return 30
+  if (period === 'today') return 1
+  if (period === 'week') return 7
+  if (period === 'month') return 30
   return 365
 }
 
@@ -49,14 +49,14 @@ function pctLabel(current: number, previous: number) {
   return `${sign}${percent.toFixed(1)}%`
 }
 
-function buildLast12MonthBars(points: Array<{ bucket_start: string; income: number; expense: number }>): TrendBar[] {
+function buildLast12MonthBars(points: Array<{ bucket_start: string; income: number; expense: number }>, locale: string): TrendBar[] {
   const now = new Date()
   const monthKeys: Array<{ key: string; label: string }> = []
   for (let i = 11; i >= 0; i -= 1) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
     monthKeys.push({
       key: `${d.getFullYear()}-${d.getMonth()}`,
-      label: d.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
+      label: d.toLocaleString(locale, { month: 'short' }).toUpperCase(),
     })
   }
 
@@ -79,8 +79,8 @@ function buildLast12MonthBars(points: Array<{ bucket_start: string; income: numb
 }
 
 export function DashboardPage() {
-  const { t } = useTranslation()
-  const [period, setPeriod] = useState<Period>('Month')
+  const { t, i18n } = useTranslation()
+  const [period, setPeriod] = useState<Period>('month')
   const [activeBarKey, setActiveBarKey] = useState<string | null>(null)
   const [nowTick, setNowTick] = useState(() => Date.now())
   const navigate = useNavigate()
@@ -116,7 +116,8 @@ export function DashboardPage() {
 
   const currentOverview = currentOverviewQuery.data
   const previousOverview = previousOverviewQuery.data
-  const bars = useMemo(() => buildLast12MonthBars(trend12MonthsQuery.data?.points ?? []), [trend12MonthsQuery.data?.points])
+  const locale = i18n.language === 'zh' ? 'zh-CN' : 'en-US'
+  const bars = useMemo(() => buildLast12MonthBars(trend12MonthsQuery.data?.points ?? [], locale), [locale, trend12MonthsQuery.data?.points])
 
   const derived = useMemo(() => {
     const currentIncome = currentOverview?.income ?? totalOverviewQuery.data?.income ?? 0
@@ -175,7 +176,7 @@ export function DashboardPage() {
                 }`}
                 onClick={() => setPeriod(item)}
               >
-                {item}
+                {t(`dashboard.periods.${item}`)}
               </button>
             ))}
           </div>
@@ -184,7 +185,7 @@ export function DashboardPage() {
         <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_1fr_0.95fr]">
           <article className="rounded-2xl border border-[#67d79c]/70 bg-white p-5">
             <div className="flex items-center justify-between text-xs font-bold uppercase tracking-[0.14em] text-on-surface-variant">
-              <span>{period} {t('dashboard.income')}</span>
+              <span>{t(`dashboard.periods.${period}`)} {t('dashboard.income')}</span>
               <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] text-emerald-700">
                 {derived.incomeDelta}
               </span>
@@ -195,7 +196,7 @@ export function DashboardPage() {
 
           <article className="rounded-2xl border border-[#f3a0a8]/70 bg-white p-5">
             <div className="flex items-center justify-between text-xs font-bold uppercase tracking-[0.14em] text-on-surface-variant">
-              <span>{period} {t('dashboard.expense')}</span>
+              <span>{t(`dashboard.periods.${period}`)} {t('dashboard.expense')}</span>
               <span className="rounded-full bg-rose-100 px-2 py-1 text-[10px] text-rose-700">
                 {derived.expenseDelta}
               </span>
@@ -212,7 +213,7 @@ export function DashboardPage() {
               {formatCurrency(totalOverviewQuery.data?.total_assets ?? 0)}
             </p>
             <p className="mt-3 text-sm text-primary-fixed">
-              Net <span>{formatCurrency(derived.net)}</span>
+              {t('dashboard.net')} <span>{formatCurrency(derived.net)}</span>
             </p>
             <p className="mt-4 text-xs text-primary-fixed">{t('dashboard.lastSynced')} {syncedLabel}</p>
           </article>
@@ -222,7 +223,7 @@ export function DashboardPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">{t('analytics.trend')}</h3>
-              <p className="mt-2 text-sm text-on-surface-variant">Tap or hover bars to inspect monthly income and expense totals.</p>
+              <p className="mt-2 text-sm text-on-surface-variant">{t('dashboard.trendHint')}</p>
             </div>
             <div className="mt-1 flex items-center gap-4 text-xs font-semibold">
               <span className="flex items-center gap-2 text-on-surface-variant">

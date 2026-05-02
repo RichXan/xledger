@@ -1,7 +1,9 @@
 // frontend/app/src/components/layout/offline-banner.tsx
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export function OfflineBanner() {
+  const { t } = useTranslation()
   const [isOffline, setIsOffline] = useState(!navigator.onLine)
 
   useEffect(() => {
@@ -21,7 +23,7 @@ export function OfflineBanner() {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-white text-center text-sm py-2 px-4">
-      你当前处于离线状态，显示的是缓存数据
+      {t('layout.offline.message')}
     </div>
   )
 }

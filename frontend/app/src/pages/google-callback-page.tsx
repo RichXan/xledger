@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/auth-context'
 import { ApiError, requestEnvelope } from '@/lib/api'
@@ -8,28 +9,29 @@ interface ExchangeCodeResponse {
   refresh_token: string
 }
 
-function messageForOAuthErrorReason(errorReason: string) {
+function messageKeyForOAuthErrorReason(errorReason: string) {
   switch (errorReason) {
     case 'oauth_code_invalid_or_expired':
-      return 'Google 授权码已失效或已被使用，请回到登录页重新点击 Google 登录。'
+      return 'oauthCodeInvalidOrExpired'
     case 'google_oauth_not_configured':
-      return 'Google OAuth 尚未正确配置，请检查本地客户端 ID、密钥和回调地址。'
+      return 'googleOauthNotConfigured'
     case 'google_token_exchange_failed':
-      return 'Google 登录回调地址不匹配或授权换取令牌失败，请检查 Google Console 的 redirect URI 配置。'
+      return 'googleTokenExchangeFailed'
     case 'oauth_state_invalid_or_expired':
-      return '本次 Google 登录会话已失效，请返回登录页重新发起授权。'
+      return 'oauthStateInvalidOrExpired'
     case 'oauth_callback_invalid':
-      return 'Google 登录回调参数不完整，请重新发起授权。'
+      return 'oauthCallbackInvalid'
     case 'google_profile_fetch_failed':
-      return '已获取 Google 授权，但读取账户信息失败，请确认该 Google 账号可正常返回邮箱资料。'
+      return 'googleProfileFetchFailed'
     case 'google_email_missing':
-      return 'Google 账号未返回可用邮箱，无法完成登录。'
+      return 'googleEmailMissing'
     default:
-      return 'Google 登录失败，请重试。'
+      return 'defaultFailed'
   }
 }
 
 export function GoogleCallbackPage() {
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { applyOAuthTokens } = useAuth()
@@ -46,11 +48,11 @@ export function GoogleCallbackPage() {
 
     async function bootstrapFromOAuth() {
       if (errorCode) {
-        setError(messageForOAuthErrorReason(errorReason))
+        setError(t(`auth.googleCallback.${messageKeyForOAuthErrorReason(errorReason)}`))
         return
       }
       if (!exchangeCode) {
-        setError('Google login failed: missing exchange code.')
+        setError(t('auth.googleCallback.missingExchangeCode'))
         return
       }
       try {
@@ -64,19 +66,19 @@ export function GoogleCallbackPage() {
         if (caughtError instanceof ApiError) {
           setError(caughtError.message)
         } else {
-          setError('Google login failed. Please try again.')
+          setError(t('auth.googleCallback.failedRetry'))
         }
       }
     }
 
     void bootstrapFromOAuth()
-  }, [applyOAuthTokens, navigate, searchParams])
+  }, [applyOAuthTokens, navigate, searchParams, t])
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="w-full max-w-md rounded-2xl border border-outline-variant bg-surface p-6">
-        <h1 className="font-headline text-2xl font-bold text-on-surface">Completing Google sign-in...</h1>
-        {error ? <p className="mt-3 text-sm text-error">{error}</p> : <p className="mt-3 text-sm text-on-surface-variant">Please wait while we finish authentication.</p>}
+        <h1 className="font-headline text-2xl font-bold text-on-surface">{t('auth.googleCallback.completing')}</h1>
+        {error ? <p className="mt-3 text-sm text-error">{error}</p> : <p className="mt-3 text-sm text-on-surface-variant">{t('auth.googleCallback.waiting')}</p>}
       </div>
     </main>
   )

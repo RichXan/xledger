@@ -1,4 +1,5 @@
 import { Suspense, lazy, type JSX } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/layout/app-shell'
 import { RequireAuth } from '@/features/auth/require-auth'
@@ -49,9 +50,11 @@ function ProtectedLayout({ children }: { children: JSX.Element }) {
 }
 
 function RouteFallback() {
+  const { t } = useTranslation()
+
   return (
     <div className="flex min-h-[40vh] items-center justify-center text-sm text-on-surface-variant">
-      Loading...
+      {t('layout.routeFallback')}
     </div>
   )
 }

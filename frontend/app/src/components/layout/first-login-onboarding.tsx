@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/features/auth/auth-context'
@@ -14,6 +15,7 @@ function getItemCount(data?: { items?: unknown }) {
 }
 
 export function FirstLoginOnboarding() {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const { session } = useAuth()
@@ -65,14 +67,18 @@ export function FirstLoginOnboarding() {
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4">
       <div className="w-full max-w-xl rounded-3xl border border-outline/15 bg-white p-6 shadow-ambient md:p-7">
-        <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-primary">First Login Guide</p>
-        <h2 className="mt-3 font-headline text-3xl font-extrabold tracking-tight text-on-surface">Getting Started</h2>
+        <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
+          {t('layout.firstLogin.eyebrow')}
+        </p>
+        <h2 className="mt-3 font-headline text-3xl font-extrabold tracking-tight text-on-surface">
+          {t('layout.firstLogin.title')}
+        </h2>
         <p className="mt-3 text-sm text-on-surface-variant">
-          Build your setup in 2 steps: create an account first, then add your first transaction to unlock dashboard and analytics.
+          {t('layout.firstLogin.description')}
         </p>
 
         <div className="mt-5 rounded-2xl border border-outline/10 bg-surface-container-low p-4 text-sm text-on-surface-variant">
-          Tip: if email verification is unavailable in local dev, use password registration/login or Google sign-in.
+          {t('layout.firstLogin.tip')}
         </div>
 
         <div className="mt-6 grid gap-2 sm:grid-cols-3">
@@ -83,7 +89,7 @@ export function FirstLoginOnboarding() {
               void navigate('/accounts')
             }}
           >
-            Set Up Accounts
+            {t('layout.firstLogin.setUpAccounts')}
           </Button>
           <Button
             className="px-3 py-2 text-sm"
@@ -93,10 +99,10 @@ export function FirstLoginOnboarding() {
               void navigate('/transactions')
             }}
           >
-            Add Transaction
+            {t('layout.firstLogin.addTransaction')}
           </Button>
           <Button className="px-3 py-2 text-sm" variant="ghost" onClick={dismiss}>
-            Skip for now
+            {t('layout.firstLogin.skip')}
           </Button>
         </div>
       </div>

@@ -41,7 +41,7 @@ describe('GoogleCallbackPage', () => {
     renderGoogleCallbackPage('/auth/google/callback?error_code=AUTH_OAUTH_FAILED&error_reason=google_token_exchange_failed')
 
     expect(
-      await screen.findByText(/Google 登录回调地址不匹配或授权换取令牌失败/i),
+      await screen.findByText(/the google callback url does not match or the token exchange failed/i),
     ).toBeInTheDocument()
   })
 
@@ -52,6 +52,6 @@ describe('GoogleCallbackPage', () => {
 
     renderGoogleCallbackPage('/auth/google/callback?error_code=AUTH_OAUTH_FAILED&error_reason=google_oauth_not_configured')
 
-    expect(await screen.findByText(/Google OAuth 尚未正确配置/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Google OAuth is not configured correctly/i)).toBeInTheDocument()
   })
 })
