@@ -146,9 +146,11 @@ describe('dashboard and analytics pages', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /analytics/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /spending cloud/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /cashflow rhythm/i })).toBeInTheDocument()
       expect(screen.getAllByText('Food').length).toBeGreaterThan(0)
       expect(screen.getAllByText('¥3,200.00').length).toBeGreaterThan(0)
-      expect(screen.getByText('Travel')).toBeInTheDocument()
+      expect(screen.getAllByText('Travel').length).toBeGreaterThan(0)
       expect(screen.getAllByText('¥1,800.00').length).toBeGreaterThan(0)
     })
   })
