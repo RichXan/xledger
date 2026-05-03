@@ -34,6 +34,7 @@ export function TopBar() {
   const { canInstall, install } = usePwaInstall()
   const { updateAvailable, updating, updateNow } = usePwaUpdate()
   const currentLang = resolveSupportedLanguage(i18n.resolvedLanguage ?? i18n.language)
+  const passwordChangeRequested = oldPassword.length > 0 || newPassword.length > 0
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     void changeLanguage(e.target.value).catch((caughtError) => {
@@ -61,13 +62,34 @@ export function TopBar() {
     navigate(`/transactions?q=${encodeURIComponent(query)}`)
   }
 
+  function getPasswordValidationError() {
+    if (!passwordChangeRequested) return null
+    if (!oldPassword || !newPassword) return t('layout.topBar.passwordFieldsRequired')
+    if (newPassword.trim().length < 8) return t('layout.topBar.passwordMinLengthError')
+    return null
+  }
+
   async function handleSaveProfile() {
+    const passwordValidationError = getPasswordValidationError()
+    if (passwordValidationError) {
+      setNotice(null)
+      setError(passwordValidationError)
+      return
+    }
+
     setPending(true)
     setError(null)
     setNotice(null)
     try {
       await updateDisplayName(displayNameInput)
-      setNotice(t('layout.topBar.profileUpdated'))
+      if (passwordChangeRequested) {
+        await changePassword(oldPassword, newPassword)
+        setOldPassword('')
+        setNewPassword('')
+        setNotice(t('layout.topBar.profileAndPasswordUpdated'))
+      } else {
+        setNotice(t('layout.topBar.profileUpdated'))
+      }
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
         setError(caughtError.message)
@@ -80,6 +102,13 @@ export function TopBar() {
   }
 
   async function handleChangePassword() {
+    const passwordValidationError = getPasswordValidationError()
+    if (passwordValidationError) {
+      setNotice(null)
+      setError(passwordValidationError)
+      return
+    }
+
     setPending(true)
     setError(null)
     setNotice(null)
@@ -291,6 +320,7 @@ export function TopBar() {
                   label={t('layout.topBar.newPassword')}
                   type="password"
                   value={newPassword}
+                  helperText={t('layout.topBar.passwordMinLengthHint')}
                   onChange={(event) => setNewPassword(event.target.value)}
                 />
               </div>
@@ -298,7 +328,7 @@ export function TopBar() {
                 <Button
                   variant="secondary"
                   onClick={() => void handleChangePassword()}
-                  disabled={pending || !oldPassword || newPassword.length < 8}
+                  disabled={pending || !oldPassword || !newPassword}
                 >
                   {t('layout.topBar.updatePassword')}
                 </Button>

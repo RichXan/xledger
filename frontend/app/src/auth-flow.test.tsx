@@ -169,4 +169,77 @@ describe('auth flow', () => {
       expect(screen.getByText(/password.user@example.com/i)).toBeInTheDocument()
     })
   })
+
+  it('changes password when password fields are filled and profile is saved', async () => {
+    window.localStorage.setItem(
+      'xledger.auth',
+      JSON.stringify({
+        accessToken: 'access.profile.token',
+        refreshToken: 'refresh.profile.token',
+        email: 'profile.user@example.com',
+        name: 'Password User',
+      }),
+    )
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/me')) {
+        expect(init?.headers).toMatchObject({ Authorization: 'Bearer access.profile.token' })
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { email: 'profile.user@example.com', name: 'Password User' },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.endsWith('/api/auth/profile')) {
+        expect(init?.method).toBe('PATCH')
+        expect(init?.headers).toMatchObject({ Authorization: 'Bearer access.profile.token' })
+        expect(init?.body).toBe(JSON.stringify({ display_name: 'Password User' }))
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { email: 'profile.user@example.com', name: 'Password User' },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.endsWith('/api/auth/change-password')) {
+        expect(init?.method).toBe('POST')
+        expect(init?.headers).toMatchObject({ Authorization: 'Bearer access.profile.token' })
+        expect(init?.body).toBe(
+          JSON.stringify({
+            old_password: 'old-pass-123',
+            new_password: 'new-pass-456',
+          }),
+        )
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { changed: true } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderApp(['/shortcut'])
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /password user/i }))
+    await user.type(screen.getByLabelText(/current password/i), 'old-pass-123')
+    await user.type(screen.getByLabelText(/new password/i), 'new-pass-456')
+    await user.click(screen.getByRole('button', { name: /save profile/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching('/api/auth/change-password'), expect.anything())
+    })
+    expect(screen.getByText(/profile and password updated/i)).toBeInTheDocument()
+  })
 })
