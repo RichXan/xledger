@@ -8,18 +8,16 @@ test('classification flow: category/tag usage and CSV export', async ({ page, re
   const categoryName = uniqueName('E2E Category')
   const tagName = uniqueName('E2E Tag')
 
-  const [category, tag, ledgers] = await Promise.all([
+  const [category, tag, ledger] = await Promise.all([
     apiClient.createCategory(accessToken, { name: categoryName }),
     apiClient.createTag(accessToken, { name: tagName }),
-    apiClient.listLedgers(accessToken),
+    apiClient.createLedger(accessToken, { name: uniqueName('E2E Ledger') }),
   ])
-  const defaultLedger = ledgers.items.find((ledger) => ledger.is_default) ?? ledgers.items[0]
-  expect(defaultLedger).toBeTruthy()
 
   const memo = uniqueName('E2E category expense memo')
   const occurredAt = new Date().toISOString()
   const expense = await apiClient.createTransaction(accessToken, {
-    ledger_id: defaultLedger.id,
+    ledger_id: ledger.id,
     type: 'expense',
     amount: 333,
     category_id: category.id,
@@ -57,7 +55,7 @@ test('classification flow: category/tag usage and CSV export', async ({ page, re
   await expect(page.getByText(tagName)).toBeVisible()
 
   await openAnalytics(page)
-  await expect(page.getByText('Expense Categories')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Expense Structure' })).toBeVisible()
   await expect(page.getByRole('button', { name: new RegExp(categoryName) }).first()).toBeVisible()
 
   await recordToReport('Classification and export verified', {

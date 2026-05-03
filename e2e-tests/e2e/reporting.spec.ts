@@ -72,8 +72,8 @@ test('analytics keyword cloud reflects expense memo and category terms', async (
 
   const ledger = await apiClient.createLedger(accessToken, {
     name: `Keyword Ledger ${unique}`,
-    is_default: true,
   })
+
   const account = await apiClient.createAccount(accessToken, {
     name: `Keyword Wallet ${unique}`,
     type: 'cash',
