@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './features/auth/auth-context'
@@ -231,5 +231,119 @@ describe('dashboard and analytics pages', () => {
       expect(screen.getAllByText('¥1,800.00').length).toBeGreaterThan(0)
       expect(screen.getByText('Coffee')).toBeInTheDocument()
     })
+  })
+
+  it('shows transactions for the hovered cashflow rhythm day', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-05-03T10:15:00'))
+    const expectedFrom = new Date(2026, 4, 3, 0, 0, 0, 0).toISOString()
+    const expectedTo = new Date(2026, 4, 3, 23, 59, 59, 999).toISOString()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { email: 'demo@example.com' } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/trend?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              points: [
+                { bucket_start: '2026-05-01T00:00:00Z', income: 0, expense: 25 },
+                { bucket_start: '2026-05-02T00:00:00Z', income: 0, expense: 18 },
+                { bucket_start: '2026-05-03T00:00:00Z', income: 800, expense: 45 },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/category')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { items: [{ category_id: 'food', category_name: 'Food', amount: 45 }] },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/keywords')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { items: [{ text: 'Coffee', amount: 45, count: 1 }] },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/transactions?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              items: [
+                {
+                  id: 'txn-income',
+                  ledger_id: 'ledger-1',
+                  account_id: 'acct-1',
+                  type: 'income',
+                  amount: 800,
+                  category_name: 'Salary',
+                  occurred_at: '2026-05-03T09:30:00Z',
+                  memo: 'May payroll',
+                },
+                {
+                  id: 'txn-expense',
+                  ledger_id: 'ledger-1',
+                  account_id: 'acct-1',
+                  type: 'expense',
+                  amount: 45,
+                  category_name: 'Food',
+                  occurred_at: '2026-05-03T12:10:00Z',
+                  memo: 'Lunch',
+                },
+              ],
+              pagination: { page: 1, page_size: 8, total: 2, total_pages: 1 },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderProtectedApp(['/analytics'])
+
+    const dayThreeBar = await screen.findByRole('button', { name: /3.*revenue.*800\.00.*burn.*45\.00/i })
+    fireEvent.mouseEnter(dayThreeBar)
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => {
+        const url = new URL(String(input), 'http://localhost')
+        return (
+          url.pathname === '/api/transactions' &&
+          url.searchParams.get('date_from') === expectedFrom &&
+          url.searchParams.get('date_to') === expectedTo
+        )
+      })).toBe(true)
+    })
+    expect(await screen.findByText('Salary')).toBeInTheDocument()
+    expect(screen.getByText('May payroll')).toBeInTheDocument()
+    expect(screen.getAllByText('Food').length).toBeGreaterThan(0)
+    expect(screen.getByText('Lunch')).toBeInTheDocument()
   })
 })

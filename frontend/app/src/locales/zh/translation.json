@@ -400,6 +400,9 @@
     "burn": "消耗",
     "net": "净额",
     "barAria": "{{label}}：收入 {{revenue}}，消耗 {{burn}}",
+    "selectedTransactions": "选中交易",
+    "selectedTransactionsFor": "{{period}} 的交易",
+    "noSelectedTransactions": "这个周期没有记录交易。",
     "noTrendData": "所选范围没有趋势数据。",
     "trendEmptyHint": "记录收入或支出后，趋势柱状图会自动显示在这里。",
     "goToTransactions": "前往交易"

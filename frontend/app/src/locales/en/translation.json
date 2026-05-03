@@ -400,6 +400,9 @@
     "burn": "Burn",
     "net": "Net",
     "barAria": "{{label}}: revenue {{revenue}}, burn {{burn}}",
+    "selectedTransactions": "Selected Transactions",
+    "selectedTransactionsFor": "Transactions for {{period}}",
+    "noSelectedTransactions": "No transactions recorded for this period.",
     "noTrendData": "No trend data for selected range.",
     "trendEmptyHint": "Once you record income or expense entries, trend bars will appear here automatically.",
     "goToTransactions": "Go to Transactions"

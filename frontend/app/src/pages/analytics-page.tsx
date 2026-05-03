@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useCategoryStats, useKeywordStats, useTrendStatsRange } from '@/features/reporting/reporting-hooks'
+import { useTransactionsWithOptions } from '@/features/transactions/transactions-hooks'
+import type { TransactionRecord } from '@/features/transactions/transactions-api'
 import { formatCurrency } from '@/lib/format'
 
 type FilterMode = 'month' | 'year'
@@ -31,6 +33,9 @@ type KeywordItem = {
 type TrendBucket = {
   key: string
   label: string
+  periodLabel: string
+  from: string
+  to: string
   revenue: number
   investment: number
 }
@@ -76,15 +81,34 @@ function buildTrendBuckets(
 
   if (mode === 'year') {
     Array.from({ length: 12 }, (_, index) => {
-      const label = new Date(year, index, 1).toLocaleString(locale, { month: 'short' }).toUpperCase()
-      buckets.set(String(index), { key: String(index), label, revenue: 0, investment: 0 })
+      const bucketStart = new Date(year, index, 1)
+      const bucketEnd = new Date(year, index + 1, 0)
+      const label = bucketStart.toLocaleString(locale, { month: 'short' }).toUpperCase()
+      buckets.set(String(index), {
+        key: String(index),
+        label,
+        periodLabel: bucketStart.toLocaleDateString(locale, { year: 'numeric', month: 'long' }),
+        from: startOfDay(bucketStart).toISOString(),
+        to: endOfDay(bucketEnd).toISOString(),
+        revenue: 0,
+        investment: 0,
+      })
       return null
     })
   } else {
     const daysInMonth = new Date(year, month, 0).getDate()
     Array.from({ length: daysInMonth }, (_, index) => {
       const day = index + 1
-      buckets.set(String(day), { key: String(day), label: String(day), revenue: 0, investment: 0 })
+      const bucketDate = new Date(year, month - 1, day)
+      buckets.set(String(day), {
+        key: String(day),
+        label: String(day),
+        periodLabel: bucketDate.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' }),
+        from: startOfDay(bucketDate).toISOString(),
+        to: endOfDay(bucketDate).toISOString(),
+        revenue: 0,
+        investment: 0,
+      })
       return null
     })
   }
@@ -106,6 +130,26 @@ function buildCategoryDisplayItems(items: CategoryItem[], otherLabel: string) {
   const top = items.slice(0, 5)
   const otherAmount = items.slice(5).reduce((sum, item) => sum + item.amount, 0)
   return [...top, { category_id: 'other-categories', category_name: otherLabel, amount: otherAmount }]
+}
+
+function formatTransactionTime(value: string, language: string) {
+  const locale = language === 'zh' ? 'zh-CN' : 'en-US'
+  return new Date(value).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+}
+
+function getTransactionLabel(transaction: TransactionRecord, fallback: string) {
+  return transaction.category_name || transaction.memo || fallback
+}
+
+function getTransactionTone(type: TransactionRecord['type']) {
+  if (type === 'income') return 'text-emerald-700'
+  if (type === 'expense') return 'text-rose-700'
+  return 'text-primary'
+}
+
+function getTransactionAmountLabel(transaction: TransactionRecord) {
+  const sign = transaction.type === 'income' ? '+' : transaction.type === 'expense' ? '-' : ''
+  return `${sign}${formatCurrency(transaction.amount)}`
 }
 
 export function AnalyticsPage() {
@@ -202,9 +246,16 @@ export function AnalyticsPage() {
   )
 
   const maxCombined = Math.max(...barsByBucket.map((bar) => bar.revenue + bar.investment), 1)
-  const activeBar = barsByBucket.find((bar) => bar.label === activeBarLabel) ?? null
+  const activeBar = barsByBucket.find((bar) => bar.label === activeBarLabel) ?? barsByBucket[0] ?? null
   const activeBarNet = activeBar ? activeBar.revenue - activeBar.investment : 0
   const topCategoryShare = totalExpense > 0 && displayCategoryItems[0] ? (displayCategoryItems[0].amount / totalExpense) * 100 : 0
+  const activeTransactionsQuery = useTransactionsWithOptions({
+    page: 1,
+    pageSize: 8,
+    dateFrom: activeBar?.from,
+    dateTo: activeBar?.to,
+  })
+  const activeTransactions = activeTransactionsQuery.data?.items ?? []
 
   const yearOptions = Array.from({ length: 8 }, (_, index) => String(now.getFullYear() - index))
 
@@ -542,6 +593,58 @@ export function AnalyticsPage() {
               </div>
             </div>
           )}
+
+          {activeBar ? (
+            <div className="mt-5 rounded-2xl border border-outline/10 bg-surface-container-low p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-bold text-on-surface">{t('analyticsPage.selectedTransactions')}</h4>
+                  <p className="mt-1 text-xs text-on-surface-variant">
+                    {t('analyticsPage.selectedTransactionsFor', { period: activeBar.periodLabel })}
+                  </p>
+                </div>
+                <div className="flex gap-2 text-xs font-semibold">
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
+                    {t('analyticsPage.revenue')}: {formatCurrency(activeBar.revenue)}
+                  </span>
+                  <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700">
+                    {t('analyticsPage.burn')}: {formatCurrency(activeBar.investment)}
+                  </span>
+                </div>
+              </div>
+
+              {activeTransactionsQuery.isLoading ? (
+                <p className="mt-4 text-sm text-on-surface-variant">{t('common.loading')}</p>
+              ) : activeTransactions.length > 0 ? (
+                <div className="mt-4 grid gap-2 md:grid-cols-2">
+                  {activeTransactions.map((transaction) => (
+                    <article key={transaction.id} className="rounded-xl bg-white px-3 py-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-on-surface">
+                            {getTransactionLabel(transaction, t('analyticsPage.uncategorized'))}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-on-surface-variant">
+                            {transaction.memo || t('transactionsPage.table.noMemo')}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className={`text-sm font-extrabold ${getTransactionTone(transaction.type)}`}>
+                            {getTransactionAmountLabel(transaction)}
+                          </p>
+                          <p className="mt-1 text-[11px] font-semibold text-on-surface-variant">
+                            {formatTransactionTime(transaction.occurred_at, i18n.language)}
+                          </p>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-on-surface-variant">{t('analyticsPage.noSelectedTransactions')}</p>
+              )}
+            </div>
+          ) : null}
         </article>
       </section>
     </div>
