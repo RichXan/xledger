@@ -118,6 +118,7 @@
     "account": "Account",
     "tag": "Tag",
     "date": "Date",
+    "dateTime": "Date & Time",
     "memo": "Memo",
     "noAccount": "No Account",
     "createSuccess": "Transaction added",

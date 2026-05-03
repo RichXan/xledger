@@ -20,6 +20,16 @@ function toLocalDateKey(value: Date) {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
 }
 
+function toLocalDateTimeInputValue(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  const hours = String(value.getHours()).padStart(2, '0')
+  const minutes = String(value.getMinutes()).padStart(2, '0')
+  const seconds = String(value.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+}
+
 function getMonthGrid(baseDate: Date) {
   const year = baseDate.getFullYear()
   const month = baseDate.getMonth()
@@ -117,7 +127,7 @@ export function TransactionsPage() {
   const [categoryId, setCategoryId] = useState('')
   const [accountId, setAccountId] = useState('')
   const [memo, setMemo] = useState('')
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(() => toLocalDateTimeInputValue(new Date()))
   const [importFile, setImportFile] = useState<File | null>(null)
   const [dateRangePreset, setDateRangePreset] = useState<'7' | '30' | '120' | '365'>('120')
   const [listSearchQuery, setListSearchQuery] = useState(searchParamQ)
@@ -243,7 +253,7 @@ export function TransactionsPage() {
     const ledger = ledgers[0]
     if (!ledger?.id) return
 
-    const parsedDate = date ? new Date(`${date}T00:00:00`) : null
+    const parsedDate = date ? new Date(date) : null
     const occurredAt =
       parsedDate && Number.isFinite(parsedDate.getTime()) ? parsedDate.toISOString() : undefined
 
@@ -261,7 +271,7 @@ export function TransactionsPage() {
     setCategoryId('')
     setAccountId('')
     setMemo('')
-    setDate(new Date().toISOString().slice(0, 10))
+    setDate(toLocalDateTimeInputValue(new Date()))
   }
 
   async function handlePreviewImport(event: React.FormEvent<HTMLFormElement>) {
@@ -644,7 +654,7 @@ export function TransactionsPage() {
         >
           <form id="add-transaction-form" className="grid gap-5 md:grid-cols-2" onSubmit={(event) => void handleCreateTransaction(event)}>
             <TextField label={t('transaction.amount')} type="number" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" />
-            <TextField label={t('transaction.date')} type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+            <TextField label={t('transaction.dateTime')} type="datetime-local" step="1" value={date} onChange={(event) => setDate(event.target.value)} />
             <SelectField label={t('transaction.category')} value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
               <option value="">{t('transactionsPage.addDialog.selectCategory')}</option>
               {categories.map((category) => (

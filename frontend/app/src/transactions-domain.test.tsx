@@ -207,6 +207,8 @@ describe('transactions domain', () => {
 
     await user.click(screen.getByRole('button', { name: /add transaction/i }))
     await user.type(screen.getByLabelText(/amount/i), '88.5')
+    await user.clear(screen.getByLabelText(/date & time/i))
+    await user.type(screen.getByLabelText(/date & time/i), '2026-03-03T12:34:56')
     await user.selectOptions(screen.getByLabelText(/category/i), 'cat-1')
     await user.selectOptions(screen.getByLabelText(/account/i), 'acc-1')
     await user.click(screen.getByRole('button', { name: /save transaction/i }))
@@ -217,6 +219,12 @@ describe('transactions domain', () => {
         expect.objectContaining({ method: 'POST' }),
       )
     })
+    const createCall = fetchMock.mock.calls.find(([url, init]) => {
+      return String(url).endsWith('/api/transactions') && init?.method === 'POST'
+    })
+    expect(createCall?.[1]?.body).toEqual(
+      expect.stringContaining(`"occurred_at":"${new Date('2026-03-03T12:34:56').toISOString()}"`),
+    )
 
     await user.click(screen.getByRole('button', { name: /import/i }))
     const file = new File(['date,amount,description\n2026-03-01,25,Lunch'], 'transactions.csv', {

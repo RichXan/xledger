@@ -118,6 +118,7 @@
     "account": "账户",
     "tag": "标签",
     "date": "日期",
+    "dateTime": "日期与时间",
     "memo": "备注",
     "noAccount": "无账户",
     "createSuccess": "记账成功",
