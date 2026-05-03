@@ -16,6 +16,11 @@ type TrendBar = {
   total: number
 }
 
+type DateRange = {
+  from: string
+  to: string
+}
+
 function startOfDay(date: Date) {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
@@ -28,18 +33,72 @@ function endOfDay(date: Date) {
   return d
 }
 
-function getPeriodDays(period: Period) {
-  if (period === 'today') return 1
-  if (period === 'week') return 7
-  if (period === 'month') return 30
-  return 365
+function startOfWeek(date: Date) {
+  const d = startOfDay(date)
+  d.setDate(d.getDate() - d.getDay())
+  return d
 }
 
-function getRangeByDays(days: number, anchor = new Date()) {
-  const end = endOfDay(anchor)
-  const start = startOfDay(anchor)
-  start.setDate(start.getDate() - (days - 1))
-  return { from: start.toISOString(), to: end.toISOString() }
+function getMonthKey(date: Date) {
+  return `${date.getFullYear()}-${date.getMonth()}`
+}
+
+function clampDay(year: number, month: number, day: number) {
+  return Math.min(day, new Date(year, month + 1, 0).getDate())
+}
+
+function getCurrentPeriodRange(period: Period, anchor = new Date()): DateRange {
+  if (period === 'today') {
+    return { from: startOfDay(anchor).toISOString(), to: endOfDay(anchor).toISOString() }
+  }
+  if (period === 'week') {
+    return { from: startOfWeek(anchor).toISOString(), to: endOfDay(anchor).toISOString() }
+  }
+  if (period === 'month') {
+    return {
+      from: startOfDay(new Date(anchor.getFullYear(), anchor.getMonth(), 1)).toISOString(),
+      to: endOfDay(anchor).toISOString(),
+    }
+  }
+  return {
+    from: startOfDay(new Date(anchor.getFullYear(), 0, 1)).toISOString(),
+    to: endOfDay(anchor).toISOString(),
+  }
+}
+
+function getPreviousPeriodRange(period: Period, anchor = new Date()): DateRange {
+  if (period === 'today') {
+    const previous = new Date(anchor)
+    previous.setDate(previous.getDate() - 1)
+    return { from: startOfDay(previous).toISOString(), to: endOfDay(previous).toISOString() }
+  }
+
+  if (period === 'week') {
+    const start = startOfWeek(anchor)
+    const previousStart = new Date(start)
+    previousStart.setDate(previousStart.getDate() - 7)
+    const previousEnd = new Date(anchor)
+    previousEnd.setDate(previousEnd.getDate() - 7)
+    return { from: previousStart.toISOString(), to: endOfDay(previousEnd).toISOString() }
+  }
+
+  if (period === 'month') {
+    const year = anchor.getFullYear()
+    const month = anchor.getMonth() - 1
+    const day = clampDay(year, month, anchor.getDate())
+    return {
+      from: startOfDay(new Date(year, month, 1)).toISOString(),
+      to: endOfDay(new Date(year, month, day)).toISOString(),
+    }
+  }
+
+  const previousYear = anchor.getFullYear() - 1
+  const month = anchor.getMonth()
+  const day = clampDay(previousYear, month, anchor.getDate())
+  return {
+    from: startOfDay(new Date(previousYear, 0, 1)).toISOString(),
+    to: endOfDay(new Date(previousYear, month, day)).toISOString(),
+  }
 }
 
 function pctLabel(current: number, previous: number) {
@@ -67,7 +126,7 @@ function buildLast12MonthBars(points: Array<{ bucket_start: string; income: numb
 
   points.forEach((point) => {
     const dt = new Date(point.bucket_start)
-    const key = `${dt.getFullYear()}-${dt.getMonth()}`
+    const key = getMonthKey(dt)
     const bucket = map.get(key)
     if (!bucket) return
     bucket.income += point.income
@@ -101,13 +160,10 @@ export function DashboardPage() {
     return () => window.clearInterval(timer)
   }, [])
 
-  const days = getPeriodDays(period)
-  const currentRange = useMemo(() => getRangeByDays(days, new Date()), [days])
-  const previousRange = useMemo(() => {
-    const anchor = new Date()
-    anchor.setDate(anchor.getDate() - days)
-    return getRangeByDays(days, anchor)
-  }, [days])
+  const rangeAnchor = useMemo(() => new Date(nowTick), [nowTick])
+  const currentMonthKey = useMemo(() => getMonthKey(rangeAnchor), [rangeAnchor])
+  const currentRange = useMemo(() => getCurrentPeriodRange(period, rangeAnchor), [period, rangeAnchor])
+  const previousRange = useMemo(() => getPreviousPeriodRange(period, rangeAnchor), [period, rangeAnchor])
 
   const currentOverviewQuery = useOverviewStats({ from: currentRange.from, to: currentRange.to })
   const previousOverviewQuery = useOverviewStats({ from: previousRange.from, to: previousRange.to })
@@ -138,11 +194,12 @@ export function DashboardPage() {
       setActiveBarKey(null)
       return
     }
+    const currentMonthBar = bars.find((bar) => bar.key === currentMonthKey)
     const hasSelected = activeBarKey ? bars.some((bar) => bar.key === activeBarKey) : false
     if (!hasSelected) {
-      setActiveBarKey(bars[bars.length - 1].key)
+      setActiveBarKey(currentMonthBar?.key ?? bars[bars.length - 1].key)
     }
-  }, [activeBarKey, bars])
+  }, [activeBarKey, bars, currentMonthKey])
 
   const maxTotal = Math.max(1, ...bars.map((bar) => bar.total))
   const activeBar = bars.find((bar) => bar.key === activeBarKey) ?? bars[bars.length - 1] ?? null

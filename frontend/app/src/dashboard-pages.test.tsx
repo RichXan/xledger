@@ -36,6 +36,7 @@ function renderProtectedApp(initialEntries: string[]) {
 
 describe('dashboard and analytics pages', () => {
   afterEach(() => {
+    vi.useRealTimers()
     global.fetch = originalFetch
     window.localStorage.clear()
   })
@@ -92,6 +93,66 @@ describe('dashboard and analytics pages', () => {
       expect(screen.getByText(/tap or hover bars/i)).toBeInTheDocument()
       expect(screen.getByText(/income:/i)).toBeInTheDocument()
       expect(screen.getByText(/expense:/i)).toBeInTheDocument()
+    })
+  })
+
+  it('uses the current calendar month for the default dashboard month range', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-05-03T10:15:00'))
+    const expectedFrom = new Date(2026, 4, 1, 0, 0, 0, 0).toISOString()
+    const expectedTo = new Date(2026, 4, 3, 23, 59, 59, 999).toISOString()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { email: 'demo@example.com' } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/overview')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { total_assets: 100, income: 20, expense: 5, net: 15 },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/trend?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              points: [
+                { bucket_start: '2026-04-01T00:00:00Z', income: 4000, expense: 900 },
+                { bucket_start: '2026-05-01T00:00:00Z', income: 80, expense: 20 },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderProtectedApp(['/dashboard'])
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => {
+        const url = new URL(String(input), 'http://localhost')
+        return (
+          url.pathname === '/api/stats/overview' &&
+          url.searchParams.get('from') === expectedFrom &&
+          url.searchParams.get('to') === expectedTo
+        )
+      })).toBe(true)
     })
   })
 
