@@ -48,7 +48,7 @@ services:
         condition: service_healthy
     command: ["/bin/sh", "/app/backend-entrypoint.sh"]
     volumes:
-      - ../backend/config/config.yaml:/app/config/source-config.yaml:ro
+      - ${BACKEND_CONFIG_FILE:-../backend/config/config.yaml}:/app/config/source-config.yaml:ro
       - ./backend-entrypoint.sh:/app/backend-entrypoint.sh:ro
     ports:
       - "8080:8080"

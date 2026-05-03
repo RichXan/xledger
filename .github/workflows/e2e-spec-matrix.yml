@@ -55,6 +55,7 @@ jobs:
       GOLANG_IMAGE: golang:1.22-alpine
       NODE_IMAGE: node:20-alpine
       NGINX_IMAGE: nginx:1.27-alpine
+      BACKEND_CONFIG_FILE: ../backend/config/config.yaml.example
 
     steps:
       - name: Checkout
