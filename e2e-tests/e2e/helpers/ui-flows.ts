@@ -75,6 +75,7 @@ export async function createTransactionOnTransactionsPage(
   const form = page.locator('#add-transaction-form')
   await expect(form).toBeVisible()
   await form.getByLabel('Amount').fill(input.amount)
+  await form.getByLabel('Date & Time').fill(stableTransactionDateTime())
   await form.getByLabel('Memo').fill(input.memo)
   await form.getByLabel('Type').selectOption(input.type)
   const accountSelect = form.getByLabel('Account')
@@ -95,4 +96,15 @@ export async function createTransactionOnTransactionsPage(
   }
 
   await expect(form).toBeHidden()
+}
+
+function stableTransactionDateTime() {
+  const value = new Date(Date.now() - 60_000)
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  const hours = String(value.getHours()).padStart(2, '0')
+  const minutes = String(value.getMinutes()).padStart(2, '0')
+  const seconds = String(value.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
 }
