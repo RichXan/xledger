@@ -19,7 +19,13 @@ import {
   updateProfile,
   verifyCode,
 } from './auth-api'
-import { clearAuthSession, readAuthSession, writeAuthSession, type AuthSession } from './auth-storage'
+import {
+  AUTH_SESSION_CHANGED_EVENT,
+  clearAuthSession,
+  readAuthSession,
+  writeAuthSession,
+  type AuthSession,
+} from './auth-storage'
 
 interface AuthContextValue {
   session: AuthSession | null
@@ -49,6 +55,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     } else {
       clearAuthSession()
     }
+  }, [])
+
+  useEffect(() => {
+    function handleAuthSessionChanged(event: Event) {
+      setSession((event as CustomEvent<AuthSession | null>).detail ?? null)
+    }
+
+    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, handleAuthSessionChanged)
+    return () => window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, handleAuthSessionChanged)
   }, [])
 
   const applyTokens = useCallback(
