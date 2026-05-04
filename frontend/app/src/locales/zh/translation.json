@@ -226,6 +226,9 @@
     "title": "交易",
     "listView": "列表视图",
     "calendarView": "日历视图",
+    "export": "导出",
+    "exporting": "正在导出...",
+    "exportFailed": "导出失败：{{message}}",
     "import": "导入",
     "addTransaction": "+ 添加交易",
     "quickFilters": {

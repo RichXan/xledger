@@ -17,15 +17,17 @@ const (
 )
 
 type ExportQuery struct {
-	Format  string
-	From    time.Time
-	To      time.Time
-	Timeout time.Duration
+	Format    string
+	From      time.Time
+	To        time.Time
+	LedgerID  string
+	AccountID string
+	Timeout   time.Duration
 }
 
 type ExportRepository struct {
 	items     []accounting.Transaction
-	listFn    func(userID string) ([]accounting.Transaction, error)
+	listFn    func(userID string, query accounting.TransactionQuery) ([]accounting.Transaction, error)
 	historyFn func(context.Context, string, string) (string, bool)
 }
 
@@ -33,8 +35,8 @@ func NewExportRepository(txnRepo accounting.TransactionRepository, categoryHisto
 	GetHistoricalCategoryName(context.Context, string, string) (string, bool)
 }) *ExportRepository {
 	return &ExportRepository{
-		listFn: func(userID string) ([]accounting.Transaction, error) {
-			return txnRepo.ListByUser(userID, accounting.TransactionQuery{})
+		listFn: func(userID string, query accounting.TransactionQuery) ([]accounting.Transaction, error) {
+			return txnRepo.ListByUser(userID, query)
 		},
 		historyFn: categoryHistory.GetHistoricalCategoryName,
 	}
@@ -57,7 +59,13 @@ func (s *ExportService) Export(ctx context.Context, userID string, query ExportQ
 	if !query.From.IsZero() && !query.To.IsZero() && query.From.After(query.To) {
 		return "", &contractError{code: EXPORT_INVALID_RANGE}
 	}
-	txns, err := s.list(ctx, userID, query.Timeout)
+	txnQuery := accounting.TransactionQuery{
+		LedgerID:     strings.TrimSpace(query.LedgerID),
+		AccountID:    strings.TrimSpace(query.AccountID),
+		OccurredFrom: query.From,
+		OccurredTo:   query.To,
+	}
+	txns, err := s.list(ctx, userID, query.Timeout, txnQuery)
 	if err != nil {
 		return "", err
 	}
@@ -67,6 +75,12 @@ func (s *ExportService) Export(ctx context.Context, userID string, query ExportQ
 			continue
 		}
 		if !query.To.IsZero() && txn.OccurredAt.After(query.To) {
+			continue
+		}
+		if txnQuery.LedgerID != "" && txn.LedgerID != txnQuery.LedgerID {
+			continue
+		}
+		if txnQuery.AccountID != "" && !exportTransactionMatchesAccount(txn, txnQuery.AccountID) {
 			continue
 		}
 		if strings.TrimSpace(txn.CategoryName) == "" && s.repo.historyFn != nil {
@@ -85,11 +99,21 @@ func (s *ExportService) Export(ctx context.Context, userID string, query ExportQ
 	}
 	builder := &strings.Builder{}
 	writer := csv.NewWriter(builder)
-	if err := writer.Write([]string{"occurred_at", "amount", "type", "category_name"}); err != nil {
+	if err := writer.Write([]string{"occurred_at", "amount", "type", "ledger_id", "account_id", "from_account_id", "to_account_id", "category_name", "memo"}); err != nil {
 		return "", err
 	}
 	for _, txn := range filtered {
-		if err := writer.Write([]string{txn.OccurredAt.UTC().Format(time.RFC3339), strconv.FormatFloat(txn.Amount, 'f', -1, 64), txn.Type, txn.CategoryName}); err != nil {
+		if err := writer.Write([]string{
+			txn.OccurredAt.UTC().Format(time.RFC3339),
+			strconv.FormatFloat(txn.Amount, 'f', -1, 64),
+			txn.Type,
+			txn.LedgerID,
+			exportPtrString(txn.AccountID),
+			exportPtrString(txn.FromAccountID),
+			exportPtrString(txn.ToAccountID),
+			txn.CategoryName,
+			txn.Memo,
+		}); err != nil {
 			return "", err
 		}
 	}
@@ -100,9 +124,9 @@ func (s *ExportService) Export(ctx context.Context, userID string, query ExportQ
 	return builder.String(), nil
 }
 
-func (s *ExportService) list(ctx context.Context, userID string, timeout time.Duration) ([]accounting.Transaction, error) {
+func (s *ExportService) list(ctx context.Context, userID string, timeout time.Duration, query accounting.TransactionQuery) ([]accounting.Transaction, error) {
 	if timeout <= 0 {
-		return s.rawList(userID)
+		return s.rawList(userID, query)
 	}
 	type result struct {
 		items []accounting.Transaction
@@ -110,7 +134,7 @@ func (s *ExportService) list(ctx context.Context, userID string, timeout time.Du
 	}
 	ch := make(chan result, 1)
 	go func() {
-		items, err := s.rawList(userID)
+		items, err := s.rawList(userID, query)
 		ch <- result{items: items, err: err}
 	}()
 	select {
@@ -123,9 +147,9 @@ func (s *ExportService) list(ctx context.Context, userID string, timeout time.Du
 	}
 }
 
-func (s *ExportService) rawList(userID string) ([]accounting.Transaction, error) {
+func (s *ExportService) rawList(userID string, query accounting.TransactionQuery) ([]accounting.Transaction, error) {
 	if s.repo.listFn != nil {
-		return s.repo.listFn(userID)
+		return s.repo.listFn(userID, query)
 	}
 	return append([]accounting.Transaction(nil), s.repo.items...), nil
 }
@@ -135,4 +159,14 @@ func exportPtrString(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func exportTransactionMatchesAccount(txn accounting.Transaction, accountID string) bool {
+	trimmed := strings.TrimSpace(accountID)
+	if trimmed == "" {
+		return true
+	}
+	return exportPtrString(txn.AccountID) == trimmed ||
+		exportPtrString(txn.FromAccountID) == trimmed ||
+		exportPtrString(txn.ToAccountID) == trimmed
 }

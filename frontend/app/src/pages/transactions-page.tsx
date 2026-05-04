@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Search, Upload } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Search, Trash2, Undo2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -9,6 +9,8 @@ import { TextField } from '@/components/ui/text-field'
 import type { TransactionRecord } from '@/features/transactions/transactions-api'
 import {
   useCreateTransaction,
+  useDeleteTransaction,
+  useExportTransactions,
   useImportConfirm,
   useImportPreview,
   useTransactionFormOptions,
@@ -44,6 +46,8 @@ function getMonthGrid(baseDate: Date) {
   }
   return cells
 }
+
+type QuickFilter = 'all' | 'income' | 'expense' | 'uncategorized' | 'week' | 'large'
 
 function bytesToHex(bytes: Uint8Array) {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
@@ -133,6 +137,9 @@ export function TransactionsPage() {
   const [listSearchQuery, setListSearchQuery] = useState(searchParamQ)
   const [selectedAccountFilter, setSelectedAccountFilter] = useState('')
   const [selectedLedgerFilter, setSelectedLedgerFilter] = useState('')
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
+  const [deletedTransactionIds, setDeletedTransactionIds] = useState<Set<string>>(() => new Set())
+  const [pendingUndo, setPendingUndo] = useState<TransactionRecord | null>(null)
 
   useEffect(() => {
     setListSearchQuery(searchParamQ)
@@ -176,6 +183,8 @@ export function TransactionsPage() {
   const createTransactionMutation = useCreateTransaction()
   const importPreviewMutation = useImportPreview()
   const importConfirmMutation = useImportConfirm()
+  const exportTransactionsMutation = useExportTransactions()
+  const deleteTransactionMutation = useDeleteTransaction()
 
   const calendarTransactions = calendarTransactionsQuery.data?.items ?? []
   const listTransactions = listTransactionsQuery.data?.items ?? []
@@ -189,16 +198,29 @@ export function TransactionsPage() {
   const normalizedListSearchQuery = listSearchQuery.trim().toLowerCase()
 
   const filteredListTransactions = useMemo(() => {
-    if (!normalizedListSearchQuery) {
-      return listTransactions
-    }
+    const now = new Date()
+    const weekStart = new Date(now)
+    weekStart.setDate(now.getDate() - 7)
     return listTransactions.filter((tx) => {
-      const candidates = [tx.id, tx.category_name ?? '', tx.memo ?? '', tx.type, tx.occurred_at]
-      return candidates.join(' ').toLowerCase().includes(normalizedListSearchQuery)
+      if (deletedTransactionIds.has(tx.id)) {
+        return false
+      }
+      if (normalizedListSearchQuery) {
+        const candidates = [tx.id, tx.category_name ?? '', tx.memo ?? '', tx.type, tx.occurred_at]
+        if (!candidates.join(' ').toLowerCase().includes(normalizedListSearchQuery)) {
+          return false
+        }
+      }
+      if (quickFilter === 'income') return tx.type === 'income'
+      if (quickFilter === 'expense') return tx.type === 'expense'
+      if (quickFilter === 'uncategorized') return !tx.category_name?.trim()
+      if (quickFilter === 'week') return new Date(tx.occurred_at) >= weekStart
+      if (quickFilter === 'large') return Math.abs(tx.amount) >= 1000
+      return true
     })
-  }, [listTransactions, normalizedListSearchQuery])
+  }, [deletedTransactionIds, listTransactions, normalizedListSearchQuery, quickFilter])
   const hasActiveListFilters = Boolean(
-    normalizedListSearchQuery || selectedAccountFilter || selectedLedgerFilter || dateRangePreset !== '120',
+    normalizedListSearchQuery || selectedAccountFilter || selectedLedgerFilter || dateRangePreset !== '120' || quickFilter !== 'all',
   )
   const isInitialEmptyState = filteredListTransactions.length === 0 && !hasActiveListFilters
 
@@ -288,7 +310,63 @@ export function TransactionsPage() {
     setImportFile(null)
   }
 
+  async function handleExportTransactions() {
+    const exportRange = view === 'calendar' ? monthRange : listRange
+    const content = await exportTransactionsMutation.mutateAsync({
+      format: 'csv',
+      dateFrom: exportRange.from,
+      dateTo: exportRange.to,
+      accountId: selectedAccountFilter || undefined,
+      ledgerId: selectedLedgerFilter || undefined,
+    })
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    const fromDate = exportRange.from.slice(0, 10)
+    const toDate = exportRange.to.slice(0, 10)
+    anchor.href = url
+    anchor.download = `xledger-transactions-${fromDate}-to-${toDate}.csv`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleDeleteTransaction(tx: TransactionRecord) {
+    await deleteTransactionMutation.mutateAsync(tx.id)
+    setDeletedTransactionIds((current) => new Set(current).add(tx.id))
+    setPendingUndo(tx)
+  }
+
+  async function handleUndoDelete() {
+    if (!pendingUndo || pendingUndo.type === 'transfer') return
+    const ledger = ledgers[0]
+    if (!ledger?.id) return
+
+    await createTransactionMutation.mutateAsync({
+      ledger_id: ledger.id,
+      type: pendingUndo.type,
+      amount: Math.abs(pendingUndo.amount),
+      memo: pendingUndo.memo || undefined,
+      occurred_at: pendingUndo.occurred_at,
+    })
+    setDeletedTransactionIds((current) => {
+      const next = new Set(current)
+      next.delete(pendingUndo.id)
+      return next
+    })
+    setPendingUndo(null)
+  }
+
   const locale = i18n.language === 'zh' ? 'zh-CN' : 'en-US'
+  const quickFilters: Array<{ id: QuickFilter; label: string }> = [
+    { id: 'all', label: t('transactionsPage.quickFilters.all') },
+    { id: 'income', label: t('transactionsPage.quickFilters.income') },
+    { id: 'expense', label: t('transactionsPage.quickFilters.expense') },
+    { id: 'uncategorized', label: t('transactionsPage.quickFilters.uncategorized') },
+    { id: 'week', label: t('transactionsPage.quickFilters.week') },
+    { id: 'large', label: t('transactionsPage.quickFilters.large') },
+  ]
   const weekdayLabels = [
     t('transactionsPage.calendar.weekdays.sun'),
     t('transactionsPage.calendar.weekdays.mon'),
@@ -325,6 +403,14 @@ export function TransactionsPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => void handleExportTransactions()}
+              disabled={exportTransactionsMutation.isPending}
+            >
+              <Download className="h-4 w-4" />
+              {exportTransactionsMutation.isPending ? t('transactionsPage.exporting') : t('transactionsPage.export')}
+            </Button>
             <Button variant="secondary" onClick={() => setShowImportDialog(true)}>
               <Upload className="h-4 w-4" />
               {t('transactionsPage.import')}
@@ -332,13 +418,39 @@ export function TransactionsPage() {
             <Button onClick={() => setShowAddDialog(true)}>{t('transactionsPage.addTransaction')}</Button>
           </div>
         </div>
+        {exportTransactionsMutation.isError ? (
+          <p className="mt-3 text-sm text-error">
+            {t('transactionsPage.exportFailed', {
+              message: (exportTransactionsMutation.error as Error)?.message ?? t('common.unknownError'),
+            })}
+          </p>
+        ) : null}
 
         {view === 'list' ? (
           <div className="mt-6 space-y-4">
             <article className="rounded-2xl border border-outline/10 bg-surface-container-low p-5">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                {quickFilters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    aria-pressed={quickFilter === filter.id}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                      quickFilter === filter.id
+                        ? 'border-primary bg-primary text-white shadow-sm'
+                        : 'border-outline/15 bg-white text-on-surface-variant hover:border-primary/30 hover:text-primary'
+                    }`}
+                    onClick={() => setQuickFilter(filter.id)}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <label className="space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('transactionsPage.filters.searchLedger')}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                    {t('transactionsPage.filters.searchLedger')}
+                  </span>
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
                     <input
@@ -350,7 +462,9 @@ export function TransactionsPage() {
                   </div>
                 </label>
                 <label className="space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('transactionsPage.filters.source')}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                    {t('transactionsPage.filters.source')}
+                  </span>
                   <select
                     className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm"
                     value={selectedAccountFilter}
@@ -365,7 +479,9 @@ export function TransactionsPage() {
                   </select>
                 </label>
                 <label className="space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('transactionsPage.filters.ledger')}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                    {t('transactionsPage.filters.ledger')}
+                  </span>
                   <select
                     className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm"
                     value={selectedLedgerFilter}
@@ -380,7 +496,9 @@ export function TransactionsPage() {
                   </select>
                 </label>
                 <label className="space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('transactionsPage.filters.dateRange')}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                    {t('transactionsPage.filters.dateRange')}
+                  </span>
                   <select
                     className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm"
                     value={dateRangePreset}
@@ -396,16 +514,17 @@ export function TransactionsPage() {
             </article>
 
             <article className="overflow-hidden rounded-2xl border border-outline/15 bg-white">
-              <div className="grid grid-cols-[1.7fr_1fr_1fr_1fr_0.8fr_1fr] bg-surface-container-low px-5 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+              <div className="grid grid-cols-[1.6fr_1fr_1fr_1fr_0.75fr_1fr_0.55fr] bg-surface-container-low px-5 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
                 <p>{t('transactionsPage.table.transactionCategory')}</p>
                 <p>{t('transactionsPage.table.accountLedger')}</p>
                 <p>{t('transactionsPage.table.dateTime')}</p>
                 <p>{t('transactionsPage.table.note')}</p>
                 <p>{t('transactionsPage.table.tags')}</p>
                 <p className="text-right">{t('transactionsPage.table.amount')}</p>
+                <p className="text-right">{t('transactionsPage.table.action')}</p>
               </div>
               {filteredListTransactions.map((tx) => (
-                <div key={tx.id} className="grid grid-cols-[1.7fr_1fr_1fr_1fr_0.8fr_1fr] items-center border-t border-outline/10 px-5 py-4">
+                <div key={tx.id} className="grid grid-cols-[1.6fr_1fr_1fr_1fr_0.75fr_1fr_0.55fr] items-center gap-3 border-t border-outline/10 px-5 py-4">
                   <div>
                     <p className="font-semibold text-on-surface">{tx.category_name ?? t('transactionsPage.quickFilters.uncategorized')}</p>
                     <p className="text-xs text-on-surface-variant">
@@ -425,8 +544,12 @@ export function TransactionsPage() {
                     <p className="text-xs text-on-surface-variant">{new Date(tx.occurred_at).toLocaleTimeString(locale)}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase text-on-surface">{tx.type === 'income' ? t('transaction.typeIncome') : tx.type === 'expense' ? t('transaction.typeExpense') : t('transaction.typeTransfer')}</p>
-                    <p className="mt-1 text-xs text-on-surface-variant">{tx.memo?.trim() || (tx.type === 'income' ? t('transactionsPage.table.incomingFlow') : tx.type === 'expense' ? t('transactionsPage.table.outgoingPayment') : t('transactionsPage.table.internalTransfer'))}</p>
+                    <p className="text-xs font-semibold uppercase text-on-surface">
+                      {tx.type === 'income' ? t('transaction.typeIncome') : tx.type === 'expense' ? t('transaction.typeExpense') : t('transaction.typeTransfer')}
+                    </p>
+                    <p className="mt-1 text-xs text-on-surface-variant">
+                      {tx.memo?.trim() || (tx.type === 'income' ? t('transactionsPage.table.incomingFlow') : tx.type === 'expense' ? t('transactionsPage.table.outgoingPayment') : t('transactionsPage.table.internalTransfer'))}
+                    </p>
                   </div>
                   <div>
                     <span className="rounded-full bg-surface-container-low px-2 py-1 text-[10px] font-semibold uppercase text-on-surface-variant">
@@ -436,6 +559,17 @@ export function TransactionsPage() {
                   <p className={`text-right text-4xl font-extrabold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {formatCurrency(Math.abs(tx.amount))}
                   </p>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      aria-label={t('transactionsPage.table.deleteLabel', { name: tx.memo?.trim() || tx.category_name || tx.id })}
+                      className="grid h-9 w-9 place-items-center rounded-lg border border-outline/15 text-on-surface-variant transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+                      onClick={() => void handleDeleteTransaction(tx)}
+                      disabled={deleteTransactionMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
               {filteredListTransactions.length === 0 ? (
@@ -457,6 +591,23 @@ export function TransactionsPage() {
                 </div>
               ) : null}
             </article>
+            {pendingUndo ? (
+              <div className="fixed bottom-6 left-1/2 z-30 flex w-[min(520px,calc(100vw-32px))] -translate-x-1/2 items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary px-5 py-4 text-white shadow-ambient">
+                <div>
+                  <p className="text-sm font-bold">{t('transactionsPage.undo.deleted')}</p>
+                  <p className="text-xs text-primary-fixed">{pendingUndo.category_name ?? pendingUndo.id}</p>
+                </div>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary-fixed disabled:opacity-60"
+                  onClick={() => void handleUndoDelete()}
+                  disabled={createTransactionMutation.isPending}
+                >
+                  <Undo2 className="h-4 w-4" />
+                  {t('transactionsPage.undo.undo')}
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="mt-6 grid gap-4 xl:grid-cols-[1.5fr_0.85fr]">
@@ -516,17 +667,23 @@ export function TransactionsPage() {
 
             <div className="space-y-4">
               <article className="rounded-2xl border border-primary/45 bg-white p-5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('transactionsPage.calendar.dailySummary')}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                  {t('transactionsPage.calendar.dailySummary')}
+                </p>
                 <h4 className="mt-2 font-headline text-5xl font-bold text-on-surface">
                   {new Date(effectiveSelectedDay).toLocaleDateString(locale)}
                 </h4>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-surface-container-low p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">{t('transactionsPage.calendar.totalOut')}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">
+                      {t('transactionsPage.calendar.totalOut')}
+                    </p>
                     <p className="mt-2 font-headline text-4xl font-extrabold text-rose-700">-{formatCurrency(selectedTotals.out)}</p>
                   </div>
                   <div className="rounded-xl bg-surface-container-low p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">{t('transactionsPage.calendar.totalIn')}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">
+                      {t('transactionsPage.calendar.totalIn')}
+                    </p>
                     <p className="mt-2 font-headline text-4xl font-extrabold text-emerald-700">+{formatCurrency(selectedTotals.in)}</p>
                   </div>
                 </div>
@@ -540,7 +697,9 @@ export function TransactionsPage() {
                           {formatCurrency(Math.abs(tx.amount))}
                         </p>
                       </div>
-                      <p className="mt-1 text-xs text-on-surface-variant">{tx.memo?.trim() || (tx.type === 'income' ? t('transaction.typeIncome') : tx.type === 'expense' ? t('transaction.typeExpense') : t('transaction.typeTransfer'))}</p>
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        {tx.memo?.trim() || (tx.type === 'income' ? t('transaction.typeIncome') : tx.type === 'expense' ? t('transaction.typeExpense') : t('transaction.typeTransfer'))}
+                      </p>
                     </div>
                   ))}
                   {selectedDayTx.length === 0 ? <p className="text-sm text-on-surface-variant">{t('transactionsPage.calendar.noTransactions')}</p> : null}
@@ -607,7 +766,9 @@ export function TransactionsPage() {
             ) : null}
             {importPreviewMutation.data ? (
               <div className="rounded-xl border border-outline/10 bg-surface-container-low p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">{t('transactionsPage.importDialog.detectedColumns')}</p>
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">
+                  {t('transactionsPage.importDialog.detectedColumns')}
+                </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {importPreviewMutation.data.columns.map((column) => (
                     <span key={column} className="rounded-full bg-white px-3 py-1 text-sm text-on-surface">

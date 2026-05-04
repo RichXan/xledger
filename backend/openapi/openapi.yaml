@@ -1103,6 +1103,18 @@ paths:
       parameters:
         - $ref: '#/components/parameters/FromParam'
         - $ref: '#/components/parameters/ToParam'
+        - name: account_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: 仅导出指定账户相关交易
+        - name: ledger_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: 仅导出指定账本交易
       responses:
         '200':
           description: 分类统计数据

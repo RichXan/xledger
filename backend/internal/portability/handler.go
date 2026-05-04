@@ -121,6 +121,8 @@ func (h *Handler) Export(c *gin.Context) {
 		return
 	}
 	query := ExportQuery{Format: c.DefaultQuery("format", "csv")}
+	query.LedgerID = strings.TrimSpace(c.Query("ledger_id"))
+	query.AccountID = strings.TrimSpace(c.Query("account_id"))
 	if raw := c.Query("from"); raw != "" {
 		parsed, err := time.Parse(time.RFC3339, raw)
 		if err != nil {
@@ -150,7 +152,7 @@ func (h *Handler) Export(c *gin.Context) {
 		h.writeExportError(c, err)
 		return
 	}
-	if query.Format == "json" {
+	if strings.EqualFold(query.Format, "json") {
 		httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"content": json.RawMessage(content)})
 		return
 	}

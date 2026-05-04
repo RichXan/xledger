@@ -145,6 +145,17 @@ function createTransactionsFetchMock() {
       )
     }
 
+    if (url.endsWith('/api/transactions/txn-1') && init?.method === 'DELETE') {
+      return new Response(
+        JSON.stringify({
+          code: 'OK',
+          message: '成功',
+          data: { deleted: true },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
     if (url.endsWith('/api/import/csv') && init?.method === 'POST') {
       return new Response(
         JSON.stringify({
@@ -168,6 +179,7 @@ function createTransactionsFetchMock() {
 describe('transactions domain', () => {
   afterEach(() => {
     global.fetch = originalFetch
+    vi.restoreAllMocks()
     window.localStorage.clear()
   })
 
@@ -191,6 +203,55 @@ describe('transactions domain', () => {
     await waitFor(() => {
       expect(screen.getByText(/daily summary/i)).toBeInTheDocument()
       expect(screen.getByText(/month summary/i)).toBeInTheDocument()
+    })
+  })
+
+  it('filters transactions with quick chips and restores a deleted transaction with undo', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByText('Food')).toBeInTheDocument()
+      expect(screen.getByText('Salary')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /^expense$/i }))
+
+    expect(screen.getByText('Food')).toBeInTheDocument()
+    expect(screen.queryByText('Salary')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^income$/i }))
+
+    expect(screen.queryByText('Food')).not.toBeInTheDocument()
+    expect(screen.getByText('Salary')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^all$/i }))
+    await user.click(screen.getByRole('button', { name: /delete food/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/transactions/txn-1',
+        expect.objectContaining({ method: 'DELETE' }),
+      )
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /delete food/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^undo$/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /^undo$/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/transactions',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"amount":25'),
+        }),
+      )
     })
   })
 
@@ -239,5 +300,54 @@ describe('transactions domain', () => {
       expect(screen.getByText(/^date$/i)).toBeInTheDocument()
       expect(screen.getByText(/^description$/i)).toBeInTheDocument()
     })
+  })
+
+  it('exports the current filtered transaction range as a CSV file', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/export?')) {
+        return new Response('occurred_at,amount,type,category_name\n2026-03-01T08:30:00Z,25,expense,Food\n', {
+          status: 200,
+          headers: { 'Content-Type': 'text/csv' },
+        })
+      }
+      return createTransactionsFetchMock()(input, init)
+    })
+    global.fetch = fetchMock as typeof fetch
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:transactions-export')
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /export/i })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: 'Cash Wallet' })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: 'Default Ledger' })).toBeInTheDocument()
+    })
+
+    await user.selectOptions(screen.getByLabelText(/source/i), 'acc-1')
+    await user.selectOptions(screen.getByLabelText(/^ledger$/i), 'ledger-1')
+    await user.click(screen.getByRole('button', { name: /export/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringMatching(/\/api\/export\?/),
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer access.demo.token' }),
+        }),
+      )
+    })
+    const exportCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/api/export?'))
+    const exportUrl = String(exportCall?.[0] ?? '')
+    expect(exportUrl).toContain('format=csv')
+    expect(exportUrl).toContain('account_id=acc-1')
+    expect(exportUrl).toContain('ledger_id=ledger-1')
+    expect(exportUrl).toContain('from=')
+    expect(exportUrl).toContain('to=')
+    expect(createObjectURL).toHaveBeenCalled()
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:transactions-export')
   })
 })

@@ -1,4 +1,5 @@
 import { requestEnvelope } from '@/lib/api'
+import { getCurrentLanguage } from '@/i18n'
 
 export interface PaginatedResponse<T> {
   items: T[]
@@ -77,6 +78,14 @@ export interface ImportConfirmResponse {
   rows: ImportConfirmResultRow[]
 }
 
+export interface ExportTransactionsOptions {
+  format?: 'csv' | 'json'
+  dateFrom?: string
+  dateTo?: string
+  accountId?: string
+  ledgerId?: string
+}
+
 export function getTransactions(
   accessToken: string,
   options?: {
@@ -139,6 +148,42 @@ export function createTransaction(accessToken: string, input: CreateTransactionI
     headers: { Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify(input),
   })
+}
+
+export function deleteTransaction(accessToken: string, id: string) {
+  return requestEnvelope<{ deleted: boolean }>(`/transactions/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+}
+
+export async function exportTransactions(accessToken: string, options?: ExportTransactionsOptions) {
+  const params = new URLSearchParams({ format: options?.format ?? 'csv' })
+  if (options?.dateFrom) {
+    params.set('from', options.dateFrom)
+  }
+  if (options?.dateTo) {
+    params.set('to', options.dateTo)
+  }
+  if (options?.accountId) {
+    params.set('account_id', options.accountId)
+  }
+  if (options?.ledgerId) {
+    params.set('ledger_id', options.ledgerId)
+  }
+
+  const response = await fetch(`/api/export?${params.toString()}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Accept-Language': getCurrentLanguage(),
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error('Unable to export transactions')
+  }
+
+  return response.text()
 }
 
 export function previewImport(accessToken: string, file: File) {

@@ -226,6 +226,9 @@
     "title": "Transactions",
     "listView": "List View",
     "calendarView": "Calendar View",
+    "export": "Export",
+    "exporting": "Exporting...",
+    "exportFailed": "Export failed: {{message}}",
     "import": "Import",
     "addTransaction": "+ Add Transaction",
     "quickFilters": {

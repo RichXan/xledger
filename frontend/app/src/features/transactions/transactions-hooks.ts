@@ -3,6 +3,8 @@ import { useAuth } from '@/features/auth/auth-context'
 import {
   confirmImport,
   createTransaction,
+  deleteTransaction,
+  exportTransactions,
   getAccounts,
   getCategories,
   getLedgers,
@@ -10,6 +12,7 @@ import {
   getTransactions,
   previewImport,
   type CreateTransactionInput,
+  type ExportTransactionsOptions,
 } from './transactions-api'
 
 export function useTransactions() {
@@ -77,6 +80,29 @@ export function useCreateTransaction() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['transactions', 'list'] })
     },
+  })
+}
+
+export function useDeleteTransaction() {
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => deleteTransaction(session!.accessToken, id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'list'] })
+      await queryClient.invalidateQueries({ queryKey: ['reporting', 'overview'] })
+      await queryClient.invalidateQueries({ queryKey: ['reporting', 'trend'] })
+      await queryClient.invalidateQueries({ queryKey: ['reporting', 'category'] })
+    },
+  })
+}
+
+export function useExportTransactions() {
+  const { session } = useAuth()
+
+  return useMutation({
+    mutationFn: (options?: ExportTransactionsOptions) => exportTransactions(session!.accessToken, options),
   })
 }
 

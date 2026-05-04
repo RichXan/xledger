@@ -44,7 +44,7 @@ func TestExport_InvalidRange_ReturnsEXPORT_INVALID_RANGE(t *testing.T) {
 }
 
 func TestExport_Timeout_ReturnsEXPORT_TIMEOUT(t *testing.T) {
-	service := NewExportService(&ExportRepository{listFn: func(userID string) ([]accounting.Transaction, error) {
+	service := NewExportService(&ExportRepository{listFn: func(userID string, query accounting.TransactionQuery) ([]accounting.Transaction, error) {
 		time.Sleep(25 * time.Millisecond)
 		return []accounting.Transaction{{OccurredAt: time.Now().UTC()}}, nil
 	}, historyFn: func(context.Context, string, string) (string, bool) { return "", false }})
@@ -60,7 +60,7 @@ func TestExport_SupportsCSVAndJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("csv export: %v", err)
 	}
-	if !strings.Contains(csvContent, "occurred_at,amount,type,category_name") {
+	if !strings.Contains(csvContent, "occurred_at,amount,type,ledger_id,account_id,from_account_id,to_account_id,category_name,memo") {
 		t.Fatalf("expected csv header, got %s", csvContent)
 	}
 	jsonContent, err := service.Export(context.Background(), "user-1", ExportQuery{Format: "json"})
@@ -69,6 +69,89 @@ func TestExport_SupportsCSVAndJSON(t *testing.T) {
 	}
 	if !strings.Contains(jsonContent, "\"category_name\":\"Food\"") {
 		t.Fatalf("expected json payload, got %s", jsonContent)
+	}
+}
+
+func TestExport_FiltersByLedgerAndAccount(t *testing.T) {
+	ctx := context.Background()
+	ledgerRepo := accounting.NewInMemoryLedgerRepository()
+	accountRepo := accounting.NewInMemoryAccountRepository()
+	txnRepo := accounting.NewInMemoryTransactionRepository()
+	classificationRepo := classification.NewInMemoryRepository()
+	categoryService := classification.NewCategoryService(classificationRepo)
+	tagService := classification.NewTagService(classificationRepo)
+	txnService := accounting.NewTransactionService(txnRepo, ledgerRepo, accountRepo, categoryService, tagService)
+
+	primaryLedger, err := ledgerRepo.Create("user-1", accounting.LedgerCreateInput{Name: "Primary", IsDefault: true})
+	if err != nil {
+		t.Fatalf("seed primary ledger: %v", err)
+	}
+	secondaryLedger, err := ledgerRepo.Create("user-1", accounting.LedgerCreateInput{Name: "Secondary"})
+	if err != nil {
+		t.Fatalf("seed secondary ledger: %v", err)
+	}
+	cashAccount, err := accountRepo.Create("user-1", accounting.AccountCreateInput{Name: "Cash", Type: "cash"})
+	if err != nil {
+		t.Fatalf("seed cash account: %v", err)
+	}
+	bankAccount, err := accountRepo.Create("user-1", accounting.AccountCreateInput{Name: "Bank", Type: "debit"})
+	if err != nil {
+		t.Fatalf("seed bank account: %v", err)
+	}
+	food, err := categoryService.CreateCategory(ctx, "user-1", classification.CategoryCreateInput{Name: "Food"})
+	if err != nil {
+		t.Fatalf("seed food category: %v", err)
+	}
+	travel, err := categoryService.CreateCategory(ctx, "user-1", classification.CategoryCreateInput{Name: "Travel"})
+	if err != nil {
+		t.Fatalf("seed travel category: %v", err)
+	}
+
+	if _, err := txnService.CreateTransaction(ctx, "user-1", accounting.TransactionCreateInput{
+		LedgerID:   primaryLedger.ID,
+		AccountID:  &cashAccount.ID,
+		CategoryID: &food.ID,
+		Type:       accounting.TransactionTypeExpense,
+		Amount:     25,
+		OccurredAt: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("seed matching txn: %v", err)
+	}
+	if _, err := txnService.CreateTransaction(ctx, "user-1", accounting.TransactionCreateInput{
+		LedgerID:   primaryLedger.ID,
+		AccountID:  &bankAccount.ID,
+		CategoryID: &travel.ID,
+		Type:       accounting.TransactionTypeExpense,
+		Amount:     50,
+		OccurredAt: time.Date(2026, 3, 2, 12, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("seed other account txn: %v", err)
+	}
+	if _, err := txnService.CreateTransaction(ctx, "user-1", accounting.TransactionCreateInput{
+		LedgerID:   secondaryLedger.ID,
+		AccountID:  &cashAccount.ID,
+		CategoryID: &travel.ID,
+		Type:       accounting.TransactionTypeExpense,
+		Amount:     75,
+		OccurredAt: time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("seed other ledger txn: %v", err)
+	}
+
+	service := NewExportService(NewExportRepository(txnRepo, categoryService))
+	content, err := service.Export(ctx, "user-1", ExportQuery{
+		Format:    "csv",
+		LedgerID:  primaryLedger.ID,
+		AccountID: cashAccount.ID,
+	})
+	if err != nil {
+		t.Fatalf("export filtered csv: %v", err)
+	}
+	if !strings.Contains(content, "Food") {
+		t.Fatalf("expected matching transaction in export, got %s", content)
+	}
+	if strings.Contains(content, "Travel") {
+		t.Fatalf("expected account and ledger filters to exclude other transactions, got %s", content)
 	}
 }
 
