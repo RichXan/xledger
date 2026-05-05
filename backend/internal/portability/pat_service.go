@@ -187,8 +187,15 @@ func (s *PATService) ListPATs(_ context.Context, userID string) []PATRecord {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	items := make([]PATRecord, 0)
+	now := s.now()
 	for _, record := range s.items {
 		if s.tokenToUser[record.TokenHash] != strings.TrimSpace(userID) {
+			continue
+		}
+		if record.RevokedAt != nil {
+			continue
+		}
+		if record.ExpiresAt != nil && now.After(*record.ExpiresAt) {
 			continue
 		}
 		copy := record

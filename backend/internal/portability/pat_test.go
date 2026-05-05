@@ -75,6 +75,29 @@ func TestPAT_Revoked_ReturnsPAT_REVOKED(t *testing.T) {
 	}
 }
 
+func TestPAT_ListExcludesRevokedTokens(t *testing.T) {
+	service := NewPATService(func() time.Time { return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC) })
+	_, revoked, err := service.CreatePAT(context.Background(), "user-1", "old-token", nil)
+	if err != nil {
+		t.Fatalf("create revoked pat: %v", err)
+	}
+	_, active, err := service.CreatePAT(context.Background(), "user-1", "active-token", nil)
+	if err != nil {
+		t.Fatalf("create active pat: %v", err)
+	}
+	if err := service.RevokePAT(context.Background(), "user-1", revoked.ID); err != nil {
+		t.Fatalf("revoke pat: %v", err)
+	}
+
+	items := service.ListPATs(context.Background(), "user-1")
+	if len(items) != 1 {
+		t.Fatalf("expected one active PAT, got %d: %#v", len(items), items)
+	}
+	if items[0].ID != active.ID {
+		t.Fatalf("expected active PAT %q, got %q", active.ID, items[0].ID)
+	}
+}
+
 func TestPAT_RevokePropagationOver5s_TriggersStrictModeAlert(t *testing.T) {
 	now := time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC)
 	service := NewPATService(func() time.Time { return now })
