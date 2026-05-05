@@ -26,14 +26,14 @@ export function DialogShell({ title, description, footer, className, children, o
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f172a]/20 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f172a]/24 p-4 backdrop-blur-sm"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClose?.()
         }
       }}
     >
-      <div className={cn('relative w-full max-w-3xl rounded-[28px] border border-outline/15 bg-surface-container-lowest p-7 shadow-ambient md:p-8', className)}>
+      <div className={cn('relative max-h-[calc(100vh-32px)] w-full max-w-3xl overflow-y-auto rounded-2xl border border-outline/15 bg-surface-container-lowest p-5 shadow-ambient md:p-6', className)}>
         {onClose ? (
           <button
             type="button"
@@ -45,11 +45,11 @@ export function DialogShell({ title, description, footer, className, children, o
           </button>
         ) : null}
         <div>
-          <h2 className="font-headline text-[42px] font-extrabold leading-none tracking-tight text-primary">{title}</h2>
+          <h2 className="pr-10 font-headline text-3xl font-extrabold leading-tight text-primary md:text-4xl">{title}</h2>
           {description ? <p className="mt-2 text-sm text-on-surface-variant">{description}</p> : null}
         </div>
-        <div className="mt-7">{children}</div>
-        {footer ? <div className="mt-8 flex items-center justify-end gap-3">{footer}</div> : null}
+        <div className="mt-6">{children}</div>
+        {footer ? <div className="mt-6 flex flex-wrap items-center justify-end gap-3">{footer}</div> : null}
       </div>
     </div>
   )

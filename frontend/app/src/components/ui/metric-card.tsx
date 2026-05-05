@@ -18,18 +18,18 @@ const toneStyles: Record<MetricCardTone, string> = {
 
 export function MetricCard({ label, value, delta, tone = 'neutral' }: MetricCardProps) {
   return (
-    <article className={cn('rounded-[28px] border-l-4 bg-surface-container-low p-6', toneStyles[tone])}>
+    <article className={cn('rounded-xl border-l-4 bg-surface-container-low p-5', toneStyles[tone])}>
       <div className="flex items-start justify-between gap-4">
-        <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
+        <p className="font-label text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant">
           {label}
         </p>
         {delta ? (
-          <span className="rounded-full bg-surface-container-high px-2 py-1 font-label text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+          <span className="rounded-full bg-surface-container-high px-2 py-1 font-label text-[10px] font-bold uppercase tracking-[0.08em] text-on-surface-variant">
             {delta}
           </span>
         ) : null}
       </div>
-      <p className="mt-5 font-headline text-3xl font-extrabold tracking-tight">{value}</p>
+      <p className="mt-4 font-headline text-2xl font-extrabold tracking-tight md:text-3xl">{value}</p>
     </article>
   )
 }

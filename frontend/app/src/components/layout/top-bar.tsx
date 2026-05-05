@@ -137,15 +137,15 @@ export function TopBar() {
 
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-outline/15 bg-surface-container-lowest/85 px-4 py-3 backdrop-blur md:px-6">
-        <div className="mx-auto flex w-full max-w-[1800px] items-center justify-between gap-4">
+      <header className="sticky top-0 z-20 border-b border-outline/15 bg-surface-container-lowest/90 px-4 py-3 backdrop-blur md:px-5 xl:px-6">
+        <div className="mx-auto flex w-full max-w-[1680px] items-center justify-between gap-4">
           <form className="relative hidden w-full max-w-[460px] lg:block" onSubmit={handleSearchSubmit}>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
             <input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
               placeholder={t('layout.topBar.searchPlaceholder')}
-              className="h-11 w-full rounded-xl border border-outline/20 bg-surface-container-low pl-9 pr-24 text-sm text-on-surface placeholder:text-on-surface-variant/70"
+              className="h-10 w-full rounded-lg border border-outline/20 bg-surface-container-low pl-9 pr-24 text-sm text-on-surface placeholder:text-on-surface-variant/70"
             />
             <Button type="submit" variant="ghost" className="absolute right-1.5 top-1.5 h-8 px-3 text-xs">
               {t('common.search')}
@@ -156,7 +156,7 @@ export function TopBar() {
             <select
               value={currentLang}
               onChange={handleLanguageChange}
-              className="h-10 w-[72px] cursor-pointer rounded-xl border border-outline/20 bg-surface-container-low px-2 text-sm text-on-surface-variant transition hover:bg-surface-container md:w-auto"
+              className="h-10 w-[72px] cursor-pointer rounded-lg border border-outline/20 bg-surface-container-low px-2 text-sm text-on-surface-variant transition hover:bg-surface-container md:w-auto"
               aria-label={t('layout.topBar.languageLabel')}
             >
               {supportedLanguageOptions.map((language) => (
@@ -167,7 +167,7 @@ export function TopBar() {
             </select>
             <button
               type="button"
-              className="hidden h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:grid"
+              className="hidden h-10 w-10 place-items-center rounded-lg border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:grid"
               aria-label={t('layout.topBar.notifications')}
               onClick={() => setNotificationsOpen(true)}
             >
@@ -175,7 +175,7 @@ export function TopBar() {
             </button>
             <button
               type="button"
-              className="hidden h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:grid"
+              className="hidden h-10 w-10 place-items-center rounded-lg border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:grid"
               aria-label={t('layout.topBar.help')}
               onClick={() => setHelpOpen(true)}
             >
@@ -201,7 +201,7 @@ export function TopBar() {
             ) : null}
             <button
               type="button"
-              className="grid h-10 w-10 place-items-center rounded-xl border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:hidden"
+              className="grid h-10 w-10 place-items-center rounded-lg border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:hidden"
               aria-label={t('layout.topBar.openProfile')}
               onClick={openProfileDialog}
             >
@@ -209,7 +209,7 @@ export function TopBar() {
             </button>
             <button
               type="button"
-              className="hidden items-center gap-3 rounded-xl bg-surface-container-low px-3 py-2 md:flex"
+              className="hidden items-center gap-3 rounded-lg border border-outline/10 bg-surface-container-low px-3 py-2 md:flex"
               onClick={openProfileDialog}
             >
               <div className="text-right leading-tight">

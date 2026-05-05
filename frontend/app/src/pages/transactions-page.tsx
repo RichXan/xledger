@@ -379,10 +379,10 @@ export function TransactionsPage() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-[28px] border border-outline/15 bg-surface-container-lowest p-6 shadow-ambient md:p-7">
+      <section className="rounded-2xl border border-outline/15 bg-surface-container-lowest p-5 shadow-ambient md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <h2 className="font-headline text-[48px] font-extrabold leading-none tracking-tight text-primary">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="font-headline text-4xl font-extrabold leading-tight text-primary md:text-[42px]">
               {t('transactionsPage.title')}
             </h2>
             <div className="inline-flex rounded-xl border border-outline/15 bg-surface-container p-1">
@@ -402,7 +402,7 @@ export function TransactionsPage() {
               </button>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <Button
               variant="secondary"
               onClick={() => void handleExportTransactions()}
@@ -513,84 +513,85 @@ export function TransactionsPage() {
               </div>
             </article>
 
-            <article className="overflow-hidden rounded-2xl border border-outline/15 bg-white">
-              <div className="grid grid-cols-[1.6fr_1fr_1fr_1fr_0.75fr_1fr_0.55fr] bg-surface-container-low px-5 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
-                <p>{t('transactionsPage.table.transactionCategory')}</p>
-                <p>{t('transactionsPage.table.accountLedger')}</p>
-                <p>{t('transactionsPage.table.dateTime')}</p>
-                <p>{t('transactionsPage.table.note')}</p>
-                <p>{t('transactionsPage.table.tags')}</p>
-                <p className="text-right">{t('transactionsPage.table.amount')}</p>
-                <p className="text-right">{t('transactionsPage.table.action')}</p>
-              </div>
-              {filteredListTransactions.map((tx) => (
-                <div key={tx.id} className="grid grid-cols-[1.6fr_1fr_1fr_1fr_0.75fr_1fr_0.55fr] items-center gap-3 border-t border-outline/10 px-5 py-4">
-                  <div>
-                    <p className="font-semibold text-on-surface">{tx.category_name ?? t('transactionsPage.quickFilters.uncategorized')}</p>
-                    <p className="text-xs text-on-surface-variant">
-                      {t('transactionsPage.table.memoLabel')}{tx.memo?.trim() || t('transactionsPage.table.noMemo')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-on-surface">
-                      {getTransactionAccountLabel(tx, accountNameById, t('transactionsPage.table.noAccount'))}
-                    </p>
-                    <p className="text-xs uppercase text-on-surface-variant">
-                      {getTransactionLedgerLabel(tx, ledgerNameById, t('transactionsPage.table.noLedger'))}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-on-surface">{new Date(tx.occurred_at).toLocaleDateString(locale)}</p>
-                    <p className="text-xs text-on-surface-variant">{new Date(tx.occurred_at).toLocaleTimeString(locale)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase text-on-surface">
-                      {tx.type === 'income' ? t('transaction.typeIncome') : tx.type === 'expense' ? t('transaction.typeExpense') : t('transaction.typeTransfer')}
-                    </p>
-                    <p className="mt-1 text-xs text-on-surface-variant">
-                      {tx.memo?.trim() || (tx.type === 'income' ? t('transactionsPage.table.incomingFlow') : tx.type === 'expense' ? t('transactionsPage.table.outgoingPayment') : t('transactionsPage.table.internalTransfer'))}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="rounded-full bg-surface-container-low px-2 py-1 text-[10px] font-semibold uppercase text-on-surface-variant">
-                      {tx.type === 'income' ? t('transaction.typeIncome') : tx.type === 'expense' ? t('transaction.typeExpense') : t('transaction.typeTransfer')}
-                    </span>
-                  </div>
-                  <p className={`text-right text-4xl font-extrabold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {formatCurrency(Math.abs(tx.amount))}
-                  </p>
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      aria-label={t('transactionsPage.table.deleteLabel', { name: tx.memo?.trim() || tx.category_name || tx.id })}
-                      className="grid h-9 w-9 place-items-center rounded-lg border border-outline/15 text-on-surface-variant transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
-                      onClick={() => void handleDeleteTransaction(tx)}
-                      disabled={deleteTransactionMutation.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+            {filteredListTransactions.length > 0 ? (
+              <article className="overflow-x-auto rounded-2xl border border-outline/15 bg-white">
+                <div className="grid min-w-[920px] grid-cols-[1.6fr_1fr_1fr_1fr_0.75fr_1fr_0.55fr] bg-surface-container-low px-5 py-3 text-[10px] font-bold uppercase tracking-[0.08em] text-on-surface-variant">
+                  <p>{t('transactionsPage.table.transactionCategory')}</p>
+                  <p>{t('transactionsPage.table.accountLedger')}</p>
+                  <p>{t('transactionsPage.table.dateTime')}</p>
+                  <p>{t('transactionsPage.table.note')}</p>
+                  <p>{t('transactionsPage.table.tags')}</p>
+                  <p className="text-right">{t('transactionsPage.table.amount')}</p>
+                  <p className="text-right">{t('transactionsPage.table.action')}</p>
                 </div>
-              ))}
-              {filteredListTransactions.length === 0 ? (
-                <div className="border-t border-outline/10 px-5 py-8 text-center text-sm text-on-surface-variant">
-                  <p>{t('transactionsPage.empty.noMatching')}</p>
-                  {isInitialEmptyState ? (
-                    <>
-                      <p className="mt-2">{t('transactionsPage.empty.initial')}</p>
-                      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                        <Button className="px-3 py-1.5 text-xs" onClick={() => setShowAddDialog(true)}>
-                          {t('transactionsPage.empty.createFirst')}
-                        </Button>
-                        <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => navigate('/shortcut')}>
-                          {t('transactionsPage.empty.openQuickEntry')}
-                        </Button>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-            </article>
+                {filteredListTransactions.map((tx) => (
+                  <div key={tx.id} className="grid min-w-[920px] grid-cols-[1.6fr_1fr_1fr_1fr_0.75fr_1fr_0.55fr] items-center gap-3 border-t border-outline/10 px-5 py-4">
+                    <div>
+                      <p className="font-semibold text-on-surface">{tx.category_name ?? t('transactionsPage.quickFilters.uncategorized')}</p>
+                      <p className="text-xs text-on-surface-variant">
+                        {t('transactionsPage.table.memoLabel')}{tx.memo?.trim() || t('transactionsPage.table.noMemo')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-on-surface">
+                        {getTransactionAccountLabel(tx, accountNameById, t('transactionsPage.table.noAccount'))}
+                      </p>
+                      <p className="text-xs uppercase text-on-surface-variant">
+                        {getTransactionLedgerLabel(tx, ledgerNameById, t('transactionsPage.table.noLedger'))}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-on-surface">{new Date(tx.occurred_at).toLocaleDateString(locale)}</p>
+                      <p className="text-xs text-on-surface-variant">{new Date(tx.occurred_at).toLocaleTimeString(locale)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-on-surface">
+                        {tx.type === 'income' ? t('transaction.typeIncome') : tx.type === 'expense' ? t('transaction.typeExpense') : t('transaction.typeTransfer')}
+                      </p>
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        {tx.memo?.trim() || (tx.type === 'income' ? t('transactionsPage.table.incomingFlow') : tx.type === 'expense' ? t('transactionsPage.table.outgoingPayment') : t('transactionsPage.table.internalTransfer'))}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="rounded-full bg-surface-container-low px-2 py-1 text-[10px] font-semibold uppercase text-on-surface-variant">
+                        {tx.type === 'income' ? t('transaction.typeIncome') : tx.type === 'expense' ? t('transaction.typeExpense') : t('transaction.typeTransfer')}
+                      </span>
+                    </div>
+                    <p className={`text-right text-3xl font-extrabold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {formatCurrency(Math.abs(tx.amount))}
+                    </p>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        aria-label={t('transactionsPage.table.deleteLabel', { name: tx.memo?.trim() || tx.category_name || tx.id })}
+                        className="grid h-9 w-9 place-items-center rounded-lg border border-outline/15 text-on-surface-variant transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+                        onClick={() => void handleDeleteTransaction(tx)}
+                        disabled={deleteTransactionMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </article>
+            ) : (
+              <article className="rounded-2xl border border-outline/15 bg-white px-5 py-8 text-center text-sm text-on-surface-variant">
+                <p>{t('transactionsPage.empty.noMatching')}</p>
+                {isInitialEmptyState ? (
+                  <>
+                    <p className="mt-2">{t('transactionsPage.empty.initial')}</p>
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                      <Button className="px-3 py-1.5 text-xs" onClick={() => setShowAddDialog(true)}>
+                        {t('transactionsPage.empty.createFirst')}
+                      </Button>
+                      <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => navigate('/shortcut')}>
+                        {t('transactionsPage.empty.openQuickEntry')}
+                      </Button>
+                    </div>
+                  </>
+                ) : null}
+              </article>
+            )}
             {pendingUndo ? (
               <div className="fixed bottom-6 left-1/2 z-30 flex w-[min(520px,calc(100vw-32px))] -translate-x-1/2 items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary px-5 py-4 text-white shadow-ambient">
                 <div>

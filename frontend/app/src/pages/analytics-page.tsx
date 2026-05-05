@@ -296,10 +296,10 @@ export function AnalyticsPage() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-[28px] border border-outline/15 bg-surface-container-lowest p-6 shadow-ambient md:p-7">
+      <section className="rounded-2xl border border-outline/15 bg-surface-container-lowest p-5 shadow-ambient md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="font-headline text-[56px] font-extrabold leading-none tracking-tight text-on-surface">{t('analyticsPage.title')}</h2>
+            <h2 className="font-headline text-4xl font-extrabold leading-tight text-on-surface md:text-[44px]">{t('analyticsPage.title')}</h2>
             <p className="mt-2 text-sm text-on-surface-variant">{t('analyticsPage.description')}</p>
           </div>
 
@@ -345,19 +345,19 @@ export function AnalyticsPage() {
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-2xl border border-[#67d79c]/70 bg-white p-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('analyticsPage.totalNetWorth')}</p>
-            <p className="mt-3 font-headline text-5xl font-extrabold text-on-surface">{formatCurrency(netWorth)}</p>
+            <p className="mt-3 font-headline text-4xl font-extrabold text-on-surface">{formatCurrency(netWorth)}</p>
           </article>
           <article className="rounded-2xl bg-white p-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('analyticsPage.income')}</p>
-            <p className="mt-3 font-headline text-5xl font-extrabold text-on-surface">{formatCurrency(income)}</p>
+            <p className="mt-3 font-headline text-4xl font-extrabold text-on-surface">{formatCurrency(income)}</p>
           </article>
           <article className="rounded-2xl bg-white p-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('analyticsPage.expense')}</p>
-            <p className="mt-3 font-headline text-5xl font-extrabold text-on-surface">{formatCurrency(expense)}</p>
+            <p className="mt-3 font-headline text-4xl font-extrabold text-on-surface">{formatCurrency(expense)}</p>
           </article>
           <article className="rounded-2xl bg-primary p-5 text-white">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-fixed">{t('analyticsPage.savingsRate')}</p>
-            <p className="mt-3 font-headline text-5xl font-extrabold">{savingsRateLabel}</p>
+            <p className="mt-3 font-headline text-4xl font-extrabold">{savingsRateLabel}</p>
             <p className="mt-2 text-xs text-primary-fixed">
               {savingsRate === null ? t('analyticsPage.noIncomeRateHint') : t('analyticsPage.savingsFormula')}
             </p>
@@ -368,7 +368,7 @@ export function AnalyticsPage() {
           <article className="rounded-2xl border border-outline/10 bg-white p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">{t('analyticsPage.expenseStructure')}</h3>
+                <h3 className="font-headline text-3xl font-bold leading-tight text-on-surface">{t('analyticsPage.expenseStructure')}</h3>
                 <p className="mt-2 text-sm text-on-surface-variant">{t('analyticsPage.categoryShare')}</p>
               </div>
               {displayCategoryItems[0] ? (
@@ -525,7 +525,7 @@ export function AnalyticsPage() {
         <article className="mt-4 rounded-2xl border border-outline/10 bg-white p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">{t('analyticsPage.cashflowRhythm')}</h3>
+              <h3 className="font-headline text-3xl font-bold leading-tight text-on-surface">{t('analyticsPage.cashflowRhythm')}</h3>
               <p className="mt-2 text-sm text-on-surface-variant">
                 {mode === 'year'
                   ? t('analyticsPage.monthlyComparison', { year })
@@ -533,11 +533,11 @@ export function AnalyticsPage() {
               </p>
             </div>
             {activeBar ? (
-              <div className="rounded-xl bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+              <div className="grid gap-x-4 gap-y-1 rounded-xl bg-surface-container-low px-4 py-3 text-sm text-on-surface sm:grid-cols-[auto_auto_auto_auto]">
                 <span className="font-bold">{activeBar.label}</span>
-                <span className="ml-4">{t('analyticsPage.revenue')}: {formatCurrency(activeBar.revenue)}</span>
-                <span className="ml-4">{t('analyticsPage.burn')}: {formatCurrency(activeBar.investment)}</span>
-                <span className="ml-4">{t('analyticsPage.net')}: {formatCurrency(activeBarNet)}</span>
+                <span>{t('analyticsPage.revenue')}: {formatCurrency(activeBar.revenue)}</span>
+                <span>{t('analyticsPage.burn')}: {formatCurrency(activeBar.investment)}</span>
+                <span>{t('analyticsPage.net')}: {formatCurrency(activeBarNet)}</span>
               </div>
             ) : null}
           </div>
@@ -545,10 +545,10 @@ export function AnalyticsPage() {
           {barsByBucket.length > 0 ? (
             <div className="mt-6 overflow-x-auto pb-2">
               <div
-                className="grid h-[320px] items-end gap-2"
+                className="grid h-[260px] items-end gap-1 md:h-[320px] md:gap-2"
                 style={{
-                  gridTemplateColumns: `repeat(${barsByBucket.length}, minmax(${mode === 'year' ? '58px' : '34px'}, 1fr))`,
-                  minWidth: mode === 'year' ? '720px' : `${Math.max(720, barsByBucket.length * 42)}px`,
+                  gridTemplateColumns: `repeat(${barsByBucket.length}, minmax(${mode === 'year' ? '58px' : '0'}, 1fr))`,
+                  minWidth: mode === 'year' ? '720px' : `${Math.max(560, barsByBucket.length * 20)}px`,
                 }}
               >
                 {barsByBucket.map((point) => {
@@ -561,7 +561,7 @@ export function AnalyticsPage() {
                     <div key={point.key} className="relative flex h-full flex-col justify-end gap-2">
                       <button
                         type="button"
-                        className={`flex h-full flex-col justify-end rounded-xl border bg-surface-container-low p-1 text-left transition ${isActive ? 'border-primary/50 ring-2 ring-primary/15' : 'border-transparent hover:border-outline/20'}`}
+                        className={`flex h-full flex-col justify-end rounded-lg border bg-surface-container-low p-1 text-left transition ${isActive ? 'border-primary/50 ring-2 ring-primary/15' : 'border-transparent hover:border-outline/20'}`}
                         aria-label={t('analyticsPage.barAria', {
                           label: point.label,
                           revenue: formatCurrency(point.revenue),

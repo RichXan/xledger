@@ -215,10 +215,10 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-[28px] border border-outline/15 bg-surface-container-lowest p-6 shadow-ambient md:p-7">
+      <section className="rounded-2xl border border-outline/15 bg-surface-container-lowest p-5 shadow-ambient md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="font-headline text-[56px] font-extrabold leading-none tracking-tight text-on-surface">
+            <h2 className="font-headline text-4xl font-extrabold leading-tight text-on-surface md:text-[44px]">
               {t('dashboard.title')}
             </h2>
             <p className="mt-2 text-sm text-on-surface-variant">{t('dashboard.subtitle')}</p>
@@ -247,7 +247,7 @@ export function DashboardPage() {
                 {derived.incomeDelta}
               </span>
             </div>
-            <p className="mt-4 font-headline text-5xl font-extrabold text-on-surface">{formatCurrency(derived.income)}</p>
+            <p className="mt-4 font-headline text-4xl font-extrabold text-on-surface">{formatCurrency(derived.income)}</p>
             <div className="mt-5 h-[4px] w-[62%] rounded-full bg-emerald-500/90" />
           </article>
 
@@ -258,7 +258,7 @@ export function DashboardPage() {
                 {derived.expenseDelta}
               </span>
             </div>
-            <p className="mt-4 font-headline text-5xl font-extrabold text-on-surface">
+            <p className="mt-4 font-headline text-4xl font-extrabold text-on-surface">
               {formatCurrency(derived.expense)}
             </p>
             <div className="mt-5 h-[4px] w-[46%] rounded-full bg-rose-500/90" />
@@ -266,7 +266,7 @@ export function DashboardPage() {
 
           <article className="overflow-hidden rounded-2xl bg-primary p-5 text-white">
             <div className="text-xs font-bold uppercase tracking-[0.14em] text-primary-fixed">{t('dashboard.totalAssets')}</div>
-            <p className="mt-4 font-headline text-5xl font-extrabold">
+            <p className="mt-4 font-headline text-4xl font-extrabold">
               {formatCurrency(totalOverviewQuery.data?.total_assets ?? 0)}
             </p>
             <p className="mt-3 text-sm text-primary-fixed">
@@ -277,9 +277,9 @@ export function DashboardPage() {
         </div>
 
         <article className="mt-6 rounded-2xl border border-outline/15 bg-white p-5 md:p-6">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h3 className="font-headline text-4xl font-bold leading-none text-on-surface">{t('analytics.trend')}</h3>
+              <h3 className="font-headline text-3xl font-bold leading-tight text-on-surface">{t('analytics.trend')}</h3>
               <p className="mt-2 text-sm text-on-surface-variant">{t('dashboard.trendHint')}</p>
             </div>
             <div className="mt-1 flex items-center gap-4 text-xs font-semibold">

@@ -11,9 +11,9 @@ export function AppShell({ children }: PropsWithChildren) {
       <OfflineBanner />
       <FirstLoginOnboarding />
       <SideNav />
-      <div className="flex min-h-screen flex-1 flex-col pb-16 md:pb-0">
+      <div className="min-w-0 flex min-h-screen flex-1 flex-col pb-16 md:pb-0">
         <TopBar />
-        <main className="mx-auto w-full max-w-[1800px] flex-1 p-4 md:p-6">{children}</main>
+        <main className="mx-auto w-full max-w-[1680px] flex-1 p-4 md:p-5 xl:p-6">{children}</main>
       </div>
       <MobileNav />
     </div>

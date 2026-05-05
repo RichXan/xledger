@@ -47,7 +47,7 @@ export default {
         label: ['Inter', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Source Han Sans SC', 'sans-serif'],
       },
       boxShadow: {
-        ambient: '0px 12px 32px rgba(25, 28, 30, 0.04)',
+        ambient: '0 10px 24px rgba(25, 28, 30, 0.055)',
       },
       backgroundImage: {
         'primary-gradient': 'linear-gradient(135deg, #00327d 0%, #0047ab 100%)',
@@ -55,8 +55,8 @@ export default {
       borderRadius: {
         lg: '0.25rem',
         xl: '0.5rem',
-        '2xl': '1rem',
-        '3xl': '1.5rem',
+        '2xl': '0.75rem',
+        '3xl': '1rem',
       },
     },
   },
