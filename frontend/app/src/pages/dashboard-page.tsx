@@ -228,7 +228,7 @@ export function DashboardPage() {
               <button
                 key={item}
                 type="button"
-                className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
+                className={`min-h-9 rounded-lg px-4 py-2 text-xs font-semibold transition ${
                   period === item ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant hover:text-primary'
                 }`}
                 onClick={() => setPeriod(item)}
@@ -294,8 +294,9 @@ export function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-8 grid h-[360px] grid-cols-6 items-end gap-3 md:grid-cols-12">
-            {bars.map((bar) => {
+          <div className="mt-8 overflow-x-auto pb-2">
+            <div className="grid h-[360px] min-w-[720px] grid-cols-12 items-end gap-3">
+              {bars.map((bar) => {
               const incomeHeight = bar.total > 0 ? Math.round((bar.income / maxTotal) * 100) : 0
               const expenseHeight = bar.total > 0 ? Math.round((bar.expense / maxTotal) * 100) : 0
               return (
@@ -329,7 +330,8 @@ export function DashboardPage() {
                   </p>
                 </div>
               )
-            })}
+              })}
+            </div>
           </div>
 
           {activeBar ? (

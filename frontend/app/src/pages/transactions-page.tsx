@@ -388,14 +388,14 @@ export function TransactionsPage() {
             <div className="inline-flex rounded-xl border border-outline/15 bg-surface-container p-1">
               <button
                 type="button"
-                className={`rounded-lg px-4 py-2 text-xs font-semibold ${view === 'list' ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant hover:text-primary'}`}
+                className={`min-h-9 rounded-lg px-4 py-2 text-xs font-semibold ${view === 'list' ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant hover:text-primary'}`}
                 onClick={() => setView('list')}
               >
                 {t('transactionsPage.listView')}
               </button>
               <button
                 type="button"
-                className={`rounded-lg px-4 py-2 text-xs font-semibold ${view === 'calendar' ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant hover:text-primary'}`}
+                className={`min-h-9 rounded-lg px-4 py-2 text-xs font-semibold ${view === 'calendar' ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant hover:text-primary'}`}
                 onClick={() => setView('calendar')}
               >
                 {t('transactionsPage.calendarView')}
@@ -435,7 +435,7 @@ export function TransactionsPage() {
                     key={filter.id}
                     type="button"
                     aria-pressed={quickFilter === filter.id}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                    className={`min-h-9 rounded-full border px-3 py-2 text-xs font-bold transition ${
                       quickFilter === filter.id
                         ? 'border-primary bg-primary text-white shadow-sm'
                         : 'border-outline/15 bg-white text-on-surface-variant hover:border-primary/30 hover:text-primary'

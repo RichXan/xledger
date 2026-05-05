@@ -547,8 +547,8 @@ export function AnalyticsPage() {
               <div
                 className="grid h-[260px] items-end gap-1 md:h-[320px] md:gap-2"
                 style={{
-                  gridTemplateColumns: `repeat(${barsByBucket.length}, minmax(${mode === 'year' ? '58px' : '0'}, 1fr))`,
-                  minWidth: mode === 'year' ? '720px' : `${Math.max(560, barsByBucket.length * 20)}px`,
+                  gridTemplateColumns: `repeat(${barsByBucket.length}, minmax(${mode === 'year' ? '58px' : '36px'}, 1fr))`,
+                  minWidth: mode === 'year' ? '720px' : `${Math.max(760, barsByBucket.length * 44)}px`,
                 }}
               >
                 {barsByBucket.map((point) => {

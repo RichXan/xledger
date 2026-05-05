@@ -145,9 +145,9 @@ export function TopBar() {
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
               placeholder={t('layout.topBar.searchPlaceholder')}
-              className="h-10 w-full rounded-lg border border-outline/20 bg-surface-container-low pl-9 pr-24 text-sm text-on-surface placeholder:text-on-surface-variant/70"
+              className="h-11 w-full rounded-lg border border-outline/20 bg-surface-container-low pl-9 pr-24 text-sm text-on-surface placeholder:text-on-surface-variant/70"
             />
-            <Button type="submit" variant="ghost" className="absolute right-1.5 top-1.5 h-8 px-3 text-xs">
+            <Button type="submit" variant="ghost" className="absolute right-1 top-1 h-9 px-3 text-xs">
               {t('common.search')}
             </Button>
           </form>
