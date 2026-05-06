@@ -183,6 +183,10 @@ test('transactions flow: smart views surface items that need review', async ({ p
   await expect(page.getByText('Possible duplicate', { exact: true }).first()).toBeVisible()
   await expect(page.getByText(`${unique} normal income`, { exact: true })).toBeHidden()
 
+  await page.getByRole('button', { name: 'Focus uncategorized review' }).click()
+  await expect(page.getByText(`${unique} uncategorized`, { exact: true })).toBeVisible()
+  await expect(page.getByText(`${unique} large expense`, { exact: true })).toBeHidden()
+
   await recordToReport('Transactions smart views verified', {
     content: `Review queue surfaced uncategorized, duplicate, and large expense transactions for ${unique}`,
   })

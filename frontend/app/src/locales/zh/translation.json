@@ -266,6 +266,16 @@
       "duplicate": "疑似重复",
       "large": "大额支出"
     },
+    "reviewFocus": {
+      "title": "复核焦点",
+      "all": "全部复核",
+      "ariaLabels": {
+        "all": "聚焦全部复核",
+        "uncategorized": "聚焦未分类复核",
+        "duplicate": "聚焦重复复核",
+        "large": "聚焦大额复核"
+      }
+    },
     "filters": {
       "searchLedger": "搜索账本",
       "searchPlaceholder": "交易 ID、分类或备注...",

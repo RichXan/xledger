@@ -297,10 +297,15 @@ describe('transactions domain', () => {
 
     expect(screen.getByText('Needs classification')).toBeInTheDocument()
     expect(screen.getByText('Conference flight')).toBeInTheDocument()
-    expect(screen.getByText(/missing category/i)).toBeInTheDocument()
-    expect(screen.getByText(/large expense/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/missing category/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/large expense/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/possible duplicate/i).length).toBeGreaterThan(0)
     expect(screen.queryByText('Salary')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /focus uncategorized review/i }))
+
+    expect(screen.getByText('Needs classification')).toBeInTheDocument()
+    expect(screen.queryByText('Conference flight')).not.toBeInTheDocument()
   })
 
   it('submits the add transaction modal and previews import files', async () => {

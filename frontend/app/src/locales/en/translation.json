@@ -266,6 +266,16 @@
       "duplicate": "Possible duplicate",
       "large": "Large expense"
     },
+    "reviewFocus": {
+      "title": "Review Focus",
+      "all": "All review",
+      "ariaLabels": {
+        "all": "Focus all review",
+        "uncategorized": "Focus uncategorized review",
+        "duplicate": "Focus duplicate review",
+        "large": "Focus large review"
+      }
+    },
     "filters": {
       "searchLedger": "Search Ledger",
       "searchPlaceholder": "Transaction ID, category, or note...",

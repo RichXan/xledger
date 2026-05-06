@@ -16,6 +16,13 @@ import {
   useTransactionFormOptions,
   useTransactionsWithOptions,
 } from '@/features/transactions/transactions-hooks'
+import {
+  buildDuplicateIds,
+  buildReviewSummary,
+  getReviewReasonKeys,
+  transactionNeedsReview,
+  type ReviewReasonKey,
+} from '@/features/transactions/review-rules'
 import { formatCurrency } from '@/lib/format'
 
 function toLocalDateKey(value: Date) {
@@ -48,7 +55,7 @@ function getMonthGrid(baseDate: Date) {
 }
 
 type QuickFilter = 'all' | 'review' | 'income' | 'expense' | 'uncategorized' | 'week' | 'large' | 'duplicates'
-type ReviewReasonKey = 'uncategorized' | 'duplicate' | 'large'
+type ReviewReasonFilter = 'all' | ReviewReasonKey
 
 function bytesToHex(bytes: Uint8Array) {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
@@ -116,61 +123,6 @@ export function getTransactionLedgerLabel(
   return ledgerNameById.get(tx.ledger_id) ?? tx.ledger_id
 }
 
-function getTransactionDayKey(value: string) {
-  const date = new Date(value)
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
-}
-
-function getDuplicateKey(tx: TransactionRecord) {
-  const memo = tx.memo?.trim().toLowerCase() ?? ''
-  const category = tx.category_name?.trim().toLowerCase() ?? ''
-  return [tx.type, Math.abs(tx.amount).toFixed(2), getTransactionDayKey(tx.occurred_at), memo || category].join('|')
-}
-
-function buildDuplicateIds(transactions: TransactionRecord[]) {
-  const groups = new Map<string, TransactionRecord[]>()
-  transactions.forEach((tx) => {
-    const key = getDuplicateKey(tx)
-    const group = groups.get(key) ?? []
-    groups.set(key, [...group, tx])
-  })
-
-  const ids = new Set<string>()
-  groups.forEach((group) => {
-    if (group.length > 1) {
-      group.forEach((tx) => ids.add(tx.id))
-    }
-  })
-  return ids
-}
-
-function countDuplicateGroups(transactions: TransactionRecord[]) {
-  const counts = new Map<string, number>()
-  transactions.forEach((tx) => {
-    const key = getDuplicateKey(tx)
-    counts.set(key, (counts.get(key) ?? 0) + 1)
-  })
-  return Array.from(counts.values()).filter((count) => count > 1).length
-}
-
-function needsReview(tx: TransactionRecord, duplicateIds: ReadonlySet<string>) {
-  return !tx.category_name?.trim() || (tx.type === 'expense' && Math.abs(tx.amount) >= 1000) || duplicateIds.has(tx.id)
-}
-
-function getReviewReasonKeys(tx: TransactionRecord, duplicateIds: ReadonlySet<string>): ReviewReasonKey[] {
-  const reasons: ReviewReasonKey[] = []
-  if (!tx.category_name?.trim()) {
-    reasons.push('uncategorized')
-  }
-  if (duplicateIds.has(tx.id)) {
-    reasons.push('duplicate')
-  }
-  if (tx.type === 'expense' && Math.abs(tx.amount) >= 1000) {
-    reasons.push('large')
-  }
-  return reasons
-}
-
 export function TransactionsPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -196,6 +148,7 @@ export function TransactionsPage() {
   const smartParam = searchParams.get('smart')
   const initialQuickFilter: QuickFilter = smartParam === 'review' ? 'review' : 'all'
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(initialQuickFilter)
+  const [reviewReasonFilter, setReviewReasonFilter] = useState<ReviewReasonFilter>('all')
   const [deletedTransactionIds, setDeletedTransactionIds] = useState<Set<string>>(() => new Set())
   const [pendingUndo, setPendingUndo] = useState<TransactionRecord | null>(null)
 
@@ -261,14 +214,7 @@ export function TransactionsPage() {
   const ledgerNameById = useMemo(() => new Map(ledgers.map((ledger) => [ledger.id, ledger.name])), [ledgers])
   const normalizedListSearchQuery = listSearchQuery.trim().toLowerCase()
   const duplicateTransactionIds = useMemo(() => buildDuplicateIds(listTransactions), [listTransactions])
-  const smartViewCounts = useMemo(() => {
-    return {
-      review: listTransactions.filter((tx) => needsReview(tx, duplicateTransactionIds)).length,
-      uncategorized: listTransactions.filter((tx) => !tx.category_name?.trim()).length,
-      duplicates: countDuplicateGroups(listTransactions),
-      large: listTransactions.filter((tx) => tx.type === 'expense' && Math.abs(tx.amount) >= 1000).length,
-    }
-  }, [duplicateTransactionIds, listTransactions])
+  const smartViewCounts = useMemo(() => buildReviewSummary(listTransactions), [listTransactions])
 
   const filteredListTransactions = useMemo(() => {
     const now = new Date()
@@ -284,16 +230,19 @@ export function TransactionsPage() {
           return false
         }
       }
+      if (reviewReasonFilter !== 'all' && !getReviewReasonKeys(tx, duplicateTransactionIds).includes(reviewReasonFilter)) {
+        return false
+      }
       if (quickFilter === 'income') return tx.type === 'income'
       if (quickFilter === 'expense') return tx.type === 'expense'
       if (quickFilter === 'uncategorized') return !tx.category_name?.trim()
       if (quickFilter === 'week') return new Date(tx.occurred_at) >= weekStart
       if (quickFilter === 'large') return Math.abs(tx.amount) >= 1000
       if (quickFilter === 'duplicates') return duplicateTransactionIds.has(tx.id)
-      if (quickFilter === 'review') return needsReview(tx, duplicateTransactionIds)
+      if (quickFilter === 'review') return transactionNeedsReview(tx, duplicateTransactionIds)
       return true
     })
-  }, [deletedTransactionIds, duplicateTransactionIds, listTransactions, normalizedListSearchQuery, quickFilter])
+  }, [deletedTransactionIds, duplicateTransactionIds, listTransactions, normalizedListSearchQuery, quickFilter, reviewReasonFilter])
   const hasActiveListFilters = Boolean(
     normalizedListSearchQuery || selectedAccountFilter || selectedLedgerFilter || dateRangePreset !== '120' || quickFilter !== 'all',
   )
@@ -444,6 +393,12 @@ export function TransactionsPage() {
     { id: 'large', label: t('transactionsPage.quickFilters.large') },
     { id: 'duplicates', label: t('transactionsPage.quickFilters.duplicates') },
   ]
+  const reviewReasonFilters: Array<{ id: ReviewReasonFilter; label: string; count: number }> = [
+    { id: 'all', label: t('transactionsPage.reviewFocus.all'), count: smartViewCounts.review },
+    { id: 'uncategorized', label: t('transactionsPage.reviewReasons.uncategorized'), count: smartViewCounts.uncategorized },
+    { id: 'duplicate', label: t('transactionsPage.reviewReasons.duplicate'), count: smartViewCounts.duplicates },
+    { id: 'large', label: t('transactionsPage.reviewReasons.large'), count: smartViewCounts.large },
+  ]
   const weekdayLabels = [
     t('transactionsPage.calendar.weekdays.sun'),
     t('transactionsPage.calendar.weekdays.mon'),
@@ -539,9 +494,38 @@ export function TransactionsPage() {
                         ? 'border-primary bg-primary text-white shadow-sm'
                         : 'border-outline/15 bg-white text-on-surface-variant hover:border-primary/30 hover:text-primary'
                     }`}
-                    onClick={() => setQuickFilter(filter.id)}
+                    onClick={() => {
+                      setQuickFilter(filter.id)
+                      if (filter.id !== 'review') {
+                        setReviewReasonFilter('all')
+                      }
+                    }}
                   >
                     {filter.label}
+                  </button>
+                ))}
+              </div>
+              <div className="mb-4 flex flex-wrap items-center gap-2 border-t border-outline/10 pt-4">
+                <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                  {t('transactionsPage.reviewFocus.title')}
+                </span>
+                {reviewReasonFilters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    aria-label={t(`transactionsPage.reviewFocus.ariaLabels.${filter.id}`)}
+                    aria-pressed={reviewReasonFilter === filter.id}
+                    className={`min-h-8 rounded-full border px-3 py-1.5 text-[11px] font-bold transition ${
+                      reviewReasonFilter === filter.id
+                        ? 'border-primary bg-white text-primary shadow-sm'
+                        : 'border-outline/15 bg-white/70 text-on-surface-variant hover:border-primary/30 hover:text-primary'
+                    }`}
+                    onClick={() => {
+                      setQuickFilter('review')
+                      setReviewReasonFilter(filter.id)
+                    }}
+                  >
+                    {filter.label} · {filter.count}
                   </button>
                 ))}
               </div>

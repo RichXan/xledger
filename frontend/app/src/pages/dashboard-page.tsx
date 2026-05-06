@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useOverviewStats, useTrendStatsRange } from '@/features/reporting/reporting-hooks'
 import type { TransactionRecord } from '@/features/transactions/transactions-api'
 import { useTransactionsWithOptions } from '@/features/transactions/transactions-hooks'
+import { buildReviewSummary } from '@/features/transactions/review-rules'
 import { formatCurrency } from '@/lib/format'
 
 const periods = ['today', 'week', 'month', 'year'] as const
@@ -110,56 +111,16 @@ function pctLabel(current: number, previous: number) {
   return `${sign}${percent.toFixed(1)}%`
 }
 
-function getTransactionDayKey(value: string) {
-  const date = new Date(value)
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
-}
-
-function getDuplicateKey(tx: TransactionRecord) {
-  const memo = tx.memo?.trim().toLowerCase() ?? ''
-  const category = tx.category_name?.trim().toLowerCase() ?? ''
-  return [tx.type, Math.abs(tx.amount).toFixed(2), getTransactionDayKey(tx.occurred_at), memo || category].join('|')
-}
-
-function buildDuplicateIds(transactions: TransactionRecord[]) {
-  const groups = new Map<string, TransactionRecord[]>()
-  transactions.forEach((tx) => {
-    const key = getDuplicateKey(tx)
-    const group = groups.get(key) ?? []
-    groups.set(key, [...group, tx])
-  })
-
-  const ids = new Set<string>()
-  groups.forEach((group) => {
-    if (group.length > 1) {
-      group.forEach((tx) => ids.add(tx.id))
-    }
-  })
-  return ids
-}
-
-function countDuplicateGroups(transactions: TransactionRecord[]) {
-  const counts = new Map<string, number>()
-  transactions.forEach((tx) => {
-    const key = getDuplicateKey(tx)
-    counts.set(key, (counts.get(key) ?? 0) + 1)
-  })
-  return Array.from(counts.values()).filter((count) => count > 1).length
-}
-
 function buildActionCenter(transactions: TransactionRecord[]) {
-  const duplicateIds = buildDuplicateIds(transactions)
-  const reviewTransactions = transactions.filter((tx) => {
-    return !tx.category_name?.trim() || (tx.type === 'expense' && Math.abs(tx.amount) >= 1000) || duplicateIds.has(tx.id)
-  })
+  const reviewSummary = buildReviewSummary(transactions)
   const topExpense = transactions
     .filter((tx) => tx.type === 'expense')
     .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))[0]
 
   return {
-    reviewCount: reviewTransactions.length,
-    duplicateCount: countDuplicateGroups(transactions),
-    uncategorizedCount: transactions.filter((tx) => !tx.category_name?.trim()).length,
+    reviewCount: reviewSummary.review,
+    duplicateCount: reviewSummary.duplicates,
+    uncategorizedCount: reviewSummary.uncategorized,
     topExpense,
   }
 }
