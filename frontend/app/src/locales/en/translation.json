@@ -100,6 +100,9 @@
     "justNow": "just now",
     "net": "Net",
     "trendHint": "Tap or hover bars to inspect monthly income and expense totals.",
+    "openSelectedMonth": "Open Transactions",
+    "openSelectedMonthAria": "Open selected month transactions",
+    "noSelectedMonthTransactions": "No transactions in the selected month.",
     "actionCenter": {
       "title": "Action Center",
       "description": "A competitor-style review queue that turns ledger data into the next useful action.",
@@ -307,6 +310,8 @@
       "outgoingPayment": "Outgoing payment",
       "internalTransfer": "Internal transfer",
       "deleteLabel": "Delete {{name}}",
+      "openDay": "Open Day",
+      "openDayLabel": "Open day for {{name}}",
       "markReviewed": "Mark Reviewed",
       "markReviewedLabel": "Mark {{name}} as reviewed"
     },
@@ -359,7 +364,24 @@
       "importing": "Importing...",
       "confirm": "Confirm Import",
       "importFailed": "Import failed: {{message}}",
-      "importSuccessful": "Import successful!"
+      "importSuccessful": "Import successful!",
+      "resultsTitle": "Import Results",
+      "resultsDescription": "Review what was imported, skipped, or failed before closing.",
+      "downloadProblems": "Download Problem Rows",
+      "importedLabel": "Imported",
+      "skippedLabel": "Skipped",
+      "failedLabel": "Failed",
+      "importedCount": "{{count}} imported",
+      "skippedCount": "{{count}} skipped",
+      "failedCount": "{{count}} failed",
+      "rowNumber": "Row {{row}}",
+      "noProblems": "No skipped or failed rows were found.",
+      "reasonUnknown": "Unknown reason",
+      "reasons": {
+        "duplicate_transaction": "Duplicate transaction",
+        "invalid_row": "Invalid row",
+        "persist_failed": "Could not save row"
+      }
     },
     "addDialog": {
       "title": "Add New Transaction",

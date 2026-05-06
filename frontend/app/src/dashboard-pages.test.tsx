@@ -207,6 +207,97 @@ describe('dashboard and analytics pages', () => {
     })
   })
 
+  it('shows selected dashboard month transactions and opens the same range in transactions', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-05-06T10:15:00'))
+    const expectedFrom = new Date(2026, 4, 1, 0, 0, 0, 0).toISOString()
+    const expectedTo = new Date(2026, 4, 31, 23, 59, 59, 999).toISOString()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { email: 'demo@example.com' } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/overview')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { total_assets: 100, income: 80, expense: 20, net: 60 },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/trend?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              points: [
+                { bucket_start: '2026-04-01T00:00:00Z', income: 100, expense: 40 },
+                { bucket_start: '2026-05-01T00:00:00Z', income: 800, expense: 45 },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/transactions?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              items: [
+                {
+                  id: 'txn-dashboard-month',
+                  ledger_id: 'ledger-1',
+                  account_id: 'acct-1',
+                  type: 'expense',
+                  amount: 45,
+                  category_name: 'Food',
+                  occurred_at: '2026-05-03T12:10:00Z',
+                  memo: 'Dashboard lunch',
+                },
+              ],
+              pagination: { page: 1, page_size: 6, total: 1, total_pages: 1 },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderProtectedApp(['/dashboard'])
+
+    expect(await screen.findByText('Dashboard lunch')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /open selected month transactions/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /transactions/i })).toBeInTheDocument()
+    })
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => {
+        const url = new URL(String(input), 'http://localhost')
+        return (
+          url.pathname === '/api/transactions' &&
+          url.searchParams.get('date_from') === expectedFrom &&
+          url.searchParams.get('date_to') === expectedTo
+        )
+      })).toBe(true)
+    })
+  })
+
   it('renders analytics category and trend insights from reporting endpoints', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)

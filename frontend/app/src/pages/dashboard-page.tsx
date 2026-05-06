@@ -46,6 +46,17 @@ function getMonthKey(date: Date) {
   return `${date.getFullYear()}-${date.getMonth()}`
 }
 
+function getRangeForMonthKey(key: string): DateRange | null {
+  const [rawYear, rawMonth] = key.split('-')
+  const year = Number(rawYear)
+  const month = Number(rawMonth)
+  if (!Number.isInteger(year) || !Number.isInteger(month)) return null
+  return {
+    from: startOfDay(new Date(year, month, 1)).toISOString(),
+    to: endOfDay(new Date(year, month + 1, 0)).toISOString(),
+  }
+}
+
 function clampDay(year: number, month: number, day: number) {
   return Math.min(day, new Date(year, month + 1, 0).getDate())
 }
@@ -228,6 +239,15 @@ export function DashboardPage() {
 
   const maxTotal = Math.max(1, ...bars.map((bar) => bar.total))
   const activeBar = bars.find((bar) => bar.key === activeBarKey) ?? bars[bars.length - 1] ?? null
+  const activeBarRange = activeBar ? getRangeForMonthKey(activeBar.key) : null
+  const activeBarTransactionsQuery = useTransactionsWithOptions({
+    page: 1,
+    pageSize: 6,
+    dateFrom: activeBarRange?.from,
+    dateTo: activeBarRange?.to,
+    enabled: Boolean(activeBarRange),
+  })
+  const activeBarTransactions = activeBarTransactionsQuery.data?.items ?? []
   const syncedMinutesAgo = totalOverviewQuery.dataUpdatedAt
     ? Math.max(0, Math.floor((nowTick - totalOverviewQuery.dataUpdatedAt) / 60_000))
     : null
@@ -236,7 +256,16 @@ export function DashboardPage() {
       ? t('common.loading')
       : syncedMinutesAgo === 0
         ? t('dashboard.justNow')
-        : `${syncedMinutesAgo} ${t('dashboard.minutesAgo')}`
+      : `${syncedMinutesAgo} ${t('dashboard.minutesAgo')}`
+
+  function handleOpenActiveMonthTransactions() {
+    if (!activeBarRange) return
+    const params = new URLSearchParams({
+      from: activeBarRange.from,
+      to: activeBarRange.to,
+    })
+    navigate(`/transactions?${params.toString()}`)
+  }
 
   return (
     <div className="space-y-5">
@@ -414,10 +443,44 @@ export function DashboardPage() {
           </div>
 
           {activeBar ? (
-            <div className="mt-4 rounded-xl border border-outline/15 bg-surface-container-low px-4 py-3 text-sm text-on-surface">
-              <span className="font-semibold">{activeBar.label}</span>
-              <span className="ml-4 text-primary">{t('dashboard.income')}: {formatCurrency(activeBar.income)}</span>
-              <span className="ml-4 text-rose-600">{t('dashboard.expense')}: {formatCurrency(activeBar.expense)}</span>
+            <div className="mt-4 rounded-xl border border-outline/15 bg-surface-container-low p-4 text-sm text-on-surface">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{activeBar.label}</p>
+                  <p className="mt-1">
+                    <span className="text-primary">{t('dashboard.income')}: {formatCurrency(activeBar.income)}</span>
+                    <span className="ml-4 text-rose-600">{t('dashboard.expense')}: {formatCurrency(activeBar.expense)}</span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label={t('dashboard.openSelectedMonthAria')}
+                  className="min-h-9 rounded-lg border border-primary/20 bg-white px-3 py-2 text-xs font-bold text-primary transition hover:bg-primary-fixed"
+                  onClick={handleOpenActiveMonthTransactions}
+                >
+                  {t('dashboard.openSelectedMonth')}
+                </button>
+              </div>
+              <div className="mt-3 grid gap-2 md:grid-cols-3">
+                {activeBarTransactions.slice(0, 3).map((tx) => (
+                  <div key={tx.id} className="rounded-lg bg-white px-3 py-2">
+                    <p className="truncate text-xs font-bold text-on-surface">
+                      {tx.category_name ?? tx.memo ?? t('transactionsPage.quickFilters.uncategorized')}
+                    </p>
+                    <p className="mt-1 truncate text-[11px] text-on-surface-variant">
+                      {tx.memo?.trim() || new Date(tx.occurred_at).toLocaleDateString(locale)}
+                    </p>
+                    <p className={`mt-1 text-xs font-extrabold ${tx.type === 'income' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {activeBarTransactions.length === 0 ? (
+                <p className="mt-3 rounded-lg bg-white px-3 py-2 text-xs text-on-surface-variant">
+                  {t('dashboard.noSelectedMonthTransactions')}
+                </p>
+              ) : null}
             </div>
           ) : null}
 

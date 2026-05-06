@@ -100,6 +100,9 @@
     "justNow": "刚刚",
     "net": "净额",
     "trendHint": "轻点或悬停柱状图，查看每月收入与支出合计。",
+    "openSelectedMonth": "查看交易",
+    "openSelectedMonthAria": "打开选中月份的交易",
+    "noSelectedMonthTransactions": "选中月份没有交易。",
     "actionCenter": {
       "title": "行动中心",
       "description": "用竞品常见的复核队列，把账本数据转成下一步可执行动作。",
@@ -307,6 +310,8 @@
       "outgoingPayment": "支出付款",
       "internalTransfer": "内部转账",
       "deleteLabel": "删除 {{name}}",
+      "openDay": "查看当天",
+      "openDayLabel": "查看 {{name}} 所在日期",
       "markReviewed": "标为已复核",
       "markReviewedLabel": "将 {{name}} 标为已复核"
     },
@@ -359,7 +364,24 @@
       "importing": "导入中...",
       "confirm": "确认导入",
       "importFailed": "导入失败：{{message}}",
-      "importSuccessful": "导入成功！"
+      "importSuccessful": "导入成功！",
+      "resultsTitle": "导入结果",
+      "resultsDescription": "关闭前先查看哪些行已导入、跳过或失败。",
+      "downloadProblems": "下载问题行",
+      "importedLabel": "已导入",
+      "skippedLabel": "已跳过",
+      "failedLabel": "失败",
+      "importedCount": "{{count}} 条已导入",
+      "skippedCount": "{{count}} 条已跳过",
+      "failedCount": "{{count}} 条失败",
+      "rowNumber": "第 {{row}} 行",
+      "noProblems": "没有跳过或失败的行。",
+      "reasonUnknown": "未知原因",
+      "reasons": {
+        "duplicate_transaction": "重复交易",
+        "invalid_row": "无效行",
+        "persist_failed": "保存失败"
+      }
     },
     "addDialog": {
       "title": "添加新交易",

@@ -29,13 +29,14 @@ export function useTransactionsWithOptions(options?: {
   dateTo?: string
   accountId?: string
   ledgerId?: string
+  enabled?: boolean
 }) {
   const { session } = useAuth()
 
   return useQuery({
     queryKey: ['transactions', 'list', options?.page ?? 1, options?.pageSize ?? 20, options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? ''],
     queryFn: () => getTransactions(session!.accessToken, options),
-    enabled: Boolean(session?.accessToken),
+    enabled: Boolean(session?.accessToken) && options?.enabled !== false,
   })
 }
 

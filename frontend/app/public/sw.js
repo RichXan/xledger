@@ -1,4 +1,4 @@
-const SW_VERSION = 'xledger-v3'
+const SW_VERSION = 'xledger-v4'
 const SHELL_CACHE = `${SW_VERSION}-shell`
 const RUNTIME_CACHE = `${SW_VERSION}-runtime`
 const OFFLINE_CACHE = `${SW_VERSION}-offline`
@@ -13,11 +13,8 @@ const PRECACHE_ASSETS = [
   '/pwa-512.png',
 ]
 
-const CACHE_MAX_AGE = {
-  '/api/stats/overview': 5 * 60 * 1000,      // 5 分钟
-  '/api/transactions': 10 * 60 * 1000,         // 10 分钟
-  '/api/categories': 30 * 60 * 1000,           // 30 分钟
-  '/api/accounts': 30 * 60 * 1000,
+const SAFE_API_CACHE_MAX_AGE = {
+  '/api/health': 5 * 60 * 1000,
 }
 
 self.addEventListener('install', (event) => {
@@ -68,10 +65,18 @@ function shouldUseCacheFirst(url) {
 }
 
 function getCacheAge(url) {
-  for (const [pattern, age] of Object.entries(CACHE_MAX_AGE)) {
+  for (const [pattern, age] of Object.entries(SAFE_API_CACHE_MAX_AGE)) {
     if (url.pathname.startsWith(pattern)) return age
   }
   return null
+}
+
+function isCacheableAPIRequest(request, response) {
+  if (!(response.status === 200)) return false
+  if (!request.headers.has('Authorization')) {
+    return getCacheAge(new URL(request.url)) !== null
+  }
+  return false
 }
 
 self.addEventListener('fetch', (event) => {
@@ -89,13 +94,13 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // API 请求：Network-First，失败时回退到缓存
+  // API 请求：Network-First。只缓存明确白名单且无认证头的安全接口。
   if (isAPIRequest(requestUrl)) {
     const cacheAge = getCacheAge(requestUrl)
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok) {
+          if (isCacheableAPIRequest(request, response)) {
             const clone = response.clone()
             caches.open(RUNTIME_CACHE).then((cache) => {
               const headers = new Headers(clone.headers)
@@ -110,17 +115,13 @@ self.addEventListener('fetch', (event) => {
           return response
         })
         .catch(async () => {
-          // 网络失败，尝试从缓存读取
-          const cached = await caches.match(request)
-          if (cached) {
-            // 检查缓存是否过期
-            if (cacheAge) {
+          if (cacheAge) {
+            const cached = await caches.match(request)
+            if (cached) {
               const cachedAt = parseInt(cached.headers.get('sw-cached-at') || '0')
               if (Date.now() - cachedAt < cacheAge) {
                 return cached
               }
-            } else {
-              return cached
             }
           }
           return new Response(JSON.stringify({ code: 'OFFLINE', message: '离线' }), {

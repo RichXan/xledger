@@ -254,6 +254,26 @@ function createTransactionsFetchMock() {
       )
     }
 
+    if (url.endsWith('/api/import/csv/confirm') && init?.method === 'POST') {
+      return new Response(
+        JSON.stringify({
+          code: 'OK',
+          message: '成功',
+          data: {
+            success_count: 1,
+            skip_count: 1,
+            fail_count: 1,
+            rows: [
+              { row_index: 0, status: 'success' },
+              { row_index: 1, status: 'skipped', reason: 'duplicate_transaction' },
+              { row_index: 2, status: 'failed', reason: 'invalid_row' },
+            ],
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
     throw new Error(`Unexpected URL: ${url}`)
   })
 }
@@ -420,6 +440,42 @@ describe('transactions domain', () => {
     })
   })
 
+  it('keeps import confirmation results visible with row outcomes and problem download', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    global.fetch = fetchMock as typeof fetch
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:import-problems')
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /import/i }))
+    const file = new File(
+      ['date,amount,description\n2026-03-01,25,Lunch\n2026-03-01,25,Lunch\n,5,Bad row'],
+      'transactions.csv',
+      { type: 'text/csv' },
+    )
+    await user.upload(screen.getByLabelText(/csv file/i), file)
+    await user.click(screen.getByRole('button', { name: /preview import/i }))
+    await screen.findByText(/detected columns/i)
+    await user.click(screen.getByRole('button', { name: /confirm import/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /import results/i })).toBeInTheDocument()
+      expect(screen.getByText(/1 imported/i)).toBeInTheDocument()
+      expect(screen.getByText(/1 skipped/i)).toBeInTheDocument()
+      expect(screen.getByText(/1 failed/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/duplicate transaction/i).length).toBeGreaterThan(0)
+      expect(screen.getByText(/invalid row/i)).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /download problem rows/i }))
+
+    expect(createObjectURL).toHaveBeenCalled()
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:import-problems')
+  })
+
   it('exports the current filtered transaction range as a CSV file', async () => {
     const fetchMock = createTransactionsFetchMock()
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -467,5 +523,29 @@ describe('transactions domain', () => {
     expect(exportUrl).toContain('to=')
     expect(createObjectURL).toHaveBeenCalled()
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:transactions-export')
+  })
+
+  it('opens a reviewed transaction day from the review queue', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    global.fetch = fetchMock as typeof fetch
+    const expectedFrom = new Date(2026, 2, 3, 0, 0, 0, 0).toISOString()
+    const expectedTo = new Date(2026, 2, 3, 23, 59, 59, 999).toISOString()
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /needs review/i }))
+    await user.click(await screen.findByRole('button', { name: /open day for needs classification/i }))
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => {
+        const url = new URL(String(input), 'http://localhost')
+        return (
+          url.pathname === '/api/transactions' &&
+          url.searchParams.get('date_from') === expectedFrom &&
+          url.searchParams.get('date_to') === expectedTo
+        )
+      })).toBe(true)
+    })
   })
 })

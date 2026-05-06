@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronLeft, ChevronRight, Download, Search, Trash2, Undo2, Upload } from 'lucide-react'
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Download, FileDown, Search, Trash2, Undo2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/ui/dialog-shell'
 import { SelectField } from '@/components/ui/select-field'
 import { TextField } from '@/components/ui/text-field'
-import type { TransactionRecord } from '@/features/transactions/transactions-api'
+import type { ImportConfirmResponse, TransactionRecord } from '@/features/transactions/transactions-api'
 import {
   useCreateTransaction,
   useDeleteTransaction,
@@ -39,6 +39,17 @@ function toLocalDateTimeInputValue(value: Date) {
   const minutes = String(value.getMinutes()).padStart(2, '0')
   const seconds = String(value.getSeconds()).padStart(2, '0')
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+}
+
+function toDaySearchParams(value: string) {
+  const dateKey = toLocalDateKey(new Date(value))
+  const from = new Date(`${dateKey}T00:00:00`)
+  const to = new Date(`${dateKey}T23:59:59.999`)
+  return new URLSearchParams({
+    date: dateKey,
+    from: from.toISOString(),
+    to: to.toISOString(),
+  }).toString()
 }
 
 function toSafeISOString(value: string | null, fallback: Date) {
@@ -112,6 +123,24 @@ export async function buildImportIdempotencyKey(file: File) {
   return `ui-file-${file.size}-${hash.toString(16).padStart(8, '0')}`
 }
 
+function escapeCsvCell(value: string) {
+  const escaped = value.replace(/"/g, '""')
+  return /[",\n\r]/.test(escaped) ? `"${escaped}"` : escaped
+}
+
+function buildProblemRowsCsv(result: ImportConfirmResponse, sampleRows: string[][]) {
+  const header = ['row_number', 'status', 'reason', 'preview_values']
+  const rows = result.rows
+    .filter((row) => row.status !== 'success')
+    .map((row) => [
+      String(row.row_index + 1),
+      row.status,
+      row.reason ?? '',
+      (sampleRows[row.row_index] ?? []).join(' | '),
+    ])
+  return [header, ...rows].map((row) => row.map(escapeCsvCell).join(',')).join('\n')
+}
+
 export function getTransactionAccountLabel(
   tx: TransactionRecord,
   accountNameById: ReadonlyMap<string, string>,
@@ -152,6 +181,7 @@ export function TransactionsPage() {
   const [memo, setMemo] = useState('')
   const [date, setDate] = useState(() => toLocalDateTimeInputValue(new Date()))
   const [importFile, setImportFile] = useState<File | null>(null)
+  const [importResult, setImportResult] = useState<ImportConfirmResponse | null>(null)
   const [dateRangePreset, setDateRangePreset] = useState<'7' | '30' | '120' | '365'>('120')
   const [listSearchQuery, setListSearchQuery] = useState(searchParamQ)
   const [selectedAccountFilter, setSelectedAccountFilter] = useState('')
@@ -415,16 +445,57 @@ export function TransactionsPage() {
   async function handlePreviewImport(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!importFile) return
+    setImportResult(null)
     await importPreviewMutation.mutateAsync(importFile)
   }
 
   async function handleConfirmImport() {
     if (!importFile) return
     const idempotencyKey = await buildImportIdempotencyKey(importFile)
-    await importConfirmMutation.mutateAsync({ file: importFile, idempotencyKey })
+    const result = await importConfirmMutation.mutateAsync({ file: importFile, idempotencyKey })
+    setImportResult(result)
     setListRangeClock(Date.now())
+  }
+
+  function handleImportFileChange(file: File | null) {
+    setImportFile(file)
+    setImportResult(null)
+    importPreviewMutation.reset()
+    importConfirmMutation.reset()
+  }
+
+  function handleDownloadImportProblems() {
+    if (!importResult) return
+    const content = buildProblemRowsCsv(importResult, importPreviewMutation.data?.sample_rows ?? [])
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `xledger-import-problems-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  function handleCloseImportDialog() {
     setShowImportDialog(false)
     setImportFile(null)
+    setImportResult(null)
+    importPreviewMutation.reset()
+    importConfirmMutation.reset()
+  }
+
+  function handleOpenTransactionDay(tx: TransactionRecord) {
+    navigate(`/transactions?${toDaySearchParams(tx.occurred_at)}`)
+    setQuickFilter('all')
+    setReviewReasonFilter('all')
+    setListRangeClock(Date.now())
+  }
+
+  function getImportReasonLabel(reason?: string) {
+    if (!reason) return t('transactionsPage.importDialog.reasonUnknown')
+    return t(`transactionsPage.importDialog.reasons.${reason}`, { defaultValue: reason.replace(/_/g, ' ') })
   }
 
   async function handleExportTransactions() {
@@ -505,6 +576,7 @@ export function TransactionsPage() {
     t('transactionsPage.calendar.weekdays.fri'),
     t('transactionsPage.calendar.weekdays.sat'),
   ]
+  const importProblemRows = importResult?.rows.filter((row) => row.status !== 'success') ?? []
 
   return (
     <div className="space-y-5">
@@ -756,14 +828,24 @@ export function TransactionsPage() {
                       </p>
                       <div className="flex justify-end gap-2">
                         {reviewReasonKeys.length > 0 ? (
-                          <button
-                            type="button"
-                            aria-label={t('transactionsPage.table.markReviewedLabel', { name: tx.memo?.trim() || tx.category_name || tx.id })}
-                            className="grid h-9 w-9 place-items-center rounded-lg border border-outline/15 text-on-surface-variant transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
-                            onClick={() => handleDismissReview(tx)}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              aria-label={t('transactionsPage.table.openDayLabel', { name: tx.memo?.trim() || tx.category_name || tx.id })}
+                              className="grid h-9 w-9 place-items-center rounded-lg border border-outline/15 text-on-surface-variant transition hover:border-primary/30 hover:bg-primary-fixed hover:text-primary"
+                              onClick={() => handleOpenTransactionDay(tx)}
+                            >
+                              <CalendarDays className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={t('transactionsPage.table.markReviewedLabel', { name: tx.memo?.trim() || tx.category_name || tx.id })}
+                              className="grid h-9 w-9 place-items-center rounded-lg border border-outline/15 text-on-surface-variant transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                              onClick={() => handleDismissReview(tx)}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                            </button>
+                          </>
                         ) : null}
                         <button
                           type="button"
@@ -843,10 +925,16 @@ export function TransactionsPage() {
                       ) : null}
                       <div className="mt-4 flex justify-end gap-2">
                         {reviewReasonKeys.length > 0 ? (
-                          <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => handleDismissReview(tx)}>
-                            <CheckCircle2 className="h-4 w-4" />
-                            {t('transactionsPage.table.markReviewed')}
-                          </Button>
+                          <>
+                            <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => handleOpenTransactionDay(tx)}>
+                              <CalendarDays className="h-4 w-4" />
+                              {t('transactionsPage.table.openDay')}
+                            </Button>
+                            <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => handleDismissReview(tx)}>
+                              <CheckCircle2 className="h-4 w-4" />
+                              {t('transactionsPage.table.markReviewed')}
+                            </Button>
+                          </>
                         ) : null}
                         <button
                           type="button"
@@ -1003,10 +1091,10 @@ export function TransactionsPage() {
         <DialogShell
           title={t('transactionsPage.importDialog.title')}
           description={t('transactionsPage.importDialog.description')}
-          onClose={() => setShowImportDialog(false)}
+          onClose={handleCloseImportDialog}
           footer={
             <>
-              <Button variant="ghost" onClick={() => setShowImportDialog(false)}>
+              <Button variant="ghost" onClick={handleCloseImportDialog}>
                 {t('common.cancel')}
               </Button>
               <Button type="submit" form="import-preview-form">
@@ -1024,7 +1112,7 @@ export function TransactionsPage() {
               <p className="mt-4 text-3xl font-semibold text-on-surface">{t('transactionsPage.importDialog.dropTitle')}</p>
               <p className="mt-2 text-sm text-on-surface-variant">{t('transactionsPage.importDialog.supportedFormats')}</p>
               <span className="mt-6 rounded-lg border border-primary px-6 py-2 text-sm font-semibold text-primary">{t('transactionsPage.importDialog.selectFiles')}</span>
-              <input id="csv-file" type="file" accept=".csv,text/csv" aria-label={t('transactionsPage.importDialog.csvFileLabel')} className="hidden" onChange={(event) => setImportFile(event.target.files?.[0] ?? null)} />
+              <input id="csv-file" type="file" accept=".csv,text/csv" aria-label={t('transactionsPage.importDialog.csvFileLabel')} className="hidden" onChange={(event) => handleImportFileChange(event.target.files?.[0] ?? null)} />
             </label>
             {importFile && !importPreviewMutation.data ? (
               <p className="text-sm text-on-surface">{t('transactionsPage.importDialog.selected', { name: importFile.name })}</p>
@@ -1093,6 +1181,67 @@ export function TransactionsPage() {
                     <span className="text-sm text-emerald-600">{t('transactionsPage.importDialog.importSuccessful')}</span>
                   ) : null}
                 </div>
+                {importResult ? (
+                  <section className="rounded-2xl border border-outline/15 bg-white p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-headline text-2xl font-bold leading-tight text-on-surface">
+                          {t('transactionsPage.importDialog.resultsTitle')}
+                        </h3>
+                        <p className="mt-1 text-sm text-on-surface-variant">
+                          {t('transactionsPage.importDialog.resultsDescription')}
+                        </p>
+                      </div>
+                      {importProblemRows.length > 0 ? (
+                        <Button className="px-3 py-2 text-xs" variant="secondary" onClick={handleDownloadImportProblems}>
+                          <FileDown className="h-4 w-4" />
+                          {t('transactionsPage.importDialog.downloadProblems')}
+                        </Button>
+                      ) : null}
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                      <div className="rounded-xl bg-emerald-50 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700">
+                          {t('transactionsPage.importDialog.importedLabel')}
+                        </p>
+                        <p className="mt-1 text-sm font-extrabold text-emerald-800">
+                          {t('transactionsPage.importDialog.importedCount', { count: importResult.success_count })}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-amber-50 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700">
+                          {t('transactionsPage.importDialog.skippedLabel')}
+                        </p>
+                        <p className="mt-1 text-sm font-extrabold text-amber-800">
+                          {t('transactionsPage.importDialog.skippedCount', { count: importResult.skip_count })}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-rose-50 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-rose-700">
+                          {t('transactionsPage.importDialog.failedLabel')}
+                        </p>
+                        <p className="mt-1 text-sm font-extrabold text-rose-800">
+                          {t('transactionsPage.importDialog.failedCount', { count: importResult.fail_count })}
+                        </p>
+                      </div>
+                    </div>
+                    {importProblemRows.length > 0 ? (
+                      <div className="mt-4 max-h-56 overflow-auto rounded-xl border border-outline/10">
+                        {importProblemRows.slice(0, 8).map((row) => (
+                          <div key={`${row.row_index}-${row.status}`} className="grid grid-cols-[72px_1fr_1.3fr] gap-3 border-t border-outline/10 px-3 py-2 first:border-t-0">
+                            <p className="text-xs font-bold text-on-surface">{t('transactionsPage.importDialog.rowNumber', { row: row.row_index + 1 })}</p>
+                            <p className="text-xs font-semibold capitalize text-on-surface-variant">{row.status}</p>
+                            <p className="text-xs text-on-surface">{getImportReasonLabel(row.reason)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                        {t('transactionsPage.importDialog.noProblems')}
+                      </p>
+                    )}
+                  </section>
+                ) : null}
               </div>
             ) : null}
           </form>
