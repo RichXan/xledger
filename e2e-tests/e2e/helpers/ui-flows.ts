@@ -75,7 +75,12 @@ export async function createTransactionOnTransactionsPage(
   const form = page.locator('#add-transaction-form')
   await expect(form).toBeVisible()
   await form.getByLabel('Amount').fill(input.amount)
-  await form.getByLabel('Date & Time').fill(stableTransactionDateTime())
+  await form.getByLabel('Date & Time').evaluate((node, value) => {
+    const inputElement = node as HTMLInputElement
+    inputElement.value = value
+    inputElement.dispatchEvent(new Event('input', { bubbles: true }))
+    inputElement.dispatchEvent(new Event('change', { bubbles: true }))
+  }, stableTransactionDateTime())
   await form.getByLabel('Memo').fill(input.memo)
   await form.getByLabel('Type').selectOption(input.type)
   const accountSelect = form.getByLabel('Account')
@@ -88,14 +93,22 @@ export async function createTransactionOnTransactionsPage(
   const createRequest = page.waitForResponse((response) => {
     return response.request().method() === 'POST' && response.url().includes('/api/transactions')
   })
+  const listRefresh = page.waitForResponse((response) => {
+    return response.request().method() === 'GET' && response.url().includes('/api/transactions?')
+  })
 
   await page.getByRole('button', { name: 'Save Transaction' }).click()
   const createResponse = await createRequest
   if (!createResponse.ok()) {
     throw new Error(`Create transaction failed: ${createResponse.status()} ${await createResponse.text()}`)
   }
+  const refreshResponse = await listRefresh
+  if (!refreshResponse.ok()) {
+    throw new Error(`Refresh transactions failed: ${refreshResponse.status()} ${await refreshResponse.text()}`)
+  }
 
   await expect(form).toBeHidden()
+  await expect(page.getByText(input.memo, { exact: true })).toBeVisible()
 }
 
 function stableTransactionDateTime() {

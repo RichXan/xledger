@@ -99,6 +99,64 @@ function createTransactionsFetchMock() {
       )
     }
 
+    if (url.includes('/api/transactions/review-summary')) {
+      return new Response(
+        JSON.stringify({
+          code: 'OK',
+          message: 'Success',
+          data: { review: 4, uncategorized: 1, duplicates: 1, large: 1 },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    if (url.includes('/api/transactions/review-items')) {
+      return new Response(
+        JSON.stringify({
+          code: 'OK',
+          message: 'Success',
+          data: {
+            items: [
+              {
+                transaction: {
+                  id: 'txn-3',
+                  type: 'expense',
+                  amount: 88,
+                  occurred_at: '2026-03-03T10:30:00Z',
+                  memo: 'Needs classification',
+                },
+                reasons: ['uncategorized'],
+              },
+              {
+                transaction: {
+                  id: 'txn-4',
+                  type: 'expense',
+                  amount: 1250,
+                  category_name: 'Travel',
+                  occurred_at: '2026-03-04T18:20:00Z',
+                  memo: 'Conference flight',
+                },
+                reasons: ['large'],
+              },
+              {
+                transaction: {
+                  id: 'txn-5',
+                  type: 'expense',
+                  amount: 25,
+                  category_name: 'Cafe',
+                  occurred_at: '2026-03-01T09:00:00Z',
+                  memo: 'Lunch',
+                },
+                reasons: ['duplicate'],
+              },
+            ],
+            pagination: { page: 1, page_size: 200, total: 3, total_pages: 1 },
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
     if (url.endsWith('/api/accounts')) {
       return new Response(
         JSON.stringify({
@@ -306,6 +364,12 @@ describe('transactions domain', () => {
 
     expect(screen.getByText('Needs classification')).toBeInTheDocument()
     expect(screen.queryByText('Conference flight')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/transactions/review-items'),
+        expect.any(Object),
+      )
+    })
   })
 
   it('submits the add transaction modal and previews import files', async () => {

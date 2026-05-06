@@ -306,7 +306,9 @@
       "incomingFlow": "收入流水",
       "outgoingPayment": "支出付款",
       "internalTransfer": "内部转账",
-      "deleteLabel": "删除 {{name}}"
+      "deleteLabel": "删除 {{name}}",
+      "markReviewed": "标为已复核",
+      "markReviewedLabel": "将 {{name}} 标为已复核"
     },
     "empty": {
       "noMatching": "没有匹配的交易。",
@@ -348,6 +350,11 @@
       "csvFileLabel": "CSV 文件",
       "selected": "已选择：{{name}}",
       "previewFailed": "预览失败：{{message}}",
+      "summaryTitle": "导入摘要",
+      "file": "文件",
+      "columns": "列数",
+      "previewRows": "预览行",
+      "dedupeHint": "确认导入时会基于交易日期、金额、类型和备注/分类信号跳过重复交易。",
       "detectedColumns": "检测到的列",
       "importing": "导入中...",
       "confirm": "确认导入",
@@ -446,6 +453,8 @@
     "noTrendData": "所选范围没有趋势数据。",
     "trendEmptyHint": "记录收入或支出后，趋势柱状图会自动显示在这里。",
     "goToTransactions": "前往交易",
+    "openTransactions": "查看交易",
+    "openTransactionsForPeriod": "查看 {{period}} 的交易",
     "insights": {
       "title": "洞察摘要",
       "description": "先用自然语言解释变化，再进入图表细看。",

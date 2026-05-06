@@ -9,10 +9,13 @@ import {
   getCategories,
   getLedgers,
   getTags,
+  getTransactionReviewItems,
+  getTransactionReviewSummary,
   getTransactions,
   previewImport,
   type CreateTransactionInput,
   type ExportTransactionsOptions,
+  type TransactionReviewReason,
 } from './transactions-api'
 
 export function useTransactions() {
@@ -32,6 +35,49 @@ export function useTransactionsWithOptions(options?: {
   return useQuery({
     queryKey: ['transactions', 'list', options?.page ?? 1, options?.pageSize ?? 20, options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? ''],
     queryFn: () => getTransactions(session!.accessToken, options),
+    enabled: Boolean(session?.accessToken),
+  })
+}
+
+export function useTransactionReviewSummary(options?: {
+  dateFrom?: string
+  dateTo?: string
+  accountId?: string
+  ledgerId?: string
+}) {
+  const { session } = useAuth()
+
+  return useQuery({
+    queryKey: ['transactions', 'review-summary', options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? ''],
+    queryFn: () => getTransactionReviewSummary(session!.accessToken, options),
+    enabled: Boolean(session?.accessToken),
+  })
+}
+
+export function useTransactionReviewItems(options?: {
+  page?: number
+  pageSize?: number
+  reason?: 'all' | TransactionReviewReason
+  dateFrom?: string
+  dateTo?: string
+  accountId?: string
+  ledgerId?: string
+}) {
+  const { session } = useAuth()
+
+  return useQuery({
+    queryKey: [
+      'transactions',
+      'review-items',
+      options?.page ?? 1,
+      options?.pageSize ?? 20,
+      options?.reason ?? 'all',
+      options?.dateFrom ?? '',
+      options?.dateTo ?? '',
+      options?.accountId ?? '',
+      options?.ledgerId ?? '',
+    ],
+    queryFn: () => getTransactionReviewItems(session!.accessToken, options),
     enabled: Boolean(session?.accessToken),
   })
 }
@@ -77,8 +123,10 @@ export function useCreateTransaction() {
 
   return useMutation({
     mutationFn: (input: CreateTransactionInput) => createTransaction(session!.accessToken, input),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['transactions', 'list'] })
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['transactions', 'list'] })
+      void queryClient.invalidateQueries({ queryKey: ['transactions', 'review-summary'] })
+      void queryClient.invalidateQueries({ queryKey: ['transactions', 'review-items'] })
     },
   })
 }
@@ -91,6 +139,8 @@ export function useDeleteTransaction() {
     mutationFn: (id: string) => deleteTransaction(session!.accessToken, id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['transactions', 'list'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-summary'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-items'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'overview'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'trend'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'category'] })
@@ -123,6 +173,8 @@ export function useImportConfirm() {
       confirmImport(session!.accessToken, file, idempotencyKey),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['transactions', 'list'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-summary'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-items'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'overview'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'trend'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'category'] })

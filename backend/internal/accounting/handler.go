@@ -70,6 +70,8 @@ type transactionServicer interface {
 	EditTransaction(ctx context.Context, userID string, txnID string, input TransactionEditInput) (Transaction, error)
 	DeleteTransaction(ctx context.Context, userID string, txnID string, version *int) error
 	ListTransactionsWithTotal(ctx context.Context, userID string, query TransactionQuery) ([]Transaction, int, error)
+	GetReviewSummary(ctx context.Context, userID string, query TransactionQuery) (TransactionReviewSummary, error)
+	ListReviewItems(ctx context.Context, userID string, query TransactionReviewQuery) ([]TransactionReviewItem, int, error)
 }
 
 type Handler struct {
@@ -276,6 +278,102 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		totalPages = 1
 	}
 	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"items": items, "pagination": gin.H{"page": page, "page_size": pageSize, "total": total, "total_pages": totalPages}})
+}
+
+func (h *Handler) ReviewSummary(c *gin.Context) {
+	if h.transactionService == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		return
+	}
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
+		return
+	}
+	query, ok := parseTransactionListQuery(c, false)
+	if !ok {
+		return
+	}
+	summary, err := h.transactionService.GetReviewSummary(c.Request.Context(), userID, query)
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, "OK", "成功", summary)
+}
+
+func (h *Handler) ReviewItems(c *gin.Context) {
+	if h.transactionService == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		return
+	}
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
+		return
+	}
+	query, ok := parseTransactionListQuery(c, true)
+	if !ok {
+		return
+	}
+	reviewQuery := TransactionReviewQuery{TransactionQuery: query, Reason: c.Query("reason")}
+	items, total, err := h.transactionService.ListReviewItems(c.Request.Context(), userID, reviewQuery)
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+	page := query.Page
+	pageSize := query.PageSize
+	if page == 0 {
+		page = 1
+	}
+	if pageSize == 0 {
+		pageSize = 20
+	}
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"items": items, "pagination": gin.H{"page": page, "page_size": pageSize, "total": total, "total_pages": totalPages}})
+}
+
+func parseTransactionListQuery(c *gin.Context, includePagination bool) (TransactionQuery, bool) {
+	query := TransactionQuery{LedgerID: c.Query("ledger_id"), AccountID: c.Query("account_id"), CategoryID: c.Query("category_id"), TagID: c.Query("tag_id")}
+	if rawFrom := c.Query("date_from"); rawFrom != "" {
+		parsed, err := time.Parse(time.RFC3339, rawFrom)
+		if err != nil {
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return TransactionQuery{}, false
+		}
+		query.OccurredFrom = parsed.UTC()
+	}
+	if rawTo := c.Query("date_to"); rawTo != "" {
+		parsed, err := time.Parse(time.RFC3339, rawTo)
+		if err != nil {
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return TransactionQuery{}, false
+		}
+		query.OccurredTo = parsed.UTC()
+	}
+	if includePagination {
+		if rawPage := c.Query("page"); rawPage != "" {
+			parsed, err := strconv.Atoi(rawPage)
+			if err != nil {
+				httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+				return TransactionQuery{}, false
+			}
+			query.Page = parsed
+		}
+		if rawPageSize := c.Query("page_size"); rawPageSize != "" {
+			parsed, err := strconv.Atoi(rawPageSize)
+			if err != nil {
+				httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+				return TransactionQuery{}, false
+			}
+			query.PageSize = parsed
+		}
+	}
+	return query, true
 }
 
 func (h *Handler) CreateAccount(c *gin.Context) {

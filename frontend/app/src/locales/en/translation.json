@@ -306,7 +306,9 @@
       "incomingFlow": "Incoming flow",
       "outgoingPayment": "Outgoing payment",
       "internalTransfer": "Internal transfer",
-      "deleteLabel": "Delete {{name}}"
+      "deleteLabel": "Delete {{name}}",
+      "markReviewed": "Mark Reviewed",
+      "markReviewedLabel": "Mark {{name}} as reviewed"
     },
     "empty": {
       "noMatching": "No matching transactions.",
@@ -348,6 +350,11 @@
       "csvFileLabel": "CSV file",
       "selected": "Selected: {{name}}",
       "previewFailed": "Preview failed: {{message}}",
+      "summaryTitle": "Import Summary",
+      "file": "File",
+      "columns": "Columns",
+      "previewRows": "Preview Rows",
+      "dedupeHint": "Duplicate transactions are skipped during import confirmation using transaction date, amount, type, and memo/category signals.",
       "detectedColumns": "Detected Columns",
       "importing": "Importing...",
       "confirm": "Confirm Import",
@@ -446,6 +453,8 @@
     "noTrendData": "No trend data for selected range.",
     "trendEmptyHint": "Once you record income or expense entries, trend bars will appear here automatically.",
     "goToTransactions": "Go to Transactions",
+    "openTransactions": "Open Transactions",
+    "openTransactionsForPeriod": "Open transactions for {{period}}",
     "insights": {
       "title": "Insight Summary",
       "description": "Plain-language cues explain what changed before users dive into charts.",

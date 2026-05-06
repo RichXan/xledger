@@ -298,6 +298,14 @@ export function AnalyticsPage() {
 
   const yearOptions = Array.from({ length: 8 }, (_, index) => String(now.getFullYear() - index))
 
+  function openTransactionsForSearch(value: string) {
+    navigate(`/transactions?q=${encodeURIComponent(value)}`)
+  }
+
+  function openTransactionsForRange(bucket: TrendBucket) {
+    navigate(`/transactions?from=${encodeURIComponent(bucket.from)}&to=${encodeURIComponent(bucket.to)}`)
+  }
+
   useEffect(() => {
     if (displayCategoryItems.length === 0) {
       setActiveCategoryName(null)
@@ -437,6 +445,13 @@ export function AnalyticsPage() {
                   <p className="mt-1 text-sm font-bold text-on-surface">
                     {displayCategoryItems[0].category_name} · {formatPercent(topCategoryShare)}
                   </p>
+                  <button
+                    type="button"
+                    className="mt-2 text-xs font-bold text-primary hover:underline"
+                    onClick={() => openTransactionsForSearch(displayCategoryItems[0].category_name)}
+                  >
+                    {t('analyticsPage.openTransactions')}
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -540,6 +555,13 @@ export function AnalyticsPage() {
                   <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('analyticsPage.keywordSpend')}</p>
                   <p className="mt-1 text-sm font-bold text-on-surface">{formatCurrency(activeKeyword.amount)}</p>
                   <p className="mt-1 text-xs text-on-surface-variant">{t('analyticsPage.keywordCount', { count: activeKeyword.count })}</p>
+                  <button
+                    type="button"
+                    className="mt-2 text-xs font-bold text-primary hover:underline"
+                    onClick={() => openTransactionsForSearch(activeKeyword.text)}
+                  >
+                    {t('analyticsPage.openTransactions')}
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -670,6 +692,13 @@ export function AnalyticsPage() {
                   <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700">
                     {t('analyticsPage.burn')}: {formatCurrency(activeBar.investment)}
                   </span>
+                  <button
+                    type="button"
+                    className="rounded-full bg-white px-3 py-1 font-bold text-primary hover:underline"
+                    onClick={() => openTransactionsForRange(activeBar)}
+                  >
+                    {t('analyticsPage.openTransactionsForPeriod', { period: activeBar.periodLabel })}
+                  </button>
                 </div>
               </div>
 

@@ -24,6 +24,20 @@ export interface TransactionRecord {
   memo?: string
 }
 
+export type TransactionReviewReason = 'uncategorized' | 'duplicate' | 'large'
+
+export interface TransactionReviewSummary {
+  review: number
+  uncategorized: number
+  duplicates: number
+  large: number
+}
+
+export interface TransactionReviewItem {
+  transaction: TransactionRecord
+  reasons: TransactionReviewReason[]
+}
+
 export interface AccountRecord {
   id: string
   name: string
@@ -114,6 +128,70 @@ export function getTransactions(
     params.set('ledger_id', options.ledgerId)
   }
   return requestEnvelope<PaginatedResponse<TransactionRecord>>(`/transactions?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+}
+
+export function getTransactionReviewSummary(
+  accessToken: string,
+  options?: {
+    dateFrom?: string
+    dateTo?: string
+    accountId?: string
+    ledgerId?: string
+  },
+) {
+  const params = new URLSearchParams()
+  if (options?.dateFrom) {
+    params.set('date_from', options.dateFrom)
+  }
+  if (options?.dateTo) {
+    params.set('date_to', options.dateTo)
+  }
+  if (options?.accountId) {
+    params.set('account_id', options.accountId)
+  }
+  if (options?.ledgerId) {
+    params.set('ledger_id', options.ledgerId)
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return requestEnvelope<TransactionReviewSummary>(`/transactions/review-summary${suffix}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+}
+
+export function getTransactionReviewItems(
+  accessToken: string,
+  options?: {
+    page?: number
+    pageSize?: number
+    reason?: 'all' | TransactionReviewReason
+    dateFrom?: string
+    dateTo?: string
+    accountId?: string
+    ledgerId?: string
+  },
+) {
+  const params = new URLSearchParams({
+    page: String(options?.page ?? 1),
+    page_size: String(options?.pageSize ?? 20),
+  })
+  if (options?.reason && options.reason !== 'all') {
+    params.set('reason', options.reason)
+  }
+  if (options?.dateFrom) {
+    params.set('date_from', options.dateFrom)
+  }
+  if (options?.dateTo) {
+    params.set('date_to', options.dateTo)
+  }
+  if (options?.accountId) {
+    params.set('account_id', options.accountId)
+  }
+  if (options?.ledgerId) {
+    params.set('ledger_id', options.ledgerId)
+  }
+  return requestEnvelope<PaginatedResponse<TransactionReviewItem>>(`/transactions/review-items?${params.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
 }

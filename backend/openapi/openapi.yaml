@@ -175,6 +175,33 @@ components:
         occurred_at:
           type: string
           format: date-time
+    TransactionReviewSummary:
+      type: object
+      required: [review, uncategorized, duplicates, large]
+      properties:
+        review:
+          type: integer
+          example: 4
+        uncategorized:
+          type: integer
+          example: 1
+        duplicates:
+          type: integer
+          example: 1
+        large:
+          type: integer
+          example: 1
+    TransactionReviewItem:
+      type: object
+      required: [transaction, reasons]
+      properties:
+        transaction:
+          $ref: '#/components/schemas/Transaction'
+        reasons:
+          type: array
+          items:
+            type: string
+            enum: [uncategorized, duplicate, large]
     Category:
       type: object
       required: [id, user_id, name]
@@ -807,6 +834,70 @@ paths:
       responses:
         '201':
           description: 创建成功
+  /transactions/review-summary:
+    get:
+      summary: 获取交易复核摘要
+      tags: [Transactions]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LedgerIDParam'
+        - $ref: '#/components/parameters/AccountIDParam'
+        - $ref: '#/components/parameters/CategoryIDParam'
+        - $ref: '#/components/parameters/TagIDParam'
+        - $ref: '#/components/parameters/DateFromParam'
+        - $ref: '#/components/parameters/DateToParam'
+      responses:
+        '200':
+          description: 复核摘要
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TransactionReviewSummary'
+  /transactions/review-items:
+    get:
+      summary: 获取交易复核队列
+      tags: [Transactions]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - $ref: '#/components/parameters/LedgerIDParam'
+        - $ref: '#/components/parameters/AccountIDParam'
+        - $ref: '#/components/parameters/CategoryIDParam'
+        - $ref: '#/components/parameters/TagIDParam'
+        - $ref: '#/components/parameters/DateFromParam'
+        - $ref: '#/components/parameters/DateToParam'
+        - name: reason
+          in: query
+          schema:
+            type: string
+            enum: [all, uncategorized, duplicate, large]
+      responses:
+        '200':
+          description: 复核队列
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/TransactionReviewItem'
   /transactions/{id}:
     patch:
       summary: 更新交易

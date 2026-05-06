@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Download, Search, Trash2, Undo2, Upload } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, Download, Search, Trash2, Undo2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -14,6 +14,8 @@ import {
   useImportConfirm,
   useImportPreview,
   useTransactionFormOptions,
+  useTransactionReviewItems,
+  useTransactionReviewSummary,
   useTransactionsWithOptions,
 } from '@/features/transactions/transactions-hooks'
 import {
@@ -37,6 +39,12 @@ function toLocalDateTimeInputValue(value: Date) {
   const minutes = String(value.getMinutes()).padStart(2, '0')
   const seconds = String(value.getSeconds()).padStart(2, '0')
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+}
+
+function toSafeISOString(value: string | null, fallback: Date) {
+  if (!value) return fallback.toISOString()
+  const parsed = new Date(value)
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : fallback.toISOString()
 }
 
 function getMonthGrid(baseDate: Date) {
@@ -128,6 +136,9 @@ export function TransactionsPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const searchParamQ = (searchParams.get('q') ?? '').trim()
+  const dateParam = searchParams.get('date')
+  const fromParam = searchParams.get('from')
+  const toParam = searchParams.get('to')
 
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -150,7 +161,9 @@ export function TransactionsPage() {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(initialQuickFilter)
   const [reviewReasonFilter, setReviewReasonFilter] = useState<ReviewReasonFilter>('all')
   const [deletedTransactionIds, setDeletedTransactionIds] = useState<Set<string>>(() => new Set())
+  const [dismissedReviewIds, setDismissedReviewIds] = useState<Set<string>>(() => new Set())
   const [pendingUndo, setPendingUndo] = useState<TransactionRecord | null>(null)
+  const [isMobileListLayout, setIsMobileListLayout] = useState(false)
 
   useEffect(() => {
     setListSearchQuery(searchParamQ)
@@ -162,6 +175,15 @@ export function TransactionsPage() {
     }
   }, [smartParam])
 
+  useEffect(() => {
+    if (!globalThis.matchMedia) return undefined
+    const query = globalThis.matchMedia('(max-width: 767px)')
+    const updateLayout = () => setIsMobileListLayout(query.matches)
+    updateLayout()
+    query.addEventListener('change', updateLayout)
+    return () => query.removeEventListener('change', updateLayout)
+  }, [])
+
   const monthCells = useMemo(() => getMonthGrid(activeMonth), [activeMonth])
   const monthRange = useMemo(() => {
     const start = monthCells[0]
@@ -172,6 +194,24 @@ export function TransactionsPage() {
   }, [monthCells])
 
   const listRange = useMemo(() => {
+    if (dateParam) {
+      const selectedDate = new Date(`${dateParam}T00:00:00`)
+      if (Number.isFinite(selectedDate.getTime())) {
+        const end = new Date(selectedDate)
+        end.setHours(23, 59, 59, 999)
+        return {
+          from: selectedDate.toISOString(),
+          to: end.toISOString(),
+        }
+      }
+    }
+    if (fromParam || toParam) {
+      const now = new Date()
+      return {
+        from: toSafeISOString(fromParam, new Date(0)),
+        to: toSafeISOString(toParam, now),
+      }
+    }
     const now = new Date()
     const start = new Date(now)
     const days = Number(dateRangePreset)
@@ -180,7 +220,7 @@ export function TransactionsPage() {
       from: start.toISOString(),
       to: now.toISOString(),
     }
-  }, [dateRangePreset])
+  }, [dateParam, dateRangePreset, fromParam, toParam])
 
   const calendarTransactionsQuery = useTransactionsWithOptions({
     page: 1,
@@ -196,6 +236,21 @@ export function TransactionsPage() {
     accountId: selectedAccountFilter || undefined,
     ledgerId: selectedLedgerFilter || undefined,
   })
+  const reviewSummaryQuery = useTransactionReviewSummary({
+    dateFrom: listRange.from,
+    dateTo: listRange.to,
+    accountId: selectedAccountFilter || undefined,
+    ledgerId: selectedLedgerFilter || undefined,
+  })
+  const reviewItemsQuery = useTransactionReviewItems({
+    page: 1,
+    pageSize: 200,
+    reason: reviewReasonFilter,
+    dateFrom: listRange.from,
+    dateTo: listRange.to,
+    accountId: selectedAccountFilter || undefined,
+    ledgerId: selectedLedgerFilter || undefined,
+  })
   const options = useTransactionFormOptions()
   const createTransactionMutation = useCreateTransaction()
   const importPreviewMutation = useImportPreview()
@@ -205,6 +260,7 @@ export function TransactionsPage() {
 
   const calendarTransactions = calendarTransactionsQuery.data?.items ?? []
   const listTransactions = listTransactionsQuery.data?.items ?? []
+  const reviewItems = reviewItemsQuery.data?.items ?? []
   const categories = options.categoriesQuery.data?.items ?? []
   const accounts = options.accountsQuery.data?.items ?? []
   const ledgers = options.ledgersQuery.data?.items ?? []
@@ -214,14 +270,25 @@ export function TransactionsPage() {
   const ledgerNameById = useMemo(() => new Map(ledgers.map((ledger) => [ledger.id, ledger.name])), [ledgers])
   const normalizedListSearchQuery = listSearchQuery.trim().toLowerCase()
   const duplicateTransactionIds = useMemo(() => buildDuplicateIds(listTransactions), [listTransactions])
-  const smartViewCounts = useMemo(() => buildReviewSummary(listTransactions), [listTransactions])
+  const backendReviewReasonById = useMemo(
+    () => new Map(reviewItems.map((item) => [item.transaction.id, item.reasons as ReviewReasonKey[]])),
+    [reviewItems],
+  )
+  const backendReviewTransactions = useMemo(() => reviewItems.map((item) => item.transaction), [reviewItems])
+  const smartViewCounts = reviewSummaryQuery.data ?? buildReviewSummary(listTransactions)
+  const usingBackendReviewItems =
+    reviewItemsQuery.isSuccess && (quickFilter === 'review' || reviewReasonFilter !== 'all')
 
   const filteredListTransactions = useMemo(() => {
     const now = new Date()
     const weekStart = new Date(now)
     weekStart.setDate(now.getDate() - 7)
-    return listTransactions.filter((tx) => {
+    const sourceTransactions = usingBackendReviewItems ? backendReviewTransactions : listTransactions
+    return sourceTransactions.filter((tx) => {
       if (deletedTransactionIds.has(tx.id)) {
+        return false
+      }
+      if (dismissedReviewIds.has(tx.id) && (quickFilter === 'review' || reviewReasonFilter !== 'all')) {
         return false
       }
       if (normalizedListSearchQuery) {
@@ -230,8 +297,12 @@ export function TransactionsPage() {
           return false
         }
       }
-      if (reviewReasonFilter !== 'all' && !getReviewReasonKeys(tx, duplicateTransactionIds).includes(reviewReasonFilter)) {
+      const reviewReasonKeys = backendReviewReasonById.get(tx.id) ?? getReviewReasonKeys(tx, duplicateTransactionIds)
+      if (!usingBackendReviewItems && reviewReasonFilter !== 'all' && !reviewReasonKeys.includes(reviewReasonFilter)) {
         return false
+      }
+      if (usingBackendReviewItems) {
+        return reviewReasonFilter === 'all' || reviewReasonKeys.includes(reviewReasonFilter)
       }
       if (quickFilter === 'income') return tx.type === 'income'
       if (quickFilter === 'expense') return tx.type === 'expense'
@@ -242,9 +313,27 @@ export function TransactionsPage() {
       if (quickFilter === 'review') return transactionNeedsReview(tx, duplicateTransactionIds)
       return true
     })
-  }, [deletedTransactionIds, duplicateTransactionIds, listTransactions, normalizedListSearchQuery, quickFilter, reviewReasonFilter])
+  }, [
+    backendReviewReasonById,
+    backendReviewTransactions,
+    deletedTransactionIds,
+    dismissedReviewIds,
+    duplicateTransactionIds,
+    listTransactions,
+    normalizedListSearchQuery,
+    quickFilter,
+    reviewReasonFilter,
+    usingBackendReviewItems,
+  ])
   const hasActiveListFilters = Boolean(
-    normalizedListSearchQuery || selectedAccountFilter || selectedLedgerFilter || dateRangePreset !== '120' || quickFilter !== 'all',
+    normalizedListSearchQuery ||
+      selectedAccountFilter ||
+      selectedLedgerFilter ||
+      dateRangePreset !== '120' ||
+      quickFilter !== 'all' ||
+      dateParam ||
+      fromParam ||
+      toParam,
   )
   const isInitialEmptyState = filteredListTransactions.length === 0 && !hasActiveListFilters
 
@@ -360,6 +449,10 @@ export function TransactionsPage() {
     await deleteTransactionMutation.mutateAsync(tx.id)
     setDeletedTransactionIds((current) => new Set(current).add(tx.id))
     setPendingUndo(tx)
+  }
+
+  function handleDismissReview(tx: TransactionRecord) {
+    setDismissedReviewIds((current) => new Set(current).add(tx.id))
   }
 
   async function handleUndoDelete() {
@@ -597,7 +690,7 @@ export function TransactionsPage() {
             </article>
 
             {filteredListTransactions.length > 0 ? (
-              <article className="overflow-x-auto rounded-2xl border border-outline/15 bg-white">
+              <article className="hidden overflow-x-auto rounded-2xl border border-outline/15 bg-white md:block">
                 <div className="grid min-w-[920px] grid-cols-[1.6fr_1fr_1fr_1fr_0.75fr_1fr_0.55fr] bg-surface-container-low px-5 py-3 text-[10px] font-bold uppercase tracking-[0.08em] text-on-surface-variant">
                   <p>{t('transactionsPage.table.transactionCategory')}</p>
                   <p>{t('transactionsPage.table.accountLedger')}</p>
@@ -608,7 +701,7 @@ export function TransactionsPage() {
                   <p className="text-right">{t('transactionsPage.table.action')}</p>
                 </div>
                 {filteredListTransactions.map((tx) => {
-                  const reviewReasonKeys = getReviewReasonKeys(tx, duplicateTransactionIds)
+                  const reviewReasonKeys = backendReviewReasonById.get(tx.id) ?? getReviewReasonKeys(tx, duplicateTransactionIds)
                   return (
                     <div key={tx.id} className="grid min-w-[920px] grid-cols-[1.6fr_1fr_1fr_1fr_0.75fr_1fr_0.55fr] items-center gap-3 border-t border-outline/10 px-5 py-4">
                       <div>
@@ -657,7 +750,17 @@ export function TransactionsPage() {
                       <p className={`text-right text-3xl font-extrabold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {formatCurrency(Math.abs(tx.amount))}
                       </p>
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2">
+                        {reviewReasonKeys.length > 0 ? (
+                          <button
+                            type="button"
+                            aria-label={t('transactionsPage.table.markReviewedLabel', { name: tx.memo?.trim() || tx.category_name || tx.id })}
+                            className="grid h-9 w-9 place-items-center rounded-lg border border-outline/15 text-on-surface-variant transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                            onClick={() => handleDismissReview(tx)}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           aria-label={t('transactionsPage.table.deleteLabel', { name: tx.memo?.trim() || tx.category_name || tx.id })}
@@ -690,6 +793,72 @@ export function TransactionsPage() {
                 ) : null}
               </article>
             )}
+            {isMobileListLayout && filteredListTransactions.length > 0 ? (
+              <div className="space-y-3 md:hidden">
+                {filteredListTransactions.map((tx) => {
+                  const reviewReasonKeys = backendReviewReasonById.get(tx.id) ?? getReviewReasonKeys(tx, duplicateTransactionIds)
+                  return (
+                    <article key={tx.id} className="rounded-2xl border border-outline/15 bg-white p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-base font-bold text-on-surface">
+                            {tx.category_name ?? t('transactionsPage.quickFilters.uncategorized')}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-on-surface-variant">
+                            {tx.memo?.trim() || t('transactionsPage.table.noMemo')}
+                          </p>
+                        </div>
+                        <p className={`shrink-0 text-2xl font-extrabold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}
+                          {formatCurrency(Math.abs(tx.amount))}
+                        </p>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-on-surface-variant">
+                        <p>
+                          <span className="font-bold text-on-surface">{t('transactionsPage.table.accountLedger')}</span>
+                          <br />
+                          {getTransactionAccountLabel(tx, accountNameById, t('transactionsPage.table.noAccount'))}
+                        </p>
+                        <p className="text-right">
+                          <span className="font-bold text-on-surface">{t('transactionsPage.table.dateTime')}</span>
+                          <br />
+                          {new Date(tx.occurred_at).toLocaleString(locale)}
+                        </p>
+                      </div>
+                      {reviewReasonKeys.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {reviewReasonKeys.map((reason) => (
+                            <span
+                              key={reason}
+                              className="rounded-full border border-primary/15 bg-primary-fixed px-2 py-1 text-[10px] font-bold uppercase text-primary"
+                            >
+                              {t(`transactionsPage.reviewReasons.${reason}`)}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="mt-4 flex justify-end gap-2">
+                        {reviewReasonKeys.length > 0 ? (
+                          <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => handleDismissReview(tx)}>
+                            <CheckCircle2 className="h-4 w-4" />
+                            {t('transactionsPage.table.markReviewed')}
+                          </Button>
+                        ) : null}
+                        <button
+                          type="button"
+                          aria-label={t('transactionsPage.table.deleteLabel', { name: tx.memo?.trim() || tx.category_name || tx.id })}
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-outline/15 text-on-surface-variant transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+                          onClick={() => void handleDeleteTransaction(tx)}
+                          disabled={deleteTransactionMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            ) : null}
             {pendingUndo ? (
               <div className="fixed bottom-6 left-1/2 z-30 flex w-[min(520px,calc(100vw-32px))] -translate-x-1/2 items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary px-5 py-4 text-white shadow-ambient">
                 <div>
@@ -853,7 +1022,9 @@ export function TransactionsPage() {
               <span className="mt-6 rounded-lg border border-primary px-6 py-2 text-sm font-semibold text-primary">{t('transactionsPage.importDialog.selectFiles')}</span>
               <input id="csv-file" type="file" accept=".csv,text/csv" aria-label={t('transactionsPage.importDialog.csvFileLabel')} className="hidden" onChange={(event) => setImportFile(event.target.files?.[0] ?? null)} />
             </label>
-            {importFile ? <p className="text-sm text-on-surface">{t('transactionsPage.importDialog.selected', { name: importFile.name })}</p> : null}
+            {importFile && !importPreviewMutation.data ? (
+              <p className="text-sm text-on-surface">{t('transactionsPage.importDialog.selected', { name: importFile.name })}</p>
+            ) : null}
             {importPreviewMutation.isError ? (
               <div className="rounded-xl border border-error bg-error-container p-4">
                 <p className="text-sm text-on-error-container">
@@ -864,7 +1035,35 @@ export function TransactionsPage() {
               </div>
             ) : null}
             {importPreviewMutation.data ? (
-              <div className="rounded-xl border border-outline/10 bg-surface-container-low p-4">
+              <div className="space-y-4 rounded-xl border border-outline/10 bg-surface-container-low p-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">
+                    {t('transactionsPage.importDialog.summaryTitle')}
+                  </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-xl bg-white p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">
+                        {t('transactionsPage.importDialog.file')}
+                      </p>
+                      <p className="mt-1 truncate text-sm font-bold text-on-surface">{importFile?.name ?? '-'}</p>
+                    </div>
+                    <div className="rounded-xl bg-white p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">
+                        {t('transactionsPage.importDialog.columns')}
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-on-surface">{importPreviewMutation.data.columns.length}</p>
+                    </div>
+                    <div className="rounded-xl bg-white p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">
+                        {t('transactionsPage.importDialog.previewRows')}
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-on-surface">{importPreviewMutation.data.sample_rows.length}</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 rounded-xl border border-primary/15 bg-white px-3 py-2 text-xs font-semibold text-on-surface-variant">
+                    {t('transactionsPage.importDialog.dedupeHint')}
+                  </p>
+                </div>
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">
                   {t('transactionsPage.importDialog.detectedColumns')}
                 </p>
