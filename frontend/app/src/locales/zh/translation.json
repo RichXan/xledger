@@ -256,9 +256,15 @@
     "smartViews": {
       "title": "智能视图",
       "description": "快速进入现代记账产品常见的复核队列。",
+      "reviewCount": "{{count}} 笔待复核",
       "uncategorizedCount": "{{count}} 笔未分类",
       "duplicateCount": "{{count}} 笔疑似重复",
       "largeCount": "{{count}} 笔大额交易"
+    },
+    "reviewReasons": {
+      "uncategorized": "缺少分类",
+      "duplicate": "疑似重复",
+      "large": "大额支出"
     },
     "filters": {
       "searchLedger": "搜索账本",

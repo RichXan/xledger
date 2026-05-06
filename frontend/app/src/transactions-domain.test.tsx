@@ -297,6 +297,9 @@ describe('transactions domain', () => {
 
     expect(screen.getByText('Needs classification')).toBeInTheDocument()
     expect(screen.getByText('Conference flight')).toBeInTheDocument()
+    expect(screen.getByText(/missing category/i)).toBeInTheDocument()
+    expect(screen.getByText(/large expense/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/possible duplicate/i).length).toBeGreaterThan(0)
     expect(screen.queryByText('Salary')).not.toBeInTheDocument()
   })
 

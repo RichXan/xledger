@@ -256,9 +256,15 @@
     "smartViews": {
       "title": "Smart Views",
       "description": "Jump into the same review queues users expect from modern finance apps.",
+      "reviewCount": "{{count}} needs review",
       "uncategorizedCount": "{{count}} uncategorized",
       "duplicateCount": "{{count}} possible duplicate",
       "largeCount": "{{count}} large transaction"
+    },
+    "reviewReasons": {
+      "uncategorized": "Missing category",
+      "duplicate": "Possible duplicate",
+      "large": "Large expense"
     },
     "filters": {
       "searchLedger": "Search Ledger",

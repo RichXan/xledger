@@ -48,6 +48,7 @@ function getMonthGrid(baseDate: Date) {
 }
 
 type QuickFilter = 'all' | 'review' | 'income' | 'expense' | 'uncategorized' | 'week' | 'large' | 'duplicates'
+type ReviewReasonKey = 'uncategorized' | 'duplicate' | 'large'
 
 function bytesToHex(bytes: Uint8Array) {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
@@ -154,6 +155,20 @@ function countDuplicateGroups(transactions: TransactionRecord[]) {
 
 function needsReview(tx: TransactionRecord, duplicateIds: ReadonlySet<string>) {
   return !tx.category_name?.trim() || (tx.type === 'expense' && Math.abs(tx.amount) >= 1000) || duplicateIds.has(tx.id)
+}
+
+function getReviewReasonKeys(tx: TransactionRecord, duplicateIds: ReadonlySet<string>): ReviewReasonKey[] {
+  const reasons: ReviewReasonKey[] = []
+  if (!tx.category_name?.trim()) {
+    reasons.push('uncategorized')
+  }
+  if (duplicateIds.has(tx.id)) {
+    reasons.push('duplicate')
+  }
+  if (tx.type === 'expense' && Math.abs(tx.amount) >= 1000) {
+    reasons.push('large')
+  }
+  return reasons
 }
 
 export function TransactionsPage() {
@@ -498,7 +513,10 @@ export function TransactionsPage() {
                   </h3>
                   <p className="mt-1 text-sm text-on-surface-variant">{t('transactionsPage.smartViews.description')}</p>
                 </div>
-                <div className="grid gap-2 text-xs font-bold text-on-surface-variant sm:grid-cols-3">
+                <div className="grid gap-2 text-xs font-bold text-on-surface-variant sm:grid-cols-2 xl:grid-cols-4">
+                  <span className="rounded-full bg-primary px-3 py-2 text-white">
+                    {t('transactionsPage.smartViews.reviewCount', { count: smartViewCounts.review })}
+                  </span>
                   <span className="rounded-full bg-white px-3 py-2">
                     {t('transactionsPage.smartViews.uncategorizedCount', { count: smartViewCounts.uncategorized })}
                   </span>
@@ -605,55 +623,70 @@ export function TransactionsPage() {
                   <p className="text-right">{t('transactionsPage.table.amount')}</p>
                   <p className="text-right">{t('transactionsPage.table.action')}</p>
                 </div>
-                {filteredListTransactions.map((tx) => (
-                  <div key={tx.id} className="grid min-w-[920px] grid-cols-[1.6fr_1fr_1fr_1fr_0.75fr_1fr_0.55fr] items-center gap-3 border-t border-outline/10 px-5 py-4">
-                    <div>
-                      <p className="font-semibold text-on-surface">{tx.category_name ?? t('transactionsPage.quickFilters.uncategorized')}</p>
-                      <p className="text-xs text-on-surface-variant">
-                        {t('transactionsPage.table.memoLabel')}{tx.memo?.trim() || t('transactionsPage.table.noMemo')}
+                {filteredListTransactions.map((tx) => {
+                  const reviewReasonKeys = getReviewReasonKeys(tx, duplicateTransactionIds)
+                  return (
+                    <div key={tx.id} className="grid min-w-[920px] grid-cols-[1.6fr_1fr_1fr_1fr_0.75fr_1fr_0.55fr] items-center gap-3 border-t border-outline/10 px-5 py-4">
+                      <div>
+                        <p className="font-semibold text-on-surface">{tx.category_name ?? t('transactionsPage.quickFilters.uncategorized')}</p>
+                        <p className="text-xs text-on-surface-variant">
+                          {t('transactionsPage.table.memoLabel')}{tx.memo?.trim() || t('transactionsPage.table.noMemo')}
+                        </p>
+                        {reviewReasonKeys.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {reviewReasonKeys.map((reason) => (
+                              <span
+                                key={reason}
+                                className="rounded-full border border-primary/15 bg-primary-fixed px-2 py-1 text-[10px] font-bold uppercase text-primary"
+                              >
+                                {t(`transactionsPage.reviewReasons.${reason}`)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div>
+                        <p className="text-sm text-on-surface">
+                          {getTransactionAccountLabel(tx, accountNameById, t('transactionsPage.table.noAccount'))}
+                        </p>
+                        <p className="text-xs uppercase text-on-surface-variant">
+                          {getTransactionLedgerLabel(tx, ledgerNameById, t('transactionsPage.table.noLedger'))}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-on-surface">{new Date(tx.occurred_at).toLocaleDateString(locale)}</p>
+                        <p className="text-xs text-on-surface-variant">{new Date(tx.occurred_at).toLocaleTimeString(locale)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-on-surface">
+                          {tx.type === 'income' ? t('transaction.typeIncome') : tx.type === 'expense' ? t('transaction.typeExpense') : t('transaction.typeTransfer')}
+                        </p>
+                        <p className="mt-1 text-xs text-on-surface-variant">
+                          {tx.memo?.trim() || (tx.type === 'income' ? t('transactionsPage.table.incomingFlow') : tx.type === 'expense' ? t('transactionsPage.table.outgoingPayment') : t('transactionsPage.table.internalTransfer'))}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="rounded-full bg-surface-container-low px-2 py-1 text-[10px] font-semibold uppercase text-on-surface-variant">
+                          {tx.type === 'income' ? t('transaction.typeIncome') : tx.type === 'expense' ? t('transaction.typeExpense') : t('transaction.typeTransfer')}
+                        </span>
+                      </div>
+                      <p className={`text-right text-3xl font-extrabold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {formatCurrency(Math.abs(tx.amount))}
                       </p>
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          aria-label={t('transactionsPage.table.deleteLabel', { name: tx.memo?.trim() || tx.category_name || tx.id })}
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-outline/15 text-on-surface-variant transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+                          onClick={() => void handleDeleteTransaction(tx)}
+                          disabled={deleteTransactionMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-on-surface">
-                        {getTransactionAccountLabel(tx, accountNameById, t('transactionsPage.table.noAccount'))}
-                      </p>
-                      <p className="text-xs uppercase text-on-surface-variant">
-                        {getTransactionLedgerLabel(tx, ledgerNameById, t('transactionsPage.table.noLedger'))}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-on-surface">{new Date(tx.occurred_at).toLocaleDateString(locale)}</p>
-                      <p className="text-xs text-on-surface-variant">{new Date(tx.occurred_at).toLocaleTimeString(locale)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-on-surface">
-                        {tx.type === 'income' ? t('transaction.typeIncome') : tx.type === 'expense' ? t('transaction.typeExpense') : t('transaction.typeTransfer')}
-                      </p>
-                      <p className="mt-1 text-xs text-on-surface-variant">
-                        {tx.memo?.trim() || (tx.type === 'income' ? t('transactionsPage.table.incomingFlow') : tx.type === 'expense' ? t('transactionsPage.table.outgoingPayment') : t('transactionsPage.table.internalTransfer'))}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="rounded-full bg-surface-container-low px-2 py-1 text-[10px] font-semibold uppercase text-on-surface-variant">
-                        {tx.type === 'income' ? t('transaction.typeIncome') : tx.type === 'expense' ? t('transaction.typeExpense') : t('transaction.typeTransfer')}
-                      </span>
-                    </div>
-                    <p className={`text-right text-3xl font-extrabold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {formatCurrency(Math.abs(tx.amount))}
-                    </p>
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        aria-label={t('transactionsPage.table.deleteLabel', { name: tx.memo?.trim() || tx.category_name || tx.id })}
-                        className="grid h-9 w-9 place-items-center rounded-lg border border-outline/15 text-on-surface-variant transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
-                        onClick={() => void handleDeleteTransaction(tx)}
-                        disabled={deleteTransactionMutation.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </article>
             ) : (
               <article className="rounded-2xl border border-outline/15 bg-white px-5 py-8 text-center text-sm text-on-surface-variant">

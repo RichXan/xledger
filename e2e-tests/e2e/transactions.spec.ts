@@ -178,6 +178,9 @@ test('transactions flow: smart views surface items that need review', async ({ p
   await expect(page.getByText(`${unique} uncategorized`, { exact: true })).toBeVisible()
   await expect(page.getByText(`${unique} large expense`, { exact: true })).toBeVisible()
   await expect(page.getByText(`${unique} duplicate lunch`, { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('Missing category', { exact: true })).toBeVisible()
+  await expect(page.getByText('Large expense', { exact: true })).toBeVisible()
+  await expect(page.getByText('Possible duplicate', { exact: true }).first()).toBeVisible()
   await expect(page.getByText(`${unique} normal income`, { exact: true })).toBeHidden()
 
   await recordToReport('Transactions smart views verified', {
