@@ -100,6 +100,18 @@
     "justNow": "刚刚",
     "net": "净额",
     "trendHint": "轻点或悬停柱状图，查看每月收入与支出合计。",
+    "actionCenter": {
+      "title": "行动中心",
+      "description": "用竞品常见的复核队列，把账本数据转成下一步可执行动作。",
+      "reviewButton": "复核交易",
+      "reviewLabel": "待复核",
+      "reviewCount": "{{count}} 项待复核",
+      "reviewHint": "{{uncategorized}} 笔未分类 · {{duplicates}} 笔疑似重复",
+      "topExpense": "最高支出",
+      "nextStep": "下一步",
+      "nextStepReview": "先清理待复核交易，再查看月末报表。",
+      "nextStepClear": "最近交易已适合进入报表分析。"
+    },
     "periods": {
       "today": "今天",
       "week": "本周",
@@ -233,11 +245,20 @@
     "addTransaction": "+ 添加交易",
     "quickFilters": {
       "all": "全部",
+      "review": "待复核",
       "income": "收入",
       "expense": "支出",
       "uncategorized": "未分类",
       "week": "本周",
-      "large": "大额"
+      "large": "大额",
+      "duplicates": "重复"
+    },
+    "smartViews": {
+      "title": "智能视图",
+      "description": "快速进入现代记账产品常见的复核队列。",
+      "uncategorizedCount": "{{count}} 笔未分类",
+      "duplicateCount": "{{count}} 笔疑似重复",
+      "largeCount": "{{count}} 笔大额交易"
     },
     "filters": {
       "searchLedger": "搜索账本",
@@ -408,7 +429,17 @@
     "noSelectedTransactions": "这个周期没有记录交易。",
     "noTrendData": "所选范围没有趋势数据。",
     "trendEmptyHint": "记录收入或支出后，趋势柱状图会自动显示在这里。",
-    "goToTransactions": "前往交易"
+    "goToTransactions": "前往交易",
+    "insights": {
+      "title": "洞察摘要",
+      "description": "先用自然语言解释变化，再进入图表细看。",
+      "topCategory": "{{category}} 是最高支出，占 {{share}}（{{amount}}）。",
+      "topKeyword": "{{keyword}} 是最强支出主题，共 {{count}} 笔，合计 {{amount}}。",
+      "topDay": "{{period}} 支出最高，为 {{amount}}。",
+      "savingsRate": "本周期储蓄率为 {{rate}}。",
+      "noIncome": "本周期暂无收入，无法计算储蓄率。",
+      "reviewTransactions": "复核交易"
+    }
   },
   "settingsPage": {
     "eyebrow": "运营安全",

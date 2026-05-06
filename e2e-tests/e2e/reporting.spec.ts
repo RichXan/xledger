@@ -53,6 +53,7 @@ test('reporting flow: overview and analytics reflect transactions', async ({ pag
   await expect(page.getByText('Expense: ¥', { exact: false })).toBeVisible()
 
   await openAnalytics(page)
+  await expect(page.getByRole('heading', { name: 'Insight Summary' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Expense Structure' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Spending Cloud' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Cashflow Rhythm' })).toBeVisible()
@@ -123,6 +124,7 @@ test('analytics keyword cloud reflects expense memo and category terms', async (
   expect(byText.get('salary')).toBeUndefined()
 
   await openAnalytics(page)
+  await expect(page.getByRole('heading', { name: 'Insight Summary' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Spending Cloud' })).toBeVisible()
   await expect(page.getByRole('button', { name: /latte:/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /Coffee:/ })).toBeVisible()

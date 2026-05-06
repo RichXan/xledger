@@ -100,6 +100,18 @@
     "justNow": "just now",
     "net": "Net",
     "trendHint": "Tap or hover bars to inspect monthly income and expense totals.",
+    "actionCenter": {
+      "title": "Action Center",
+      "description": "A competitor-style review queue that turns ledger data into the next useful action.",
+      "reviewButton": "Review Transactions",
+      "reviewLabel": "Needs Review",
+      "reviewCount": "{{count}} items need review",
+      "reviewHint": "{{uncategorized}} uncategorized · {{duplicates}} possible duplicates",
+      "topExpense": "Top Expense",
+      "nextStep": "Next Step",
+      "nextStepReview": "Clean up the review queue before reading month-end reports.",
+      "nextStepClear": "Your recent transactions look ready for reporting."
+    },
     "periods": {
       "today": "Today",
       "week": "Week",
@@ -233,11 +245,20 @@
     "addTransaction": "+ Add Transaction",
     "quickFilters": {
       "all": "All",
+      "review": "Needs Review",
       "income": "Income",
       "expense": "Expense",
       "uncategorized": "Uncategorized",
       "week": "This Week",
-      "large": "Large Amount"
+      "large": "Large Amount",
+      "duplicates": "Duplicates"
+    },
+    "smartViews": {
+      "title": "Smart Views",
+      "description": "Jump into the same review queues users expect from modern finance apps.",
+      "uncategorizedCount": "{{count}} uncategorized",
+      "duplicateCount": "{{count}} possible duplicate",
+      "largeCount": "{{count}} large transaction"
     },
     "filters": {
       "searchLedger": "Search Ledger",
@@ -408,7 +429,17 @@
     "noSelectedTransactions": "No transactions recorded for this period.",
     "noTrendData": "No trend data for selected range.",
     "trendEmptyHint": "Once you record income or expense entries, trend bars will appear here automatically.",
-    "goToTransactions": "Go to Transactions"
+    "goToTransactions": "Go to Transactions",
+    "insights": {
+      "title": "Insight Summary",
+      "description": "Plain-language cues explain what changed before users dive into charts.",
+      "topCategory": "{{category}} leads spending at {{share}} ({{amount}}).",
+      "topKeyword": "{{keyword}} is the strongest spending theme at {{amount}} across {{count}} transactions.",
+      "topDay": "{{period}} had the highest burn at {{amount}}.",
+      "savingsRate": "Savings rate for this period is {{rate}}.",
+      "noIncome": "No income is recorded in this period, so savings rate is not available.",
+      "reviewTransactions": "Review Transactions"
+    }
   },
   "settingsPage": {
     "eyebrow": "Operational security",

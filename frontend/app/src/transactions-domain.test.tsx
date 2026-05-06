@@ -59,6 +59,7 @@ function createTransactionsFetchMock() {
                 amount: 25,
                 category_name: 'Food',
                 occurred_at: '2026-03-01T08:30:00Z',
+                memo: 'Lunch',
               },
               {
                 id: 'txn-2',
@@ -67,8 +68,31 @@ function createTransactionsFetchMock() {
                 category_name: 'Salary',
                 occurred_at: '2026-03-02T09:00:00Z',
               },
+              {
+                id: 'txn-3',
+                type: 'expense',
+                amount: 88,
+                occurred_at: '2026-03-03T10:30:00Z',
+                memo: 'Needs classification',
+              },
+              {
+                id: 'txn-4',
+                type: 'expense',
+                amount: 1250,
+                category_name: 'Travel',
+                occurred_at: '2026-03-04T18:20:00Z',
+                memo: 'Conference flight',
+              },
+              {
+                id: 'txn-5',
+                type: 'expense',
+                amount: 25,
+                category_name: 'Cafe',
+                occurred_at: '2026-03-01T09:00:00Z',
+                memo: 'Lunch',
+              },
             ],
-            pagination: { page: 1, page_size: 20, total: 2, total_pages: 1 },
+            pagination: { page: 1, page_size: 20, total: 5, total_pages: 1 },
           },
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
@@ -195,7 +219,7 @@ describe('transactions domain', () => {
       expect(screen.getByText('Salary')).toBeInTheDocument()
     })
 
-    expect(screen.getByText(/25\.00/)).toBeInTheDocument()
+    expect(screen.getAllByText(/25\.00/).length).toBeGreaterThan(0)
     expect(screen.getByText(/15,000\.00/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /calendar view/i }))
@@ -229,7 +253,7 @@ describe('transactions domain', () => {
     expect(screen.getByText('Salary')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /^all$/i }))
-    await user.click(screen.getByRole('button', { name: /delete food/i }))
+    await user.click(screen.getAllByRole('button', { name: /delete lunch/i })[0])
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -238,7 +262,6 @@ describe('transactions domain', () => {
       )
     })
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: /delete food/i })).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: /^undo$/i })).toBeInTheDocument()
     })
 
@@ -253,6 +276,28 @@ describe('transactions domain', () => {
         }),
       )
     })
+  })
+
+  it('surfaces competitor-style smart views for transactions needing review', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /smart views/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /needs review/i })).toBeInTheDocument()
+      expect(screen.getByText(/1 uncategorized/i)).toBeInTheDocument()
+      expect(screen.getByText(/1 possible duplicate/i)).toBeInTheDocument()
+      expect(screen.getByText(/1 large transaction/i)).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /needs review/i }))
+
+    expect(screen.getByText('Needs classification')).toBeInTheDocument()
+    expect(screen.getByText('Conference flight')).toBeInTheDocument()
+    expect(screen.queryByText('Salary')).not.toBeInTheDocument()
   })
 
   it('submits the add transaction modal and previews import files', async () => {

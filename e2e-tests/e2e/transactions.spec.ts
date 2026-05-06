@@ -17,6 +17,7 @@ test('transactions flow: create expense and income records', async ({ page, reco
     name: uniqueName('E2E Wallet'),
     initialBalance: '1000',
   })
+  await createLedgerOnAccountsPage(page, uniqueName('E2E Transaction Ledger'))
 
   await openTransactions(page)
 
@@ -49,6 +50,7 @@ test('transactions flow: quick filters, delete, and undo', async ({ page, record
     name: uniqueName('E2E Filter Wallet'),
     initialBalance: '1000',
   })
+  await createLedgerOnAccountsPage(page, uniqueName('E2E Filter Ledger'))
 
   await openTransactions(page)
 
@@ -99,6 +101,87 @@ test('transactions flow: quick filters, delete, and undo', async ({ page, record
 
   await recordToReport('Transactions quick actions verified', {
     content: `Filtered by type, deleted, and restored ${expenseMemo}`,
+  })
+})
+
+test('transactions flow: smart views surface items that need review', async ({ page, recordToReport }, testInfo) => {
+  const { apiClient, session } = await bootstrapAuthedSession(page, testInfo)
+  const accessToken = session.authSession.accessToken
+  const unique = uniqueName('E2E smart')
+  const occurredAt = new Date().toISOString()
+
+  const ledger = await apiClient.createLedger(accessToken, {
+    name: `${unique} Ledger`,
+  })
+  const account = await apiClient.createAccount(accessToken, {
+    name: `${unique} Wallet`,
+    type: 'cash',
+    initial_balance: 1000,
+  })
+  const category = await apiClient.createCategory(accessToken, {
+    name: `${unique} Category`,
+  })
+
+  await apiClient.createTransaction(accessToken, {
+    ledger_id: ledger.id,
+    account_id: account.id,
+    type: 'expense',
+    amount: 88,
+    memo: `${unique} uncategorized`,
+    occurred_at: occurredAt,
+  })
+  await apiClient.createTransaction(accessToken, {
+    ledger_id: ledger.id,
+    account_id: account.id,
+    category_id: category.id,
+    type: 'expense',
+    amount: 1250,
+    memo: `${unique} large expense`,
+    occurred_at: occurredAt,
+  })
+  await apiClient.createTransaction(accessToken, {
+    ledger_id: ledger.id,
+    account_id: account.id,
+    category_id: category.id,
+    type: 'expense',
+    amount: 25,
+    memo: `${unique} duplicate lunch`,
+    occurred_at: occurredAt,
+  })
+  await apiClient.createTransaction(accessToken, {
+    ledger_id: ledger.id,
+    account_id: account.id,
+    category_id: category.id,
+    type: 'expense',
+    amount: 25,
+    memo: `${unique} duplicate lunch`,
+    occurred_at: occurredAt,
+  })
+  await apiClient.createTransaction(accessToken, {
+    ledger_id: ledger.id,
+    account_id: account.id,
+    category_id: category.id,
+    type: 'income',
+    amount: 5000,
+    memo: `${unique} normal income`,
+    occurred_at: occurredAt,
+  })
+
+  await openTransactions(page)
+  await expect(page.getByRole('heading', { name: 'Smart Views' })).toBeVisible()
+  await expect(page.locator('span', { hasText: /\d+ uncategorized/ }).first()).toBeVisible()
+  await expect(page.locator('span', { hasText: /\d+ possible duplicate/ }).first()).toBeVisible()
+  await expect(page.locator('span', { hasText: /\d+ large transaction/ }).first()).toBeVisible()
+
+  await page.getByPlaceholder('Transaction ID, category, or note...').fill(unique)
+  await page.getByRole('button', { name: 'Needs Review', exact: true }).click()
+  await expect(page.getByText(`${unique} uncategorized`, { exact: true })).toBeVisible()
+  await expect(page.getByText(`${unique} large expense`, { exact: true })).toBeVisible()
+  await expect(page.getByText(`${unique} duplicate lunch`, { exact: true }).first()).toBeVisible()
+  await expect(page.getByText(`${unique} normal income`, { exact: true })).toBeHidden()
+
+  await recordToReport('Transactions smart views verified', {
+    content: `Review queue surfaced uncategorized, duplicate, and large expense transactions for ${unique}`,
   })
 })
 

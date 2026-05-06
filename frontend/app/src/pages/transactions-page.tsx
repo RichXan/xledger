@@ -47,7 +47,7 @@ function getMonthGrid(baseDate: Date) {
   return cells
 }
 
-type QuickFilter = 'all' | 'income' | 'expense' | 'uncategorized' | 'week' | 'large'
+type QuickFilter = 'all' | 'review' | 'income' | 'expense' | 'uncategorized' | 'week' | 'large' | 'duplicates'
 
 function bytesToHex(bytes: Uint8Array) {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
@@ -115,6 +115,47 @@ export function getTransactionLedgerLabel(
   return ledgerNameById.get(tx.ledger_id) ?? tx.ledger_id
 }
 
+function getTransactionDayKey(value: string) {
+  const date = new Date(value)
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+}
+
+function getDuplicateKey(tx: TransactionRecord) {
+  const memo = tx.memo?.trim().toLowerCase() ?? ''
+  const category = tx.category_name?.trim().toLowerCase() ?? ''
+  return [tx.type, Math.abs(tx.amount).toFixed(2), getTransactionDayKey(tx.occurred_at), memo || category].join('|')
+}
+
+function buildDuplicateIds(transactions: TransactionRecord[]) {
+  const groups = new Map<string, TransactionRecord[]>()
+  transactions.forEach((tx) => {
+    const key = getDuplicateKey(tx)
+    const group = groups.get(key) ?? []
+    groups.set(key, [...group, tx])
+  })
+
+  const ids = new Set<string>()
+  groups.forEach((group) => {
+    if (group.length > 1) {
+      group.forEach((tx) => ids.add(tx.id))
+    }
+  })
+  return ids
+}
+
+function countDuplicateGroups(transactions: TransactionRecord[]) {
+  const counts = new Map<string, number>()
+  transactions.forEach((tx) => {
+    const key = getDuplicateKey(tx)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  })
+  return Array.from(counts.values()).filter((count) => count > 1).length
+}
+
+function needsReview(tx: TransactionRecord, duplicateIds: ReadonlySet<string>) {
+  return !tx.category_name?.trim() || (tx.type === 'expense' && Math.abs(tx.amount) >= 1000) || duplicateIds.has(tx.id)
+}
+
 export function TransactionsPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -137,13 +178,21 @@ export function TransactionsPage() {
   const [listSearchQuery, setListSearchQuery] = useState(searchParamQ)
   const [selectedAccountFilter, setSelectedAccountFilter] = useState('')
   const [selectedLedgerFilter, setSelectedLedgerFilter] = useState('')
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
+  const smartParam = searchParams.get('smart')
+  const initialQuickFilter: QuickFilter = smartParam === 'review' ? 'review' : 'all'
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>(initialQuickFilter)
   const [deletedTransactionIds, setDeletedTransactionIds] = useState<Set<string>>(() => new Set())
   const [pendingUndo, setPendingUndo] = useState<TransactionRecord | null>(null)
 
   useEffect(() => {
     setListSearchQuery(searchParamQ)
   }, [searchParamQ])
+
+  useEffect(() => {
+    if (smartParam === 'review') {
+      setQuickFilter('review')
+    }
+  }, [smartParam])
 
   const monthCells = useMemo(() => getMonthGrid(activeMonth), [activeMonth])
   const monthRange = useMemo(() => {
@@ -196,6 +245,15 @@ export function TransactionsPage() {
   const accountNameById = useMemo(() => new Map(accounts.map((account) => [account.id, account.name])), [accounts])
   const ledgerNameById = useMemo(() => new Map(ledgers.map((ledger) => [ledger.id, ledger.name])), [ledgers])
   const normalizedListSearchQuery = listSearchQuery.trim().toLowerCase()
+  const duplicateTransactionIds = useMemo(() => buildDuplicateIds(listTransactions), [listTransactions])
+  const smartViewCounts = useMemo(() => {
+    return {
+      review: listTransactions.filter((tx) => needsReview(tx, duplicateTransactionIds)).length,
+      uncategorized: listTransactions.filter((tx) => !tx.category_name?.trim()).length,
+      duplicates: countDuplicateGroups(listTransactions),
+      large: listTransactions.filter((tx) => tx.type === 'expense' && Math.abs(tx.amount) >= 1000).length,
+    }
+  }, [duplicateTransactionIds, listTransactions])
 
   const filteredListTransactions = useMemo(() => {
     const now = new Date()
@@ -216,9 +274,11 @@ export function TransactionsPage() {
       if (quickFilter === 'uncategorized') return !tx.category_name?.trim()
       if (quickFilter === 'week') return new Date(tx.occurred_at) >= weekStart
       if (quickFilter === 'large') return Math.abs(tx.amount) >= 1000
+      if (quickFilter === 'duplicates') return duplicateTransactionIds.has(tx.id)
+      if (quickFilter === 'review') return needsReview(tx, duplicateTransactionIds)
       return true
     })
-  }, [deletedTransactionIds, listTransactions, normalizedListSearchQuery, quickFilter])
+  }, [deletedTransactionIds, duplicateTransactionIds, listTransactions, normalizedListSearchQuery, quickFilter])
   const hasActiveListFilters = Boolean(
     normalizedListSearchQuery || selectedAccountFilter || selectedLedgerFilter || dateRangePreset !== '120' || quickFilter !== 'all',
   )
@@ -361,11 +421,13 @@ export function TransactionsPage() {
   const locale = i18n.language === 'zh' ? 'zh-CN' : 'en-US'
   const quickFilters: Array<{ id: QuickFilter; label: string }> = [
     { id: 'all', label: t('transactionsPage.quickFilters.all') },
+    { id: 'review', label: t('transactionsPage.quickFilters.review') },
     { id: 'income', label: t('transactionsPage.quickFilters.income') },
     { id: 'expense', label: t('transactionsPage.quickFilters.expense') },
     { id: 'uncategorized', label: t('transactionsPage.quickFilters.uncategorized') },
     { id: 'week', label: t('transactionsPage.quickFilters.week') },
     { id: 'large', label: t('transactionsPage.quickFilters.large') },
+    { id: 'duplicates', label: t('transactionsPage.quickFilters.duplicates') },
   ]
   const weekdayLabels = [
     t('transactionsPage.calendar.weekdays.sun'),
@@ -429,6 +491,25 @@ export function TransactionsPage() {
         {view === 'list' ? (
           <div className="mt-6 space-y-4">
             <article className="rounded-2xl border border-outline/10 bg-surface-container-low p-5">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-headline text-2xl font-bold leading-tight text-on-surface">
+                    {t('transactionsPage.smartViews.title')}
+                  </h3>
+                  <p className="mt-1 text-sm text-on-surface-variant">{t('transactionsPage.smartViews.description')}</p>
+                </div>
+                <div className="grid gap-2 text-xs font-bold text-on-surface-variant sm:grid-cols-3">
+                  <span className="rounded-full bg-white px-3 py-2">
+                    {t('transactionsPage.smartViews.uncategorizedCount', { count: smartViewCounts.uncategorized })}
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-2">
+                    {t('transactionsPage.smartViews.duplicateCount', { count: smartViewCounts.duplicates })}
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-2">
+                    {t('transactionsPage.smartViews.largeCount', { count: smartViewCounts.large })}
+                  </span>
+                </div>
+              </div>
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 {quickFilters.map((filter) => (
                   <button

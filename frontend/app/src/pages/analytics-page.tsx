@@ -249,6 +249,45 @@ export function AnalyticsPage() {
   const activeBar = barsByBucket.find((bar) => bar.label === activeBarLabel) ?? barsByBucket[0] ?? null
   const activeBarNet = activeBar ? activeBar.revenue - activeBar.investment : 0
   const topCategoryShare = totalExpense > 0 && displayCategoryItems[0] ? (displayCategoryItems[0].amount / totalExpense) * 100 : 0
+  const topExpenseBucket = useMemo(
+    () => [...barsByBucket].sort((a, b) => b.investment - a.investment)[0] ?? null,
+    [barsByBucket],
+  )
+  const insightItems = useMemo(() => {
+    const items: string[] = []
+    if (displayCategoryItems[0] && totalExpense > 0) {
+      items.push(
+        t('analyticsPage.insights.topCategory', {
+          category: displayCategoryItems[0].category_name,
+          share: formatPercent(topCategoryShare),
+          amount: formatCurrency(displayCategoryItems[0].amount),
+        }),
+      )
+    }
+    if (activeKeyword) {
+      items.push(
+        t('analyticsPage.insights.topKeyword', {
+          keyword: activeKeyword.text,
+          amount: formatCurrency(activeKeyword.amount),
+          count: activeKeyword.count,
+        }),
+      )
+    }
+    if (topExpenseBucket && topExpenseBucket.investment > 0) {
+      items.push(
+        t('analyticsPage.insights.topDay', {
+          period: topExpenseBucket.periodLabel,
+          amount: formatCurrency(topExpenseBucket.investment),
+        }),
+      )
+    }
+    items.push(
+      savingsRate === null
+        ? t('analyticsPage.insights.noIncome')
+        : t('analyticsPage.insights.savingsRate', { rate: savingsRateLabel }),
+    )
+    return items.slice(0, 4)
+  }, [activeKeyword, displayCategoryItems, savingsRate, savingsRateLabel, t, topCategoryShare, topExpenseBucket, totalExpense])
   const activeTransactionsQuery = useTransactionsWithOptions({
     page: 1,
     pageSize: 8,
@@ -363,6 +402,27 @@ export function AnalyticsPage() {
             </p>
           </article>
         </div>
+
+        <article className="mt-6 rounded-2xl border border-outline/10 bg-white p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-headline text-2xl font-bold leading-tight text-on-surface">
+                {t('analyticsPage.insights.title')}
+              </h3>
+              <p className="mt-1 text-sm text-on-surface-variant">{t('analyticsPage.insights.description')}</p>
+            </div>
+            <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={() => navigate('/transactions?smart=review')}>
+              {t('analyticsPage.insights.reviewTransactions')}
+            </Button>
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-4">
+            {insightItems.map((item, index) => (
+              <p key={`${item}-${index}`} className="rounded-xl bg-surface-container-low p-4 text-sm font-semibold text-on-surface">
+                {item}
+              </p>
+            ))}
+          </div>
+        </article>
 
         <div className="mt-6 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
           <article className="rounded-2xl border border-outline/10 bg-white p-5">

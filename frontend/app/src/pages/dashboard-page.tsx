@@ -2,6 +2,8 @@ import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useOverviewStats, useTrendStatsRange } from '@/features/reporting/reporting-hooks'
+import type { TransactionRecord } from '@/features/transactions/transactions-api'
+import { useTransactionsWithOptions } from '@/features/transactions/transactions-hooks'
 import { formatCurrency } from '@/lib/format'
 
 const periods = ['today', 'week', 'month', 'year'] as const
@@ -108,6 +110,60 @@ function pctLabel(current: number, previous: number) {
   return `${sign}${percent.toFixed(1)}%`
 }
 
+function getTransactionDayKey(value: string) {
+  const date = new Date(value)
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+}
+
+function getDuplicateKey(tx: TransactionRecord) {
+  const memo = tx.memo?.trim().toLowerCase() ?? ''
+  const category = tx.category_name?.trim().toLowerCase() ?? ''
+  return [tx.type, Math.abs(tx.amount).toFixed(2), getTransactionDayKey(tx.occurred_at), memo || category].join('|')
+}
+
+function buildDuplicateIds(transactions: TransactionRecord[]) {
+  const groups = new Map<string, TransactionRecord[]>()
+  transactions.forEach((tx) => {
+    const key = getDuplicateKey(tx)
+    const group = groups.get(key) ?? []
+    groups.set(key, [...group, tx])
+  })
+
+  const ids = new Set<string>()
+  groups.forEach((group) => {
+    if (group.length > 1) {
+      group.forEach((tx) => ids.add(tx.id))
+    }
+  })
+  return ids
+}
+
+function countDuplicateGroups(transactions: TransactionRecord[]) {
+  const counts = new Map<string, number>()
+  transactions.forEach((tx) => {
+    const key = getDuplicateKey(tx)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  })
+  return Array.from(counts.values()).filter((count) => count > 1).length
+}
+
+function buildActionCenter(transactions: TransactionRecord[]) {
+  const duplicateIds = buildDuplicateIds(transactions)
+  const reviewTransactions = transactions.filter((tx) => {
+    return !tx.category_name?.trim() || (tx.type === 'expense' && Math.abs(tx.amount) >= 1000) || duplicateIds.has(tx.id)
+  })
+  const topExpense = transactions
+    .filter((tx) => tx.type === 'expense')
+    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))[0]
+
+  return {
+    reviewCount: reviewTransactions.length,
+    duplicateCount: countDuplicateGroups(transactions),
+    uncategorizedCount: transactions.filter((tx) => !tx.category_name?.trim()).length,
+    topExpense,
+  }
+}
+
 function buildLast12MonthBars(points: Array<{ bucket_start: string; income: number; expense: number }>, locale: string): TrendBar[] {
   const now = new Date()
   const monthKeys: Array<{ key: string; label: string }> = []
@@ -169,11 +225,19 @@ export function DashboardPage() {
   const previousOverviewQuery = useOverviewStats({ from: previousRange.from, to: previousRange.to })
   const totalOverviewQuery = useOverviewStats()
   const trend12MonthsQuery = useTrendStatsRange({ days: 365, granularity: 'month' })
+  const reviewTransactionsQuery = useTransactionsWithOptions({
+    page: 1,
+    pageSize: 12,
+    dateFrom: currentRange.from,
+    dateTo: currentRange.to,
+  })
 
   const currentOverview = currentOverviewQuery.data
   const previousOverview = previousOverviewQuery.data
+  const reviewTransactions = reviewTransactionsQuery.data?.items ?? []
   const locale = i18n.language === 'zh' ? 'zh-CN' : 'en-US'
   const bars = useMemo(() => buildLast12MonthBars(trend12MonthsQuery.data?.points ?? [], locale), [locale, trend12MonthsQuery.data?.points])
+  const actionCenter = useMemo(() => buildActionCenter(reviewTransactions), [reviewTransactions])
 
   const derived = useMemo(() => {
     const currentIncome = currentOverview?.income ?? totalOverviewQuery.data?.income ?? 0
@@ -275,6 +339,60 @@ export function DashboardPage() {
             <p className="mt-4 text-xs text-primary-fixed">{t('dashboard.lastSynced')} {syncedLabel}</p>
           </article>
         </div>
+
+        <article className="mt-6 rounded-2xl border border-outline/15 bg-white p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-headline text-2xl font-bold leading-tight text-on-surface">{t('dashboard.actionCenter.title')}</h3>
+              <p className="mt-1 text-sm text-on-surface-variant">{t('dashboard.actionCenter.description')}</p>
+            </div>
+            <button
+              type="button"
+              className="min-h-10 rounded-xl border border-primary/20 bg-primary-fixed px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary-fixed/80"
+              onClick={() => navigate('/transactions?smart=review')}
+            >
+              {t('dashboard.actionCenter.reviewButton')}
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl bg-surface-container-low p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                {t('dashboard.actionCenter.reviewLabel')}
+              </p>
+              <p className="mt-2 text-lg font-extrabold text-on-surface">
+                {t('dashboard.actionCenter.reviewCount', { count: actionCenter.reviewCount })}
+              </p>
+              <p className="mt-1 text-xs text-on-surface-variant">
+                {t('dashboard.actionCenter.reviewHint', {
+                  uncategorized: actionCenter.uncategorizedCount,
+                  duplicates: actionCenter.duplicateCount,
+                })}
+              </p>
+            </div>
+            <div className="rounded-xl bg-surface-container-low p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                {t('dashboard.actionCenter.topExpense')}
+              </p>
+              <p className="mt-2 truncate text-lg font-extrabold text-on-surface">
+                {actionCenter.topExpense?.category_name ?? actionCenter.topExpense?.memo ?? t('transactionsPage.quickFilters.uncategorized')}
+              </p>
+              <p className="mt-1 text-xs font-bold text-rose-600">
+                {formatCurrency(Math.abs(actionCenter.topExpense?.amount ?? 0))}
+              </p>
+            </div>
+            <div className="rounded-xl bg-primary p-4 text-white">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-fixed">
+                {t('dashboard.actionCenter.nextStep')}
+              </p>
+              <p className="mt-2 text-sm font-semibold">
+                {actionCenter.reviewCount > 0
+                  ? t('dashboard.actionCenter.nextStepReview')
+                  : t('dashboard.actionCenter.nextStepClear')}
+              </p>
+            </div>
+          </div>
+        </article>
 
         <article className="mt-6 rounded-2xl border border-outline/15 bg-white p-5 md:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">

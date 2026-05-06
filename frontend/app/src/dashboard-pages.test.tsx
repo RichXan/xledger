@@ -79,6 +79,40 @@ describe('dashboard and analytics pages', () => {
         )
       }
 
+      if (url.includes('/api/transactions?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: '成功',
+            data: {
+              items: [
+                {
+                  id: 'txn-review-uncategorized',
+                  ledger_id: 'ledger-1',
+                  account_id: 'acct-1',
+                  type: 'expense',
+                  amount: 42,
+                  occurred_at: '2026-03-02T12:00:00Z',
+                  memo: 'Needs a category',
+                },
+                {
+                  id: 'txn-review-large',
+                  ledger_id: 'ledger-1',
+                  account_id: 'acct-1',
+                  type: 'expense',
+                  amount: 1800,
+                  category_name: 'Rent',
+                  occurred_at: '2026-03-02T09:00:00Z',
+                  memo: 'Apartment',
+                },
+              ],
+              pagination: { page: 1, page_size: 12, total: 2, total_pages: 1 },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
       throw new Error(`Unexpected URL: ${url}`)
     })
     global.fetch = fetchMock as typeof fetch
@@ -93,6 +127,9 @@ describe('dashboard and analytics pages', () => {
       expect(screen.getByText(/tap or hover bars/i)).toBeInTheDocument()
       expect(screen.getByText(/income:/i)).toBeInTheDocument()
       expect(screen.getByText(/expense:/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /action center/i })).toBeInTheDocument()
+      expect(screen.getByText(/2 items need review/i)).toBeInTheDocument()
+      expect(screen.getByText(/top expense/i)).toBeInTheDocument()
     })
   })
 
@@ -132,6 +169,20 @@ describe('dashboard and analytics pages', () => {
                 { bucket_start: '2026-04-01T00:00:00Z', income: 4000, expense: 900 },
                 { bucket_start: '2026-05-01T00:00:00Z', income: 80, expense: 20 },
               ],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/transactions?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              items: [],
+              pagination: { page: 1, page_size: 12, total: 0, total_pages: 0 },
             },
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
@@ -225,6 +276,9 @@ describe('dashboard and analytics pages', () => {
       expect(screen.getByRole('heading', { name: /analytics/i })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: /spending cloud/i })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: /cashflow rhythm/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /insight summary/i })).toBeInTheDocument()
+      expect(screen.getByText(/Food leads spending/i)).toBeInTheDocument()
+      expect(screen.getByText(/Coffee is the strongest spending theme/i)).toBeInTheDocument()
       expect(screen.getAllByText('Food').length).toBeGreaterThan(0)
       expect(screen.getAllByText('¥3,200.00').length).toBeGreaterThan(0)
       expect(screen.getAllByText('Travel').length).toBeGreaterThan(0)
