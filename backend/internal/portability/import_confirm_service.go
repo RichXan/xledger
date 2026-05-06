@@ -68,7 +68,7 @@ func (s *ImportConfirmService) Confirm(userID string, idempotencyKey string, req
 		return ImportConfirmResponse{}, &contractError{code: IMPORT_DUPLICATE_REQUEST}
 	}
 	if job, found := s.repo.FindJob(userID, "/api/import/csv/confirm", idempotencyKey); found {
-		return job.Response, &contractError{code: IMPORT_DUPLICATE_REQUEST}
+		return job.Response, nil
 	}
 	result := ImportConfirmResponse{Rows: make([]ImportConfirmRowResult, 0, len(req.Rows))}
 	txnWriter, hasTxnWriter := s.repo.(interface {

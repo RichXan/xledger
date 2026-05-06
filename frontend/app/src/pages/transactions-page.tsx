@@ -164,6 +164,7 @@ export function TransactionsPage() {
   const [dismissedReviewIds, setDismissedReviewIds] = useState<Set<string>>(() => new Set())
   const [pendingUndo, setPendingUndo] = useState<TransactionRecord | null>(null)
   const [isMobileListLayout, setIsMobileListLayout] = useState(false)
+  const [listRangeClock, setListRangeClock] = useState(() => Date.now())
 
   useEffect(() => {
     setListSearchQuery(searchParamQ)
@@ -220,7 +221,7 @@ export function TransactionsPage() {
       from: start.toISOString(),
       to: now.toISOString(),
     }
-  }, [dateParam, dateRangePreset, fromParam, toParam])
+  }, [dateParam, dateRangePreset, fromParam, listRangeClock, toParam])
 
   const calendarTransactionsQuery = useTransactionsWithOptions({
     page: 1,
@@ -250,6 +251,7 @@ export function TransactionsPage() {
     dateTo: listRange.to,
     accountId: selectedAccountFilter || undefined,
     ledgerId: selectedLedgerFilter || undefined,
+    enabled: quickFilter === 'review' || reviewReasonFilter !== 'all',
   })
   const options = useTransactionFormOptions()
   const createTransactionMutation = useCreateTransaction()
@@ -401,6 +403,7 @@ export function TransactionsPage() {
       memo: memo || undefined,
       occurred_at: occurredAt,
     })
+    setListRangeClock(Date.now())
     setShowAddDialog(false)
     setAmount('')
     setCategoryId('')
@@ -419,6 +422,7 @@ export function TransactionsPage() {
     if (!importFile) return
     const idempotencyKey = await buildImportIdempotencyKey(importFile)
     await importConfirmMutation.mutateAsync({ file: importFile, idempotencyKey })
+    setListRangeClock(Date.now())
     setShowImportDialog(false)
     setImportFile(null)
   }

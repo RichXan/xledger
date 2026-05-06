@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestImportConfirm_UsesIdempotencyBeforeTripleDedup(t *testing.T) {
+func TestImportConfirm_ReplaysIdempotentResultBeforeTripleDedup(t *testing.T) {
 	repo := NewRepository(func() time.Time { return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC) })
 	service := NewImportConfirmService(repo)
 	handler := NewHandler(NewImportPreviewService(), service, nil, nil)
@@ -25,9 +25,10 @@ func TestImportConfirm_UsesIdempotencyBeforeTripleDedup(t *testing.T) {
 	if firstData["success_count"].(float64) != 1 || firstData["skip_count"].(float64) != 1 {
 		t.Fatalf("expected first import to write one row then dedup one row, got %#v", first)
 	}
-	second := performConfirm(t, r, payload, "import-1", "user-1", http.StatusConflict)
-	if second["code"] != "BUSINESS_RULE_VIOLATION" {
-		t.Fatalf("expected duplicate request business rule violation, got %#v", second)
+	second := performConfirm(t, r, payload, "import-1", "user-1", http.StatusOK)
+	secondData := confirmDataMap(t, second)
+	if secondData["success_count"].(float64) != firstData["success_count"].(float64) || secondData["skip_count"].(float64) != firstData["skip_count"].(float64) {
+		t.Fatalf("expected duplicate request to replay cached import result, first=%#v second=%#v", first, second)
 	}
 	if repo.StoredRowCount("user-1") != 1 {
 		t.Fatalf("expected idempotency to prevent second-write amplification, got %d rows", repo.StoredRowCount("user-1"))
@@ -128,13 +129,19 @@ func TestImportConfirm_DoesNotDedupRowsThatFailedPersistence(t *testing.T) {
 	}
 }
 
-func TestImportConfirm_DuplicateRequest_ReturnsIMPORT_DUPLICATE_REQUEST(t *testing.T) {
+func TestImportConfirm_DuplicateRequest_ReturnsCachedResult(t *testing.T) {
 	repo := NewRepository(func() time.Time { return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC) })
 	service := NewImportConfirmService(repo)
-	_, _ = service.Confirm("user-1", "import-3", ImportConfirmRequest{Rows: []ImportRow{{Date: "2026-03-01", Amount: 10, Description: "ok"}}})
-	_, err := service.Confirm("user-1", "import-3", ImportConfirmRequest{Rows: []ImportRow{{Date: "2026-03-01", Amount: 10, Description: "ok"}}})
-	if ErrorCode(err) != IMPORT_DUPLICATE_REQUEST {
-		t.Fatalf("expected %s, got %q", IMPORT_DUPLICATE_REQUEST, ErrorCode(err))
+	first, err := service.Confirm("user-1", "import-3", ImportConfirmRequest{Rows: []ImportRow{{Date: "2026-03-01", Amount: 10, Description: "ok"}}})
+	if err != nil {
+		t.Fatalf("unexpected first confirm error: %v", err)
+	}
+	second, err := service.Confirm("user-1", "import-3", ImportConfirmRequest{Rows: []ImportRow{{Date: "2026-03-01", Amount: 10, Description: "ok"}}})
+	if err != nil {
+		t.Fatalf("expected duplicate request to replay cached result without error, got %v", err)
+	}
+	if second.SuccessCount != first.SuccessCount || second.SkipCount != first.SkipCount || second.FailCount != first.FailCount {
+		t.Fatalf("expected cached result, first=%#v second=%#v", first, second)
 	}
 }
 

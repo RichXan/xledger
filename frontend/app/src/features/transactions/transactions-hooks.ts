@@ -51,6 +51,8 @@ export function useTransactionReviewSummary(options?: {
     queryKey: ['transactions', 'review-summary', options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? ''],
     queryFn: () => getTransactionReviewSummary(session!.accessToken, options),
     enabled: Boolean(session?.accessToken),
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -62,6 +64,7 @@ export function useTransactionReviewItems(options?: {
   dateTo?: string
   accountId?: string
   ledgerId?: string
+  enabled?: boolean
 }) {
   const { session } = useAuth()
 
@@ -78,7 +81,9 @@ export function useTransactionReviewItems(options?: {
       options?.ledgerId ?? '',
     ],
     queryFn: () => getTransactionReviewItems(session!.accessToken, options),
-    enabled: Boolean(session?.accessToken),
+    enabled: Boolean(session?.accessToken) && options?.enabled !== false,
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 }
 

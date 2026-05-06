@@ -350,6 +350,7 @@ describe('transactions domain', () => {
       expect(screen.getByText(/1 possible duplicate/i)).toBeInTheDocument()
       expect(screen.getByText(/1 large transaction/i)).toBeInTheDocument()
     })
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/transactions/review-items'))).toBe(false)
 
     await user.click(screen.getByRole('button', { name: /needs review/i }))
 
