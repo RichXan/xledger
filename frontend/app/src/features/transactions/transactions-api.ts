@@ -19,9 +19,11 @@ export interface TransactionRecord {
   to_account_id?: string
   type: 'income' | 'expense' | 'transfer'
   amount: number
+  category_id?: string
   category_name?: string
   occurred_at: string
   memo?: string
+  version?: number
 }
 
 export type TransactionReviewReason = 'uncategorized' | 'duplicate' | 'large'
@@ -92,6 +94,22 @@ export interface ImportConfirmResponse {
   rows: ImportConfirmResultRow[]
 }
 
+export interface ImportRowInput {
+  date: string
+  amount: number
+  description: string
+  type?: string
+  category?: string
+  account?: string
+  ledger?: string
+}
+
+export interface ImportConfirmRequest {
+  rows: ImportRowInput[]
+  default_account_id?: string
+  default_ledger_id?: string
+}
+
 export interface ExportTransactionsOptions {
   format?: 'csv' | 'json'
   dateFrom?: string
@@ -105,6 +123,7 @@ export function getTransactions(
   options?: {
     page?: number
     pageSize?: number
+    q?: string
     dateFrom?: string
     dateTo?: string
     accountId?: string
@@ -117,6 +136,9 @@ export function getTransactions(
   })
   if (options?.dateFrom) {
     params.set('date_from', options.dateFrom)
+  }
+  if (options?.q) {
+    params.set('q', options.q)
   }
   if (options?.dateTo) {
     params.set('date_to', options.dateTo)
@@ -235,6 +257,24 @@ export function deleteTransaction(accessToken: string, id: string) {
   })
 }
 
+export function updateTransaction(
+  accessToken: string,
+  id: string,
+  input: {
+    amount: number
+    category_id?: string | null
+    memo?: string | null
+    tag_ids?: string[]
+    version?: number
+  },
+) {
+  return requestEnvelope<TransactionRecord>(`/transactions/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(input),
+  })
+}
+
 export async function exportTransactions(accessToken: string, options?: ExportTransactionsOptions) {
   const params = new URLSearchParams({ format: options?.format ?? 'csv' })
   if (options?.dateFrom) {
@@ -275,9 +315,20 @@ export function previewImport(accessToken: string, file: File) {
   })
 }
 
-export function confirmImport(accessToken: string, file: File, idempotencyKey: string) {
-  const formData = new FormData()
-  formData.append('file', file)
+export function confirmImport(accessToken: string, payload: File | ImportConfirmRequest, idempotencyKey: string) {
+  if (payload instanceof File) {
+    const formData = new FormData()
+    formData.append('file', payload)
+
+    return requestEnvelope<ImportConfirmResponse>('/import/csv/confirm', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'X-Idempotency-Key': idempotencyKey,
+      },
+      body: formData,
+    })
+  }
 
   return requestEnvelope<ImportConfirmResponse>('/import/csv/confirm', {
     method: 'POST',
@@ -285,7 +336,7 @@ export function confirmImport(accessToken: string, file: File, idempotencyKey: s
       Authorization: `Bearer ${accessToken}`,
       'X-Idempotency-Key': idempotencyKey,
     },
-    body: formData,
+    body: JSON.stringify(payload),
   })
 }
 

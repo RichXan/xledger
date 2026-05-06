@@ -17,10 +17,16 @@ type ImportRow struct {
 	Description string  `json:"description"`
 	Type        string  `json:"type,omitempty"`
 	Category    string  `json:"category,omitempty"`
+	Account     string  `json:"account,omitempty"`
+	Ledger      string  `json:"ledger,omitempty"`
+	AccountID   string  `json:"account_id,omitempty"`
+	LedgerID    string  `json:"ledger_id,omitempty"`
 }
 
 type ImportConfirmRequest struct {
-	Rows []ImportRow `json:"rows"`
+	DefaultAccountID string      `json:"default_account_id,omitempty"`
+	DefaultLedgerID  string      `json:"default_ledger_id,omitempty"`
+	Rows             []ImportRow `json:"rows"`
 }
 
 type ImportConfirmRowResult struct {
@@ -75,6 +81,12 @@ func (s *ImportConfirmService) Confirm(userID string, idempotencyKey string, req
 		SaveImportedTransaction(userID string, row ImportRow) error
 	})
 	for idx, row := range req.Rows {
+		if strings.TrimSpace(row.AccountID) == "" {
+			row.AccountID = strings.TrimSpace(req.DefaultAccountID)
+		}
+		if strings.TrimSpace(row.LedgerID) == "" {
+			row.LedgerID = strings.TrimSpace(req.DefaultLedgerID)
+		}
 		trimmedDate := strings.TrimSpace(row.Date)
 		trimmedDescription := strings.TrimSpace(row.Description)
 		if trimmedDate == "" || row.Amount <= 0 || trimmedDescription == "" {

@@ -91,6 +91,8 @@ func (h *Handler) ImportConfirm(c *gin.Context) {
 			return
 		}
 		req = parsed
+		req.DefaultAccountID = strings.TrimSpace(c.PostForm("default_account_id"))
+		req.DefaultLedgerID = strings.TrimSpace(c.PostForm("default_ledger_id"))
 	} else {
 		if err := c.ShouldBindJSON(&req); err != nil {
 			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)

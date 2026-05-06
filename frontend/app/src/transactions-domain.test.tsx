@@ -244,10 +244,10 @@ function createTransactionsFetchMock() {
           code: 'OK',
           message: '成功',
           data: {
-            columns: ['date', 'amount', 'description'],
-            sample_rows: [['2026-03-01', '25.00', 'Lunch']],
+            columns: ['posted_at', 'value', 'details', 'account', 'ledger'],
+            sample_rows: [['2026-03-01 12:30:45', '25.00', 'Lunch', 'Cash Wallet', 'Default Ledger']],
             mappingSlots: ['amount', 'date', 'description'],
-            mappingCandidates: ['date', 'amount', 'description'],
+            mappingCandidates: ['posted_at', 'value', 'details', 'account', 'ledger'],
           },
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
@@ -269,6 +269,28 @@ function createTransactionsFetchMock() {
               { row_index: 2, status: 'failed', reason: 'invalid_row' },
             ],
           },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    if (url.endsWith('/api/transactions/txn-1') && init?.method === 'PATCH') {
+      return new Response(
+        JSON.stringify({
+          code: 'OK',
+          message: '成功',
+          data: { id: 'txn-1', type: 'expense', amount: 25, category_name: 'Food', occurred_at: '2026-03-01T08:30:00Z' },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    if (url.endsWith('/api/transactions/txn-5') && init?.method === 'PATCH') {
+      return new Response(
+        JSON.stringify({
+          code: 'OK',
+          message: '成功',
+          data: { id: 'txn-5', type: 'expense', amount: 25, category_name: 'Food', occurred_at: '2026-03-01T09:00:00Z' },
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       )
@@ -435,8 +457,67 @@ describe('transactions domain', () => {
     await waitFor(() => {
       expect(screen.getByText(/transactions.csv/i)).toBeInTheDocument()
       expect(screen.getByText(/detected columns/i)).toBeInTheDocument()
-      expect(screen.getByText(/^date$/i)).toBeInTheDocument()
-      expect(screen.getByText(/^description$/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/^posted_at$/i).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/^details$/i).length).toBeGreaterThan(0)
+    })
+  })
+
+  it('lets users map import fields and remembers default account and ledger for confirmation', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /import/i }))
+    const file = new File(
+      ['posted_at,value,details,account,ledger\n2026-03-01 12:30:45,25,Lunch,Cash Wallet,Default Ledger'],
+      'custom-ledger.csv',
+      { type: 'text/csv' },
+    )
+    await user.upload(screen.getByLabelText(/csv file/i), file)
+    await user.click(screen.getByRole('button', { name: /preview import/i }))
+
+    await screen.findByRole('heading', { name: /field mapping/i })
+    await user.selectOptions(screen.getByLabelText(/date column/i), 'posted_at')
+    await user.selectOptions(screen.getByLabelText(/amount column/i), 'value')
+    await user.selectOptions(screen.getByLabelText(/memo column/i), 'details')
+    await user.selectOptions(screen.getByLabelText(/default account/i), 'acc-1')
+    await user.selectOptions(screen.getByLabelText(/default ledger/i), 'ledger-1')
+    await user.click(screen.getByRole('button', { name: /confirm import/i }))
+
+    await waitFor(() => {
+      const confirmCall = fetchMock.mock.calls.find(([url, init]) => (
+        String(url).endsWith('/api/import/csv/confirm') && init?.method === 'POST'
+      ))
+      expect(confirmCall).toBeTruthy()
+      expect(confirmCall?.[1]?.body).toEqual(expect.stringContaining('"date":"2026-03-01 12:30:45"'))
+      expect(confirmCall?.[1]?.body).toEqual(expect.stringContaining('"description":"Lunch"'))
+      expect(confirmCall?.[1]?.body).toEqual(expect.stringContaining('"default_account_id":"acc-1"'))
+      expect(confirmCall?.[1]?.body).toEqual(expect.stringContaining('"default_ledger_id":"ledger-1"'))
+    })
+    expect(window.localStorage.getItem('xledger.import.defaults')).toContain('acc-1')
+  })
+
+  it('supports bulk category updates for selected transactions', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await screen.findByText('Food')
+    await user.click(screen.getByRole('checkbox', { name: /select food/i }))
+    await user.click(screen.getByRole('checkbox', { name: /select cafe/i }))
+    await screen.findByText(/2 selected/i)
+    await user.selectOptions(screen.getByLabelText(/bulk category/i), 'cat-1')
+    await user.click(screen.getByRole('button', { name: /apply bulk category/i }))
+
+    await waitFor(() => {
+      const patchCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH')
+      expect(patchCalls).toHaveLength(2)
+      expect(patchCalls[0][1]?.body).toEqual(expect.stringContaining('"category_id":"cat-1"'))
+      expect(patchCalls[0][1]?.body).toEqual(expect.stringContaining('"amount":25'))
     })
   })
 

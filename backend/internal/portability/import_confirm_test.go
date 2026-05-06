@@ -181,6 +181,36 @@ func TestImportConfirm_AcceptsAccessAndPAT(t *testing.T) {
 	}
 }
 
+type recordingImportWriterRepo struct {
+	*Repository
+	rows []ImportRow
+}
+
+func (r *recordingImportWriterRepo) SaveImportedTransaction(userID string, row ImportRow) error {
+	r.rows = append(r.rows, row)
+	return r.Repository.SaveImportedTransaction(userID, row)
+}
+
+func TestImportConfirm_AppliesDefaultAccountAndLedgerToRows(t *testing.T) {
+	repo := &recordingImportWriterRepo{Repository: NewRepository(func() time.Time {
+		return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC)
+	})}
+	service := NewImportConfirmService(repo)
+	handler := NewHandler(NewImportPreviewService(), service, nil, nil)
+	r := gin.New()
+	r.POST("/import/csv/confirm", withUser("user-1"), handler.ImportConfirm)
+
+	payload := `{"default_account_id":"acc-1","default_ledger_id":"ledger-1","rows":[{"date":"2026-03-01 12:30:45","amount":12.5,"description":"lunch"}]}`
+	performConfirm(t, r, payload, "import-defaults", "user-1", http.StatusOK)
+
+	if len(repo.rows) != 1 {
+		t.Fatalf("expected one recorded import row, got %#v", repo.rows)
+	}
+	if repo.rows[0].AccountID != "acc-1" || repo.rows[0].LedgerID != "ledger-1" {
+		t.Fatalf("expected defaults to be applied to row, got %#v", repo.rows[0])
+	}
+}
+
 func TestImportConfirm_MissingIdempotencyKey_ReturnsBadRequest(t *testing.T) {
 	repo := NewRepository(func() time.Time { return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC) })
 	service := NewImportConfirmService(repo)

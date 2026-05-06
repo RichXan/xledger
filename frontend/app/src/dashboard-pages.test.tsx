@@ -361,7 +361,7 @@ describe('dashboard and analytics pages', () => {
     })
     global.fetch = fetchMock as typeof fetch
 
-    renderProtectedApp(['/analytics'])
+    const firstRender = renderProtectedApp(['/analytics'])
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /analytics/i })).toBeInTheDocument()
@@ -490,5 +490,92 @@ describe('dashboard and analytics pages', () => {
     expect(screen.getByText('May payroll')).toBeInTheDocument()
     expect(screen.getAllByText('Food').length).toBeGreaterThan(0)
     expect(screen.getByText('Lunch')).toBeInTheDocument()
+  })
+
+  it('drills from analytics category and keyword cards into matching transactions', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { email: 'demo@example.com' } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/trend?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { points: [{ bucket_start: '2026-05-03T00:00:00Z', income: 0, expense: 45 }] },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/category')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { items: [{ category_id: 'food', category_name: 'Food', amount: 45 }] },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/keywords')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { items: [{ text: 'Coffee', amount: 45, count: 1 }] },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/transactions?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              items: [{ id: 'txn-food', type: 'expense', amount: 45, category_name: 'Food', occurred_at: '2026-05-03T12:10:00Z', memo: 'Coffee' }],
+              pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    const firstRender = renderProtectedApp(['/analytics'])
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /open food transactions/i }))[0])
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /transactions/i })).toBeInTheDocument()
+    })
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => {
+        const url = new URL(String(input), 'http://localhost')
+        return url.pathname === '/api/transactions' && url.searchParams.get('q') === 'Food'
+      })).toBe(true)
+    })
+
+    firstRender.unmount()
+    window.localStorage.clear()
+    renderProtectedApp(['/analytics'])
+    fireEvent.click(await screen.findByRole('button', { name: /coffee.*open matching transactions/i }))
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => {
+        const url = new URL(String(input), 'http://localhost')
+        return url.pathname === '/api/transactions' && url.searchParams.get('q') === 'Coffee'
+      })).toBe(true)
+    })
   })
 })

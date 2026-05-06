@@ -126,8 +126,8 @@ test('analytics keyword cloud reflects expense memo and category terms', async (
   await openAnalytics(page)
   await expect(page.getByRole('heading', { name: 'Insight Summary' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Spending Cloud' })).toBeVisible()
-  await expect(page.getByRole('button', { name: /latte:/ })).toBeVisible()
-  await expect(page.getByRole('button', { name: /Coffee:/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /latte .*open matching transactions/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Coffee .*open matching transactions/i })).toBeVisible()
   await expect(page.getByText('Keyword spend')).toBeVisible()
 
   await recordToReport('Analytics keyword cloud verification passed', {

@@ -32,6 +32,36 @@ export class ApiError extends Error {
   }
 }
 
+type ErrorTranslator = (key: string, options?: { defaultValue?: string }) => string
+
+export function getFriendlyApiErrorMessage(error: unknown, t: ErrorTranslator) {
+  if (error instanceof ApiError) {
+    if (AUTH_UNAUTHORIZED_CODES.has(error.code)) {
+      return t('errors.authExpired')
+    }
+    if (error.code === 'BUSINESS_RULE_VIOLATION') {
+      return t('errors.businessRule')
+    }
+    if (error.code === 'VALIDATION_ERROR') {
+      return t('errors.validation')
+    }
+    if (error.code === 'RESOURCE_NOT_FOUND') {
+      return t('errors.notFound')
+    }
+    if (error.code === 'OFFLINE') {
+      return t('errors.offline')
+    }
+    return t('errors.unknown', { defaultValue: error.message })
+  }
+  if (error instanceof TypeError) {
+    return t('errors.network')
+  }
+  if (error instanceof Error) {
+    return t('errors.unknown', { defaultValue: error.message })
+  }
+  return t('errors.unknown')
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   const text = await response.text()
   if (!text) {

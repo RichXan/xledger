@@ -447,6 +447,7 @@ export function AnalyticsPage() {
                   </p>
                   <button
                     type="button"
+                    aria-label={t('analyticsPage.openCategoryTransactionsLabel', { category: displayCategoryItems[0].category_name })}
                     className="mt-2 text-xs font-bold text-primary hover:underline"
                     onClick={() => openTransactionsForSearch(displayCategoryItems[0].category_name)}
                   >
@@ -499,13 +500,10 @@ export function AnalyticsPage() {
                     const share = totalExpense > 0 ? (item.amount / totalExpense) * 100 : 0
                     const isActive = activeCategory?.category_name === item.category_name
                     return (
-                    <button
+                    <div
                       key={item.category_id}
-                      type="button"
                       onMouseEnter={() => setActiveCategoryName(item.category_name)}
-                      onFocus={() => setActiveCategoryName(item.category_name)}
-                      onClick={() => setActiveCategoryName(item.category_name)}
-                        className={`w-full rounded-xl border p-3 text-left transition ${isActive ? 'border-primary/40 bg-primary/5' : 'border-outline/10 bg-surface-container-low hover:bg-surface-container'}`}
+                      className={`rounded-xl border p-3 transition ${isActive ? 'border-primary/40 bg-primary/5' : 'border-outline/10 bg-surface-container-low hover:bg-surface-container'}`}
                     >
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex min-w-0 items-center gap-2">
@@ -526,7 +524,16 @@ export function AnalyticsPage() {
                           </div>
                           <p className="w-12 text-right text-xs font-bold text-on-surface-variant">{formatPercent(share)}</p>
                         </div>
-                    </button>
+                        <button
+                          type="button"
+                          aria-label={t('analyticsPage.openCategoryTransactionsLabel', { category: item.category_name })}
+                          className="mt-3 text-xs font-bold text-primary hover:underline"
+                          onFocus={() => setActiveCategoryName(item.category_name)}
+                          onClick={() => openTransactionsForSearch(item.category_name)}
+                        >
+                          {t('analyticsPage.openTransactions')}
+                        </button>
+                    </div>
                     )
                   })}
                 </div>
@@ -576,7 +583,7 @@ export function AnalyticsPage() {
                     <button
                       key={item.text}
                       type="button"
-                      aria-label={`${item.text}: ${formatCurrency(item.amount)}`}
+                      aria-label={t('analyticsPage.openKeywordTransactionsLabel', { keyword: item.text, amount: formatCurrency(item.amount) })}
                       className={`font-headline font-extrabold leading-none transition hover:scale-105 ${isActive ? 'opacity-100' : 'opacity-75 hover:opacity-100'}`}
                       style={{
                         color: CHART_PALETTE[index % CHART_PALETTE.length],
@@ -584,7 +591,7 @@ export function AnalyticsPage() {
                       }}
                       onMouseEnter={() => setActiveKeywordText(item.text)}
                       onFocus={() => setActiveKeywordText(item.text)}
-                      onClick={() => setActiveKeywordText(item.text)}
+                      onClick={() => openTransactionsForSearch(item.text)}
                     >
                       {item.text}
                     </button>

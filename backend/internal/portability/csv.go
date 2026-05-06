@@ -151,6 +151,8 @@ func ParseImportRowsFromCSV(reader io.Reader) (ImportConfirmRequest, error) {
 	purposeIdx := getIndex("用途/来源", "category", "Category")
 	amountIdx := getIndex("金额", "amount", "Amount")
 	noteIdx := getIndex("备注", "description", "memo", "note")
+	accountIdx := getIndex("账户", "account", "Account")
+	ledgerIdx := getIndex("账本", "ledger", "Ledger")
 	signAmountIdx := getIndex("金额正负处理")
 
 	if dateIdx < 0 || amountIdx < 0 {
@@ -194,6 +196,8 @@ func ParseImportRowsFromCSV(reader io.Reader) (ImportConfirmRequest, error) {
 			Description: description,
 			Type:        rowType,
 			Category:    category,
+			Account:     strings.TrimSpace(csvCell(raw, accountIdx)),
+			Ledger:      strings.TrimSpace(csvCell(raw, ledgerIdx)),
 		})
 	}
 	if len(rows) == 0 {

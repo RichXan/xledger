@@ -13,7 +13,9 @@ import {
   getTransactionReviewSummary,
   getTransactions,
   previewImport,
+  updateTransaction,
   type CreateTransactionInput,
+  type ImportConfirmRequest,
   type ExportTransactionsOptions,
   type TransactionReviewReason,
 } from './transactions-api'
@@ -25,6 +27,7 @@ export function useTransactions() {
 export function useTransactionsWithOptions(options?: {
   page?: number
   pageSize?: number
+  q?: string
   dateFrom?: string
   dateTo?: string
   accountId?: string
@@ -34,7 +37,7 @@ export function useTransactionsWithOptions(options?: {
   const { session } = useAuth()
 
   return useQuery({
-    queryKey: ['transactions', 'list', options?.page ?? 1, options?.pageSize ?? 20, options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? ''],
+    queryKey: ['transactions', 'list', options?.page ?? 1, options?.pageSize ?? 20, options?.q ?? '', options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? ''],
     queryFn: () => getTransactions(session!.accessToken, options),
     enabled: Boolean(session?.accessToken) && options?.enabled !== false,
   })
@@ -154,6 +157,30 @@ export function useDeleteTransaction() {
   })
 }
 
+export function useUpdateTransaction() {
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, input }: {
+      id: string
+      input: {
+        amount: number
+        category_id?: string | null
+        memo?: string | null
+        tag_ids?: string[]
+        version?: number
+      }
+    }) => updateTransaction(session!.accessToken, id, input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'list'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-summary'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-items'] })
+      await queryClient.invalidateQueries({ queryKey: ['reporting'] })
+    },
+  })
+}
+
 export function useExportTransactions() {
   const { session } = useAuth()
 
@@ -175,8 +202,8 @@ export function useImportConfirm() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ file, idempotencyKey }: { file: File; idempotencyKey: string }) =>
-      confirmImport(session!.accessToken, file, idempotencyKey),
+    mutationFn: ({ payload, idempotencyKey }: { payload: File | ImportConfirmRequest; idempotencyKey: string }) =>
+      confirmImport(session!.accessToken, payload, idempotencyKey),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['transactions', 'list'] })
       await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-summary'] })

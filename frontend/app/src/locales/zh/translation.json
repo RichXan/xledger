@@ -19,6 +19,15 @@
     "default": "默认",
     "unknownError": "未知错误"
   },
+  "errors": {
+    "authExpired": "登录已过期，请重新登录。",
+    "businessRule": "请检查高亮字段后重试。",
+    "validation": "部分字段需要修正，请检查后重试。",
+    "notFound": "请求的数据不存在或已被删除。",
+    "offline": "当前似乎已离线，联网后请重试。",
+    "network": "网络连接失败，请重试。",
+    "unknown": "发生未知错误。"
+  },
   "nav": {
     "dashboard": "首页",
     "transactions": "交易",
@@ -293,6 +302,8 @@
       "last365Days": "最近 365 天"
     },
     "table": {
+      "select": "选择",
+      "selectLabel": "选择 {{name}}",
       "transactionCategory": "交易与分类",
       "accountLedger": "账户 / 账本",
       "dateTime": "日期与时间",
@@ -361,6 +372,19 @@
       "previewRows": "预览行",
       "dedupeHint": "确认导入时会基于交易日期、金额、类型和备注/分类信号跳过重复交易。",
       "detectedColumns": "检测到的列",
+      "mappingTitle": "字段映射",
+      "mappingDescription": "导入前先匹配每个 CSV 列，默认账户和账本会记住到下次导入。",
+      "mappingReady": "可复核",
+      "dateColumn": "日期列",
+      "amountColumn": "金额列",
+      "memoColumn": "备注列",
+      "typeColumn": "类型列",
+      "categoryColumn": "分类列",
+      "accountColumn": "账户列",
+      "ledgerColumn": "账本列",
+      "ignoreColumn": "忽略",
+      "defaultAccount": "默认账户",
+      "defaultLedger": "默认账本",
       "importing": "导入中...",
       "confirm": "确认导入",
       "importFailed": "导入失败：{{message}}",
@@ -390,6 +414,17 @@
       "selectCategory": "选择分类",
       "selectAccount": "选择账户",
       "memoPlaceholder": "内部参考或备注"
+    },
+    "bulk": {
+      "selected": "已选择 {{count}} 条",
+      "description": "无需逐条打开，即可批量完成重复清理动作。",
+      "category": "批量分类",
+      "applyCategory": "应用批量分类",
+      "markReviewed": "标记已复核",
+      "delete": "删除已选",
+      "updated": "已更新 {{count}} 条交易。",
+      "deleted": "已删除 {{count}} 条交易。",
+      "reviewed": "已将 {{count}} 条交易标记为已复核。"
     }
   },
   "accountsPage": {
@@ -476,6 +511,8 @@
     "trendEmptyHint": "记录收入或支出后，趋势柱状图会自动显示在这里。",
     "goToTransactions": "前往交易",
     "openTransactions": "查看交易",
+    "openCategoryTransactionsLabel": "查看 {{category}} 交易",
+    "openKeywordTransactionsLabel": "{{keyword}} {{amount}} 打开匹配交易",
     "openTransactionsForPeriod": "查看 {{period}} 的交易",
     "insights": {
       "title": "洞察摘要",

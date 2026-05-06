@@ -130,28 +130,53 @@ func (r *PostgresRepository) SaveImportedTransaction(userID string, row ImportRo
 		return errors.New("invalid import row")
 	}
 
-	var ledgerID string
-	err := r.db.QueryRow(`
-		SELECT id::text
-		FROM ledgers
-		WHERE user_id = $1
-		ORDER BY is_default DESC, created_at ASC, id ASC
-		LIMIT 1
-	`, trimmedUserID).Scan(&ledgerID)
-	if err != nil {
-		return err
+	ledgerID := strings.TrimSpace(row.LedgerID)
+	if ledgerID == "" && strings.TrimSpace(row.Ledger) != "" {
+		_ = r.db.QueryRow(`
+			SELECT id::text
+			FROM ledgers
+			WHERE user_id = $1 AND LOWER(name) = LOWER($2)
+			ORDER BY is_default DESC, created_at ASC, id ASC
+			LIMIT 1
+		`, trimmedUserID, strings.TrimSpace(row.Ledger)).Scan(&ledgerID)
+	}
+	if ledgerID == "" {
+		err := r.db.QueryRow(`
+			SELECT id::text
+			FROM ledgers
+			WHERE user_id = $1
+			ORDER BY is_default DESC, created_at ASC, id ASC
+			LIMIT 1
+		`, trimmedUserID).Scan(&ledgerID)
+		if err != nil {
+			return err
+		}
 	}
 
-	var accountID sql.NullString
-	err = r.db.QueryRow(`
-		SELECT id::text
-		FROM accounts
-		WHERE user_id = $1 AND archived_at IS NULL
-		ORDER BY created_at ASC, id ASC
-		LIMIT 1
-	`, trimmedUserID).Scan(&accountID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return err
+	accountID := sql.NullString{String: strings.TrimSpace(row.AccountID), Valid: strings.TrimSpace(row.AccountID) != ""}
+	if !accountID.Valid && strings.TrimSpace(row.Account) != "" {
+		err := r.db.QueryRow(`
+			SELECT id::text
+			FROM accounts
+			WHERE user_id = $1 AND archived_at IS NULL AND LOWER(name) = LOWER($2)
+			ORDER BY created_at ASC, id ASC
+			LIMIT 1
+		`, trimmedUserID, strings.TrimSpace(row.Account)).Scan(&accountID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+	}
+	if !accountID.Valid {
+		err := r.db.QueryRow(`
+			SELECT id::text
+			FROM accounts
+			WHERE user_id = $1 AND archived_at IS NULL
+			ORDER BY created_at ASC, id ASC
+			LIMIT 1
+		`, trimmedUserID).Scan(&accountID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
 	}
 
 	occurredAt, err := parseImportOccurredAt(trimmedDate)
