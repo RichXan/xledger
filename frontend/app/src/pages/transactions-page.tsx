@@ -30,6 +30,7 @@ import { formatCurrency } from '@/lib/format'
 import { getFriendlyApiErrorMessage } from '@/lib/api'
 
 const IMPORT_DEFAULTS_STORAGE_KEY = 'xledger.import.defaults'
+const TRANSACTION_DEFAULTS_STORAGE_KEY = 'xledger.transaction.defaults'
 
 type ImportMapping = {
   date: string
@@ -39,6 +40,14 @@ type ImportMapping = {
   category: string
   account: string
   ledger: string
+}
+
+type MappedImportPreviewRow = {
+  date: string
+  amount: string
+  description: string
+  type: string
+  category: string
 }
 
 function toLocalDateKey(value: Date) {
@@ -184,6 +193,27 @@ function writeImportDefaults(accountId: string, ledgerId: string) {
   window.localStorage.setItem(IMPORT_DEFAULTS_STORAGE_KEY, JSON.stringify({ accountId, ledgerId }))
 }
 
+function readTransactionDefaults() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(TRANSACTION_DEFAULTS_STORAGE_KEY) ?? '{}') as {
+      type?: 'income' | 'expense'
+      accountId?: string
+      categoryId?: string
+    }
+    return {
+      type: parsed.type === 'income' || parsed.type === 'expense' ? parsed.type : 'expense',
+      accountId: parsed.accountId ?? '',
+      categoryId: parsed.categoryId ?? '',
+    }
+  } catch {
+    return { type: 'expense' as const, accountId: '', categoryId: '' }
+  }
+}
+
+function writeTransactionDefaults(type: 'income' | 'expense', accountId: string, categoryId: string) {
+  window.localStorage.setItem(TRANSACTION_DEFAULTS_STORAGE_KEY, JSON.stringify({ type, accountId, categoryId }))
+}
+
 function parseCsvText(text: string) {
   const rows: string[][] = []
   let current = ''
@@ -231,6 +261,30 @@ function buildDefaultImportMapping(columns: string[]): ImportMapping {
     account: guessColumn(columns, ['account', '账户']),
     ledger: guessColumn(columns, ['ledger', '账本']),
   }
+}
+
+function isImportMappingReady(mapping: ImportMapping) {
+  return Boolean(mapping.date && mapping.amount && mapping.description)
+}
+
+function buildMappedImportPreviewRows(
+  columns: string[],
+  rows: string[][],
+  mapping: ImportMapping,
+): MappedImportPreviewRow[] {
+  const headerIndex = new Map(columns.map((header, index) => [header, index]))
+  const cell = (row: string[], column: string) => {
+    const index = headerIndex.get(column)
+    return index === undefined ? '' : (row[index] ?? '').trim()
+  }
+
+  return rows.map((row) => ({
+    date: cell(row, mapping.date),
+    amount: cell(row, mapping.amount),
+    description: cell(row, mapping.description),
+    type: cell(row, mapping.type),
+    category: cell(row, mapping.category),
+  }))
 }
 
 async function buildImportConfirmPayload(
@@ -295,10 +349,10 @@ export function TransactionsPage() {
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [activeMonth, setActiveMonth] = useState(() => new Date())
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
-  const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense')
+  const [transactionType, setTransactionType] = useState<'income' | 'expense'>(() => readTransactionDefaults().type)
   const [amount, setAmount] = useState('')
-  const [categoryId, setCategoryId] = useState('')
-  const [accountId, setAccountId] = useState('')
+  const [categoryId, setCategoryId] = useState(() => readTransactionDefaults().categoryId)
+  const [accountId, setAccountId] = useState(() => readTransactionDefaults().accountId)
   const [memo, setMemo] = useState('')
   const [date, setDate] = useState(() => toLocalDateTimeInputValue(new Date()))
   const [importFile, setImportFile] = useState<File | null>(null)
@@ -310,6 +364,8 @@ export function TransactionsPage() {
   const [listSearchQuery, setListSearchQuery] = useState(searchParamQ)
   const [selectedAccountFilter, setSelectedAccountFilter] = useState('')
   const [selectedLedgerFilter, setSelectedLedgerFilter] = useState('')
+  const [amountMinFilter, setAmountMinFilter] = useState('')
+  const [amountMaxFilter, setAmountMaxFilter] = useState('')
   const smartParam = searchParams.get('smart')
   const initialQuickFilter: QuickFilter = smartParam === 'review' ? 'review' : 'all'
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(initialQuickFilter)
@@ -395,6 +451,8 @@ export function TransactionsPage() {
     dateTo: listRange.to,
     accountId: selectedAccountFilter || undefined,
     ledgerId: selectedLedgerFilter || undefined,
+    amountMin: amountMinFilter.trim() || undefined,
+    amountMax: amountMaxFilter.trim() || undefined,
   })
   const reviewSummaryQuery = useTransactionReviewSummary({
     q: listSearchQuery.trim() || undefined,
@@ -402,6 +460,8 @@ export function TransactionsPage() {
     dateTo: listRange.to,
     accountId: selectedAccountFilter || undefined,
     ledgerId: selectedLedgerFilter || undefined,
+    amountMin: amountMinFilter.trim() || undefined,
+    amountMax: amountMaxFilter.trim() || undefined,
   })
   const reviewItemsQuery = useTransactionReviewItems({
     page: 1,
@@ -412,6 +472,8 @@ export function TransactionsPage() {
     dateTo: listRange.to,
     accountId: selectedAccountFilter || undefined,
     ledgerId: selectedLedgerFilter || undefined,
+    amountMin: amountMinFilter.trim() || undefined,
+    amountMax: amountMaxFilter.trim() || undefined,
     enabled: quickFilter === 'review' || reviewReasonFilter !== 'all',
   })
   const options = useTransactionFormOptions()
@@ -441,6 +503,12 @@ export function TransactionsPage() {
   const smartViewCounts = reviewSummaryQuery.data ?? buildReviewSummary(listTransactions)
   const usingBackendReviewItems =
     reviewItemsQuery.isSuccess && (quickFilter === 'review' || reviewReasonFilter !== 'all')
+  const importMappingReady = isImportMappingReady(importMapping)
+  const importMappedPreviewRows = useMemo(() => {
+    const preview = importPreviewMutation.data
+    if (!preview) return []
+    return buildMappedImportPreviewRows(preview.columns, preview.sample_rows, importMapping).slice(0, 5)
+  }, [importMapping, importPreviewMutation.data])
 
   useEffect(() => {
     const columns = importPreviewMutation.data?.columns
@@ -457,6 +525,15 @@ export function TransactionsPage() {
       setImportDefaultLedgerId(defaultLedger.id)
     }
   }, [accounts, importDefaultAccountId, importDefaultLedgerId, ledgers])
+
+  useEffect(() => {
+    if (accountId && accounts.length > 0 && !accounts.some((account) => account.id === accountId)) {
+      setAccountId('')
+    }
+    if (categoryId && categories.length > 0 && !categories.some((category) => category.id === categoryId)) {
+      setCategoryId('')
+    }
+  }, [accountId, accounts, categories, categoryId])
 
   const filteredListTransactions = useMemo(() => {
     const now = new Date()
@@ -517,6 +594,8 @@ export function TransactionsPage() {
     normalizedListSearchQuery ||
       selectedAccountFilter ||
       selectedLedgerFilter ||
+      amountMinFilter.trim() ||
+      amountMaxFilter.trim() ||
       dateRangePreset !== '120' ||
       quickFilter !== 'all' ||
       dateParam ||
@@ -589,11 +668,10 @@ export function TransactionsPage() {
       memo: memo || undefined,
       occurred_at: occurredAt,
     })
+    writeTransactionDefaults(transactionType, accountId, categoryId)
     setListRangeClock(Date.now())
     setShowAddDialog(false)
     setAmount('')
-    setCategoryId('')
-    setAccountId('')
     setMemo('')
     setDate(toLocalDateTimeInputValue(new Date()))
   }
@@ -606,7 +684,7 @@ export function TransactionsPage() {
   }
 
   async function handleConfirmImport() {
-    if (!importFile) return
+    if (!importFile || !importMappingReady) return
     const idempotencyKey = await buildImportIdempotencyKey(importFile)
     const payload = await buildImportConfirmPayload(importFile, importMapping, importDefaultAccountId, importDefaultLedgerId)
     writeImportDefaults(importDefaultAccountId, importDefaultLedgerId)
@@ -669,6 +747,8 @@ export function TransactionsPage() {
       dateTo: exportRange.to,
       accountId: selectedAccountFilter || undefined,
       ledgerId: selectedLedgerFilter || undefined,
+      amountMin: amountMinFilter.trim() || undefined,
+      amountMax: amountMaxFilter.trim() || undefined,
     })
     const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -704,30 +784,48 @@ export function TransactionsPage() {
 
   async function handleBulkApplyCategory() {
     if (!bulkCategoryId || selectedTransactions.length === 0) return
-    await Promise.all(selectedTransactions.map((tx) => updateTransactionMutation.mutateAsync({
-      id: tx.id,
-      input: {
-        amount: Math.abs(tx.amount),
-        category_id: bulkCategoryId,
-        memo: tx.memo ?? null,
-        version: tx.version,
-      },
-    })))
-    setSelectedTransactionIds(new Set())
-    setBulkCategoryId('')
-    setBulkMessage(t('transactionsPage.bulk.updated', { count: selectedTransactions.length }))
+    const results = await Promise.allSettled(selectedTransactions.map(async (tx) => {
+      await updateTransactionMutation.mutateAsync({
+        id: tx.id,
+        input: {
+          amount: Math.abs(tx.amount),
+          category_id: bulkCategoryId,
+          memo: tx.memo ?? null,
+          version: tx.version,
+        },
+      })
+      return tx.id
+    }))
+    const updatedIds = new Set(results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : [])))
+    const failedCount = results.length - updatedIds.size
+    setSelectedTransactionIds((current) => new Set([...current].filter((id) => !updatedIds.has(id))))
+    if (failedCount === 0) {
+      setBulkCategoryId('')
+      setBulkMessage(t('transactionsPage.bulk.updated', { count: updatedIds.size }))
+      return
+    }
+    setBulkMessage(t('transactionsPage.bulk.partialUpdated', { updated: updatedIds.size, failed: failedCount }))
   }
 
   async function handleBulkDelete() {
     if (selectedTransactions.length === 0) return
-    await Promise.all(selectedTransactions.map((tx) => deleteTransactionMutation.mutateAsync(tx.id)))
+    const results = await Promise.allSettled(selectedTransactions.map(async (tx) => {
+      await deleteTransactionMutation.mutateAsync(tx.id)
+      return tx.id
+    }))
+    const deletedIds = new Set(results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : [])))
+    const failedCount = results.length - deletedIds.size
     setDeletedTransactionIds((current) => {
       const next = new Set(current)
-      selectedTransactions.forEach((tx) => next.add(tx.id))
+      deletedIds.forEach((id) => next.add(id))
       return next
     })
-    setSelectedTransactionIds(new Set())
-    setBulkMessage(t('transactionsPage.bulk.deleted', { count: selectedTransactions.length }))
+    setSelectedTransactionIds((current) => new Set([...current].filter((id) => !deletedIds.has(id))))
+    setBulkMessage(
+      failedCount === 0
+        ? t('transactionsPage.bulk.deleted', { count: deletedIds.size })
+        : t('transactionsPage.bulk.partialDeleted', { deleted: deletedIds.size, failed: failedCount }),
+    )
   }
 
   function handleBulkMarkReviewed() {
@@ -749,6 +847,8 @@ export function TransactionsPage() {
     setListSearchQuery('')
     setSelectedAccountFilter('')
     setSelectedLedgerFilter('')
+    setAmountMinFilter('')
+    setAmountMaxFilter('')
     setDateRangePreset('120')
     setQuickFilter('all')
     setReviewReasonFilter('all')
@@ -803,6 +903,7 @@ export function TransactionsPage() {
     t('transactionsPage.calendar.weekdays.sat'),
   ]
   const importProblemRows = importResult?.rows.filter((row) => row.status !== 'success') ?? []
+  const exportTotal = listTransactionsQuery.data?.pagination.total ?? filteredListTransactions.length
 
   return (
     <div className="space-y-5">
@@ -838,6 +939,9 @@ export function TransactionsPage() {
               <Download className="h-4 w-4" />
               {exportTransactionsMutation.isPending ? t('transactionsPage.exporting') : t('transactionsPage.export')}
             </Button>
+            <span className="rounded-full bg-surface-container px-3 py-1.5 text-xs font-bold text-on-surface-variant">
+              {t('transactionsPage.exportSummary', { count: exportTotal })}
+            </span>
             <Button variant="secondary" onClick={() => setShowImportDialog(true)}>
               <Upload className="h-4 w-4" />
               {t('transactionsPage.import')}
@@ -924,7 +1028,7 @@ export function TransactionsPage() {
                   </button>
                 ))}
               </div>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
                 <label className="space-y-2">
                   <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
                     {t('transactionsPage.filters.searchLedger')}
@@ -988,6 +1092,36 @@ export function TransactionsPage() {
                     <option value="365">{t('transactionsPage.filters.last365Days')}</option>
                   </select>
                 </label>
+                <label className="space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                    {t('transactionsPage.filters.amountMin')}
+                  </span>
+                  <input
+                    aria-label={t('transactionsPage.filters.amountMin')}
+                    className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm"
+                    inputMode="decimal"
+                    min="0"
+                    placeholder="0"
+                    type="number"
+                    value={amountMinFilter}
+                    onChange={(event) => setAmountMinFilter(event.target.value)}
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                    {t('transactionsPage.filters.amountMax')}
+                  </span>
+                  <input
+                    aria-label={t('transactionsPage.filters.amountMax')}
+                    className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm"
+                    inputMode="decimal"
+                    min="0"
+                    placeholder="9999"
+                    type="number"
+                    value={amountMaxFilter}
+                    onChange={(event) => setAmountMaxFilter(event.target.value)}
+                  />
+                </label>
               </div>
             </article>
 
@@ -1000,6 +1134,9 @@ export function TransactionsPage() {
                         ? t('transactionsPage.bulk.selected', { count: selectedTransactions.length })
                         : bulkMessage}
                     </p>
+                    {selectedTransactions.length > 0 && bulkMessage ? (
+                      <p className="mt-1 text-xs font-semibold text-primary">{bulkMessage}</p>
+                    ) : null}
                     <p className="mt-1 text-xs text-on-surface-variant">{t('transactionsPage.bulk.description')}</p>
                   </div>
                   {selectedTransactions.length > 0 ? (
@@ -1459,8 +1596,8 @@ export function TransactionsPage() {
                         {t('transactionsPage.importDialog.mappingDescription')}
                       </p>
                     </div>
-                    <p className="rounded-full bg-primary-fixed px-3 py-1 text-xs font-bold text-primary">
-                      {t('transactionsPage.importDialog.mappingReady')}
+                    <p className={`rounded-full px-3 py-1 text-xs font-bold ${importMappingReady ? 'bg-primary-fixed text-primary' : 'bg-amber-50 text-amber-700'}`}>
+                      {importMappingReady ? t('transactionsPage.importDialog.mappingReady') : t('transactionsPage.importDialog.mappingNeedsFields')}
                     </p>
                   </div>
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -1528,8 +1665,47 @@ export function TransactionsPage() {
                     </label>
                   </div>
                 </section>
+                <section className="rounded-2xl border border-outline/10 bg-white p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-headline text-2xl font-bold leading-tight text-on-surface">
+                        {t('transactionsPage.importDialog.mappedPreviewTitle')}
+                      </h3>
+                      <p className="mt-1 text-sm text-on-surface-variant">
+                        {t('transactionsPage.importDialog.mappedPreviewDescription')}
+                      </p>
+                    </div>
+                    <p className={`rounded-full px-3 py-1 text-xs font-bold ${importMappingReady ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                      {importMappingReady ? t('transactionsPage.importDialog.mappedPreviewReady') : t('transactionsPage.importDialog.mappedPreviewNeedsMapping')}
+                    </p>
+                  </div>
+                  {importMappingReady ? (
+                    <div className="mt-4 overflow-x-auto rounded-xl border border-outline/10">
+                      <div className="grid min-w-[640px] grid-cols-[1.1fr_0.8fr_1.5fr_0.8fr_1fr] bg-surface-container-low px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">
+                        <span>{t('transactionsPage.importDialog.previewDate')}</span>
+                        <span>{t('transactionsPage.importDialog.previewAmount')}</span>
+                        <span>{t('transactionsPage.importDialog.previewMemo')}</span>
+                        <span>{t('transactionsPage.importDialog.previewType')}</span>
+                        <span>{t('transactionsPage.importDialog.previewCategory')}</span>
+                      </div>
+                      {importMappedPreviewRows.map((row, index) => (
+                        <div key={`${row.date}-${row.amount}-${index}`} className="grid min-w-[640px] grid-cols-[1.1fr_0.8fr_1.5fr_0.8fr_1fr] border-t border-outline/10 px-3 py-2 text-sm text-on-surface">
+                          <span className="truncate">{row.date || '-'}</span>
+                          <span className="truncate font-semibold">{row.amount || '-'}</span>
+                          <span className="truncate">{row.description || '-'}</span>
+                          <span className="truncate">{row.type || '-'}</span>
+                          <span className="truncate">{row.category || '-'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+                      {t('transactionsPage.importDialog.missingRequiredMapping')}
+                    </p>
+                  )}
+                </section>
                 <div className="mt-4 flex items-center gap-3">
-                  <Button onClick={() => void handleConfirmImport()} disabled={importConfirmMutation.isPending}>
+                  <Button onClick={() => void handleConfirmImport()} disabled={importConfirmMutation.isPending || !importMappingReady}>
                     {importConfirmMutation.isPending ? t('transactionsPage.importDialog.importing') : t('transactionsPage.importDialog.confirm')}
                   </Button>
                   {importConfirmMutation.isError ? (

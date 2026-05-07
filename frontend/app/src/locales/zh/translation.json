@@ -252,6 +252,7 @@
     "calendarView": "日历视图",
     "export": "导出",
     "exporting": "正在导出...",
+    "exportSummary": "导出 {{count}} 笔交易",
     "exportFailed": "导出失败：{{message}}",
     "import": "导入",
     "addTransaction": "+ 添加交易",
@@ -299,7 +300,9 @@
       "last7Days": "最近 7 天",
       "last30Days": "最近 30 天",
       "last120Days": "最近 120 天",
-      "last365Days": "最近 365 天"
+      "last365Days": "最近 365 天",
+      "amountMin": "最小金额",
+      "amountMax": "最大金额"
     },
     "table": {
       "select": "选择",
@@ -376,6 +379,7 @@
       "mappingTitle": "字段映射",
       "mappingDescription": "导入前先匹配每个 CSV 列，默认账户和账本会记住到下次导入。",
       "mappingReady": "可复核",
+      "mappingNeedsFields": "需要映射",
       "dateColumn": "日期列",
       "amountColumn": "金额列",
       "memoColumn": "备注列",
@@ -386,6 +390,16 @@
       "ignoreColumn": "忽略",
       "defaultAccount": "默认账户",
       "defaultLedger": "默认账本",
+      "mappedPreviewTitle": "映射预览",
+      "mappedPreviewDescription": "按最终提交格式检查前几行数据。",
+      "mappedPreviewReady": "可以导入",
+      "mappedPreviewNeedsMapping": "缺少必填字段",
+      "missingRequiredMapping": "确认导入前，请先映射日期、金额和备注列。",
+      "previewDate": "日期",
+      "previewAmount": "金额",
+      "previewMemo": "备注",
+      "previewType": "类型",
+      "previewCategory": "分类",
       "importing": "导入中...",
       "confirm": "确认导入",
       "importFailed": "导入失败：{{message}}",
@@ -425,7 +439,9 @@
       "delete": "删除已选",
       "updated": "已更新 {{count}} 条交易。",
       "deleted": "已删除 {{count}} 条交易。",
-      "reviewed": "已将 {{count}} 条交易标记为已复核。"
+      "reviewed": "已将 {{count}} 条交易标记为已复核。",
+      "partialUpdated": "已更新 {{updated}} 条，失败 {{failed}} 条。失败项会保留选中。",
+      "partialDeleted": "已删除 {{deleted}} 条，失败 {{failed}} 条。失败项会保留选中。"
     }
   },
   "accountsPage": {

@@ -23,6 +23,8 @@ type ExportQuery struct {
 	LedgerID  string
 	AccountID string
 	Search    string
+	AmountMin *float64
+	AmountMax *float64
 	Timeout   time.Duration
 }
 
@@ -64,6 +66,8 @@ func (s *ExportService) Export(ctx context.Context, userID string, query ExportQ
 		LedgerID:     strings.TrimSpace(query.LedgerID),
 		AccountID:    strings.TrimSpace(query.AccountID),
 		Search:       strings.TrimSpace(query.Search),
+		AmountMin:    query.AmountMin,
+		AmountMax:    query.AmountMax,
 		OccurredFrom: query.From,
 		OccurredTo:   query.To,
 	}
@@ -83,6 +87,9 @@ func (s *ExportService) Export(ctx context.Context, userID string, query ExportQ
 			continue
 		}
 		if txnQuery.AccountID != "" && !exportTransactionMatchesAccount(txn, txnQuery.AccountID) {
+			continue
+		}
+		if !exportTransactionMatchesAmountRange(txn, query.AmountMin, query.AmountMax) {
 			continue
 		}
 		if strings.TrimSpace(txn.CategoryName) == "" && s.repo.historyFn != nil {
@@ -154,6 +161,16 @@ func (s *ExportService) rawList(userID string, query accounting.TransactionQuery
 		return s.repo.listFn(userID, query)
 	}
 	return append([]accounting.Transaction(nil), s.repo.items...), nil
+}
+
+func exportTransactionMatchesAmountRange(txn accounting.Transaction, minAmount *float64, maxAmount *float64) bool {
+	if minAmount != nil && txn.Amount < *minAmount {
+		return false
+	}
+	if maxAmount != nil && txn.Amount > *maxAmount {
+		return false
+	}
+	return true
 }
 
 func exportPtrString(value *string) string {

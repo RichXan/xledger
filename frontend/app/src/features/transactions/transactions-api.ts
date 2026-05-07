@@ -117,6 +117,8 @@ export interface ExportTransactionsOptions {
   dateTo?: string
   accountId?: string
   ledgerId?: string
+  amountMin?: string
+  amountMax?: string
 }
 
 export function getTransactions(
@@ -129,6 +131,8 @@ export function getTransactions(
     dateTo?: string
     accountId?: string
     ledgerId?: string
+    amountMin?: string
+    amountMax?: string
   },
 ) {
   const params = new URLSearchParams({
@@ -150,6 +154,12 @@ export function getTransactions(
   if (options?.ledgerId) {
     params.set('ledger_id', options.ledgerId)
   }
+  if (options?.amountMin) {
+    params.set('amount_min', options.amountMin)
+  }
+  if (options?.amountMax) {
+    params.set('amount_max', options.amountMax)
+  }
   return requestEnvelope<PaginatedResponse<TransactionRecord>>(`/transactions?${params.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
@@ -163,6 +173,8 @@ export function getTransactionReviewSummary(
     dateTo?: string
     accountId?: string
     ledgerId?: string
+    amountMin?: string
+    amountMax?: string
   },
 ) {
   const params = new URLSearchParams()
@@ -181,6 +193,12 @@ export function getTransactionReviewSummary(
   if (options?.ledgerId) {
     params.set('ledger_id', options.ledgerId)
   }
+  if (options?.amountMin) {
+    params.set('amount_min', options.amountMin)
+  }
+  if (options?.amountMax) {
+    params.set('amount_max', options.amountMax)
+  }
   const suffix = params.toString() ? `?${params.toString()}` : ''
   return requestEnvelope<TransactionReviewSummary>(`/transactions/review-summary${suffix}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -198,6 +216,8 @@ export function getTransactionReviewItems(
     dateTo?: string
     accountId?: string
     ledgerId?: string
+    amountMin?: string
+    amountMax?: string
   },
 ) {
   const params = new URLSearchParams({
@@ -221,6 +241,12 @@ export function getTransactionReviewItems(
   }
   if (options?.ledgerId) {
     params.set('ledger_id', options.ledgerId)
+  }
+  if (options?.amountMin) {
+    params.set('amount_min', options.amountMin)
+  }
+  if (options?.amountMax) {
+    params.set('amount_max', options.amountMax)
   }
   return requestEnvelope<PaginatedResponse<TransactionReviewItem>>(`/transactions/review-items?${params.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -300,6 +326,12 @@ export async function exportTransactions(accessToken: string, options?: ExportTr
   }
   if (options?.ledgerId) {
     params.set('ledger_id', options.ledgerId)
+  }
+  if (options?.amountMin) {
+    params.set('amount_min', options.amountMin)
+  }
+  if (options?.amountMax) {
+    params.set('amount_max', options.amountMax)
   }
 
   const response = await fetch(`/api/export?${params.toString()}`, {

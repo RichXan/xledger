@@ -244,6 +244,22 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		}
 		query.OccurredTo = parsed.UTC()
 	}
+	if rawMin := c.Query("amount_min"); rawMin != "" {
+		parsed, err := strconv.ParseFloat(rawMin, 64)
+		if err != nil {
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return
+		}
+		query.AmountMin = &parsed
+	}
+	if rawMax := c.Query("amount_max"); rawMax != "" {
+		parsed, err := strconv.ParseFloat(rawMax, 64)
+		if err != nil {
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return
+		}
+		query.AmountMax = &parsed
+	}
 	if rawPage := c.Query("page"); rawPage != "" {
 		parsed, err := strconv.Atoi(rawPage)
 		if err != nil {
@@ -354,6 +370,22 @@ func parseTransactionListQuery(c *gin.Context, includePagination bool) (Transact
 			return TransactionQuery{}, false
 		}
 		query.OccurredTo = parsed.UTC()
+	}
+	if rawMin := c.Query("amount_min"); rawMin != "" {
+		parsed, err := strconv.ParseFloat(rawMin, 64)
+		if err != nil {
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return TransactionQuery{}, false
+		}
+		query.AmountMin = &parsed
+	}
+	if rawMax := c.Query("amount_max"); rawMax != "" {
+		parsed, err := strconv.ParseFloat(rawMax, 64)
+		if err != nil {
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return TransactionQuery{}, false
+		}
+		query.AmountMax = &parsed
 	}
 	if includePagination {
 		if rawPage := c.Query("page"); rawPage != "" {

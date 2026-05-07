@@ -212,6 +212,51 @@ func TestExport_FiltersBySearchQuery(t *testing.T) {
 	}
 }
 
+func TestExport_FiltersByAmountRange(t *testing.T) {
+	ctx := context.Background()
+	ledgerRepo := accounting.NewInMemoryLedgerRepository()
+	accountRepo := accounting.NewInMemoryAccountRepository()
+	txnRepo := accounting.NewInMemoryTransactionRepository()
+	classificationRepo := classification.NewInMemoryRepository()
+	categoryService := classification.NewCategoryService(classificationRepo)
+	tagService := classification.NewTagService(classificationRepo)
+	txnService := accounting.NewTransactionService(txnRepo, ledgerRepo, accountRepo, categoryService, tagService)
+	ledger, err := ledgerRepo.Create("user-1", accounting.LedgerCreateInput{Name: "Main", IsDefault: true})
+	if err != nil {
+		t.Fatalf("seed ledger: %v", err)
+	}
+
+	for _, seed := range []struct {
+		amount float64
+		memo   string
+	}{
+		{amount: 25, memo: "Coffee"},
+		{amount: 1250, memo: "Flight"},
+		{amount: 3000, memo: "Rent"},
+	} {
+		if _, err := txnService.CreateTransaction(ctx, "user-1", accounting.TransactionCreateInput{
+			LedgerID:   ledger.ID,
+			Type:       accounting.TransactionTypeExpense,
+			Amount:     seed.amount,
+			Memo:       seed.memo,
+			OccurredAt: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC),
+		}); err != nil {
+			t.Fatalf("seed %s: %v", seed.memo, err)
+		}
+	}
+
+	minAmount := 100.0
+	maxAmount := 2000.0
+	service := NewExportService(NewExportRepository(txnRepo, categoryService))
+	content, err := service.Export(ctx, "user-1", ExportQuery{Format: "csv", AmountMin: &minAmount, AmountMax: &maxAmount})
+	if err != nil {
+		t.Fatalf("export amount range: %v", err)
+	}
+	if !strings.Contains(content, "Flight") || strings.Contains(content, "Coffee") || strings.Contains(content, "Rent") {
+		t.Fatalf("expected only amount range match in export, got %s", content)
+	}
+}
+
 func ExportPerf10K(t *testing.T) {
 	ctx := context.Background()
 	service := newExportFixture(t)

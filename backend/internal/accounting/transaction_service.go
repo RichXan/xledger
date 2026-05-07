@@ -344,6 +344,9 @@ func (s *TransactionService) ListTransactions(ctx context.Context, userID string
 	if !query.OccurredFrom.IsZero() && !query.OccurredTo.IsZero() && query.OccurredFrom.After(query.OccurredTo) {
 		return nil, &contractError{code: TXN_VALIDATION_FAILED}
 	}
+	if err := validateTransactionAmountRange(query); err != nil {
+		return nil, err
+	}
 	if query.Page < 0 || query.PageSize < 0 {
 		return nil, &contractError{code: TXN_VALIDATION_FAILED}
 	}
@@ -531,6 +534,9 @@ func (s *TransactionService) ListTransactionsWithTotal(ctx context.Context, user
 	if !query.OccurredFrom.IsZero() && !query.OccurredTo.IsZero() && query.OccurredFrom.After(query.OccurredTo) {
 		return nil, 0, &contractError{code: TXN_VALIDATION_FAILED}
 	}
+	if err := validateTransactionAmountRange(query); err != nil {
+		return nil, 0, err
+	}
 	if query.Page < 0 || query.PageSize < 0 {
 		return nil, 0, &contractError{code: TXN_VALIDATION_FAILED}
 	}
@@ -563,6 +569,19 @@ func (s *TransactionService) ListTransactionsWithTotal(ctx context.Context, user
 	}
 
 	return items, total, nil
+}
+
+func validateTransactionAmountRange(query TransactionQuery) error {
+	if query.AmountMin != nil && *query.AmountMin < 0 {
+		return &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	if query.AmountMax != nil && *query.AmountMax < 0 {
+		return &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	if query.AmountMin != nil && query.AmountMax != nil && *query.AmountMin > *query.AmountMax {
+		return &contractError{code: TXN_VALIDATION_FAILED}
+	}
+	return nil
 }
 
 // GetCategorySpentInPeriod returns total spending for a category within a date range.

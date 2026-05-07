@@ -32,12 +32,14 @@ export function useTransactionsWithOptions(options?: {
   dateTo?: string
   accountId?: string
   ledgerId?: string
+  amountMin?: string
+  amountMax?: string
   enabled?: boolean
 }) {
   const { session } = useAuth()
 
   return useQuery({
-    queryKey: ['transactions', 'list', options?.page ?? 1, options?.pageSize ?? 20, options?.q ?? '', options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? ''],
+    queryKey: ['transactions', 'list', options?.page ?? 1, options?.pageSize ?? 20, options?.q ?? '', options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? '', options?.amountMin ?? '', options?.amountMax ?? ''],
     queryFn: () => getTransactions(session!.accessToken, options),
     enabled: Boolean(session?.accessToken) && options?.enabled !== false,
   })
@@ -49,11 +51,13 @@ export function useTransactionReviewSummary(options?: {
   dateTo?: string
   accountId?: string
   ledgerId?: string
+  amountMin?: string
+  amountMax?: string
 }) {
   const { session } = useAuth()
 
   return useQuery({
-    queryKey: ['transactions', 'review-summary', options?.q ?? '', options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? ''],
+    queryKey: ['transactions', 'review-summary', options?.q ?? '', options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? '', options?.amountMin ?? '', options?.amountMax ?? ''],
     queryFn: () => getTransactionReviewSummary(session!.accessToken, options),
     enabled: Boolean(session?.accessToken),
     retry: false,
@@ -70,6 +74,8 @@ export function useTransactionReviewItems(options?: {
   dateTo?: string
   accountId?: string
   ledgerId?: string
+  amountMin?: string
+  amountMax?: string
   enabled?: boolean
 }) {
   const { session } = useAuth()
@@ -86,6 +92,8 @@ export function useTransactionReviewItems(options?: {
       options?.dateTo ?? '',
       options?.accountId ?? '',
       options?.ledgerId ?? '',
+      options?.amountMin ?? '',
+      options?.amountMax ?? '',
     ],
     queryFn: () => getTransactionReviewItems(session!.accessToken, options),
     enabled: Boolean(session?.accessToken) && options?.enabled !== false,

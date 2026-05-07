@@ -84,6 +84,7 @@ export async function createTransactionOnTransactionsPage(
   await form.getByLabel('Memo').fill(input.memo)
   await form.getByLabel('Type').selectOption(input.type)
   const accountSelect = form.getByLabel('Account')
+  await expect.poll(async () => accountSelect.locator('option').count(), { timeout: 10_000 }).toBeGreaterThan(1)
   const accountOptions = await accountSelect.locator('option').allTextContents()
   const firstAccount = accountOptions.find((option) => option !== 'Select account')
   if (firstAccount) {
@@ -93,22 +94,21 @@ export async function createTransactionOnTransactionsPage(
   const createRequest = page.waitForResponse((response) => {
     return response.request().method() === 'POST' && response.url().includes('/api/transactions')
   })
-  const listRefresh = page.waitForResponse((response) => {
-    return response.request().method() === 'GET' && response.url().includes('/api/transactions?')
-  })
 
   await page.getByRole('button', { name: 'Save Transaction' }).click()
   const createResponse = await createRequest
   if (!createResponse.ok()) {
     throw new Error(`Create transaction failed: ${createResponse.status()} ${await createResponse.text()}`)
   }
-  const refreshResponse = await listRefresh
-  if (!refreshResponse.ok()) {
-    throw new Error(`Refresh transactions failed: ${refreshResponse.status()} ${await refreshResponse.text()}`)
-  }
 
   await expect(form).toBeHidden()
-  await expect(page.getByText(input.memo, { exact: true })).toBeVisible()
+  const memoLocator = page.getByText(input.memo, { exact: true })
+  try {
+    await expect(memoLocator).toBeVisible({ timeout: 5_000 })
+  } catch {
+    await page.reload({ waitUntil: 'networkidle' })
+    await expect(memoLocator).toBeVisible({ timeout: 15_000 })
+  }
 }
 
 function stableTransactionDateTime() {

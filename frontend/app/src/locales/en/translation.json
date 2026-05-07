@@ -252,6 +252,7 @@
     "calendarView": "Calendar View",
     "export": "Export",
     "exporting": "Exporting...",
+    "exportSummary": "Export {{count}} transactions",
     "exportFailed": "Export failed: {{message}}",
     "import": "Import",
     "addTransaction": "+ Add Transaction",
@@ -299,7 +300,9 @@
       "last7Days": "Last 7 Days",
       "last30Days": "Last 30 Days",
       "last120Days": "Last 120 Days",
-      "last365Days": "Last 365 Days"
+      "last365Days": "Last 365 Days",
+      "amountMin": "Minimum Amount",
+      "amountMax": "Maximum Amount"
     },
     "table": {
       "select": "Select",
@@ -376,6 +379,7 @@
       "mappingTitle": "Field Mapping",
       "mappingDescription": "Map each CSV column before importing. Defaults are remembered for the next import.",
       "mappingReady": "Ready to review",
+      "mappingNeedsFields": "Needs mapping",
       "dateColumn": "Date Column",
       "amountColumn": "Amount Column",
       "memoColumn": "Memo Column",
@@ -386,6 +390,16 @@
       "ignoreColumn": "Ignore",
       "defaultAccount": "Default Account",
       "defaultLedger": "Default Ledger",
+      "mappedPreviewTitle": "Mapped Preview",
+      "mappedPreviewDescription": "Review the first rows exactly as they will be submitted.",
+      "mappedPreviewReady": "Ready to import",
+      "mappedPreviewNeedsMapping": "Missing required fields",
+      "missingRequiredMapping": "Map date, amount, and memo columns before confirming this import.",
+      "previewDate": "Date",
+      "previewAmount": "Amount",
+      "previewMemo": "Memo",
+      "previewType": "Type",
+      "previewCategory": "Category",
       "importing": "Importing...",
       "confirm": "Confirm Import",
       "importFailed": "Import failed: {{message}}",
@@ -425,7 +439,9 @@
       "delete": "Delete Selected",
       "updated": "{{count}} transactions updated.",
       "deleted": "{{count}} transactions deleted.",
-      "reviewed": "{{count}} transactions marked reviewed."
+      "reviewed": "{{count}} transactions marked reviewed.",
+      "partialUpdated": "{{updated}} updated, {{failed}} failed. Failed rows stay selected.",
+      "partialDeleted": "{{deleted}} deleted, {{failed}} failed. Failed rows stay selected."
     }
   },
   "accountsPage": {

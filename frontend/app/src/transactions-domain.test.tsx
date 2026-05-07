@@ -443,7 +443,7 @@ describe('transactions domain', () => {
     })
 
     await user.click(screen.getByRole('button', { name: /add transaction/i }))
-    await user.type(screen.getByLabelText(/amount/i), '88.5')
+    await user.type(screen.getByRole('spinbutton', { name: /^amount$/i }), '88.5')
     await user.clear(screen.getByLabelText(/date & time/i))
     await user.type(screen.getByLabelText(/date & time/i), '2026-03-03T12:34:56')
     await user.selectOptions(screen.getByLabelText(/category/i), 'cat-1')
@@ -478,6 +478,31 @@ describe('transactions domain', () => {
     })
   })
 
+  it('remembers the last transaction form defaults after saving', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /add transaction/i }))
+    await user.type(screen.getByRole('spinbutton', { name: /^amount$/i }), '42')
+    await user.selectOptions(screen.getByLabelText(/type/i), 'income')
+    await user.selectOptions(screen.getByLabelText(/category/i), 'cat-2')
+    await user.selectOptions(screen.getByLabelText(/account/i), 'acc-2')
+    await user.click(screen.getByRole('button', { name: /save transaction/i }))
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem('xledger.transaction.defaults')).toContain('acc-2')
+    })
+
+    await user.click(screen.getByRole('button', { name: /add transaction/i }))
+
+    expect(screen.getByLabelText(/type/i)).toHaveValue('income')
+    expect(screen.getByLabelText(/category/i)).toHaveValue('cat-2')
+    expect(screen.getByLabelText(/account/i)).toHaveValue('acc-2')
+  })
+
   it('lets users map import fields and remembers default account and ledger for confirmation', async () => {
     const fetchMock = createTransactionsFetchMock()
     global.fetch = fetchMock as typeof fetch
@@ -500,6 +525,15 @@ describe('transactions domain', () => {
     await user.selectOptions(screen.getByLabelText(/memo column/i), 'details')
     await user.selectOptions(screen.getByLabelText(/default account/i), 'acc-1')
     await user.selectOptions(screen.getByLabelText(/default ledger/i), 'ledger-1')
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /mapped preview/i })).toBeInTheDocument()
+      expect(screen.getByText(/ready to import/i)).toBeInTheDocument()
+      expect(screen.getByText('2026-03-01 12:30:45')).toBeInTheDocument()
+      expect(screen.getAllByText('25.00').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Lunch').length).toBeGreaterThan(0)
+    })
+
     await user.click(screen.getByRole('button', { name: /confirm import/i }))
 
     await waitFor(() => {
@@ -513,6 +547,37 @@ describe('transactions domain', () => {
       expect(confirmCall?.[1]?.body).toEqual(expect.stringContaining('"default_ledger_id":"ledger-1"'))
     })
     expect(window.localStorage.getItem('xledger.import.defaults')).toContain('acc-1')
+  })
+
+  it('keeps failed transactions selected when a bulk category update partially fails', async () => {
+    const baseFetchMock = createTransactionsFetchMock()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/transactions/txn-5') && init?.method === 'PATCH') {
+        return new Response(
+          JSON.stringify({ code: 'VERSION_CONFLICT', message: 'Transaction changed', data: null }),
+          { status: 409, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      return baseFetchMock(input, init)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await screen.findByText('Food')
+    await user.click(screen.getByRole('checkbox', { name: /select food/i }))
+    await user.click(screen.getByRole('checkbox', { name: /select cafe/i }))
+    await screen.findByText(/2 selected/i)
+    await user.selectOptions(screen.getByLabelText(/bulk category/i), 'cat-1')
+    await user.click(screen.getByRole('button', { name: /apply bulk category/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 updated, 1 failed/i)).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: /select food/i })).not.toBeChecked()
+      expect(screen.getByRole('checkbox', { name: /select cafe/i })).toBeChecked()
+    })
   })
 
   it('supports bulk category updates for selected transactions', async () => {
@@ -621,6 +686,54 @@ describe('transactions domain', () => {
     expect(exportUrl).toContain('to=')
     expect(createObjectURL).toHaveBeenCalled()
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:transactions-export')
+  })
+
+  it('filters and exports transactions by amount range', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/export?')) {
+        return new Response('occurred_at,amount,type,category_name\n2026-03-04T18:20:00Z,1250,expense,Travel\n', {
+          status: 200,
+          headers: { 'Content-Type': 'text/csv' },
+        })
+      }
+      return createTransactionsFetchMock()(input, init)
+    })
+    global.fetch = fetchMock as typeof fetch
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:amount-export')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await screen.findByText('Food')
+    await user.clear(screen.getByLabelText(/minimum amount/i))
+    await user.type(screen.getByLabelText(/minimum amount/i), '100')
+    await user.clear(screen.getByLabelText(/maximum amount/i))
+    await user.type(screen.getByLabelText(/maximum amount/i), '2000')
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => {
+        const url = new URL(String(input), 'http://localhost')
+        return (
+          url.pathname === '/api/transactions' &&
+          url.searchParams.get('amount_min') === '100' &&
+          url.searchParams.get('amount_max') === '2000'
+        )
+      })).toBe(true)
+    })
+    expect(screen.getByText(/export 5 transactions/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+
+    await waitFor(() => {
+      const exportCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/api/export?'))
+      const exportUrl = String(exportCall?.[0] ?? '')
+      expect(exportUrl).toContain('amount_min=100')
+      expect(exportUrl).toContain('amount_max=2000')
+    })
   })
 
   it('opens a reviewed transaction day from the review queue', async () => {

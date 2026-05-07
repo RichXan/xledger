@@ -235,6 +235,52 @@ func TestListTransactions_SearchQueryParamFiltersResults(t *testing.T) {
 	}
 }
 
+func TestListTransactions_AmountRangeFiltersResults(t *testing.T) {
+	ctx := context.Background()
+	service, ledger, _, account, _, categoryService, _ := newTransactionFilterFixture(t)
+	category, err := categoryService.CreateCategory(ctx, "user-1", classification.CategoryCreateInput{Name: "Travel"})
+	if err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+
+	for _, seed := range []struct {
+		amount float64
+		memo   string
+		when   time.Time
+	}{
+		{amount: 25, memo: "Coffee", when: time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)},
+		{amount: 1250, memo: "Flight", when: time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)},
+		{amount: 3000, memo: "Rent", when: time.Date(2026, 3, 3, 10, 0, 0, 0, time.UTC)},
+	} {
+		if _, err := service.CreateTransaction(ctx, "user-1", TransactionCreateInput{
+			LedgerID:   ledger.ID,
+			AccountID:  &account.ID,
+			Type:       TransactionTypeExpense,
+			Amount:     seed.amount,
+			CategoryID: &category.ID,
+			Memo:       seed.memo,
+			OccurredAt: seed.when,
+		}); err != nil {
+			t.Fatalf("seed transaction %s: %v", seed.memo, err)
+		}
+	}
+
+	minAmount := 100.0
+	maxAmount := 2000.0
+	items, total, err := service.ListTransactionsWithTotal(ctx, "user-1", TransactionQuery{
+		AmountMin: &minAmount,
+		AmountMax: &maxAmount,
+		Page:      1,
+		PageSize:  20,
+	})
+	if err != nil {
+		t.Fatalf("list by amount range: %v", err)
+	}
+	if total != 1 || len(items) != 1 || items[0].Memo != "Flight" {
+		t.Fatalf("expected only Flight in amount range, total=%d items=%+v", total, items)
+	}
+}
+
 func TestListTransactions_InvalidRange_ReturnsBadRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	handler := NewHandler(nil, nil, &TransactionService{})

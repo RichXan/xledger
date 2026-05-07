@@ -91,6 +91,8 @@ type TransactionQuery struct {
 	CategoryID        string
 	TagID             string
 	Search            string
+	AmountMin         *float64
+	AmountMax         *float64
 	OccurredFrom      time.Time
 	OccurredTo        time.Time
 	Page              int
@@ -408,6 +410,9 @@ func (r *InMemoryTransactionRepository) ListByUser(userID string, query Transact
 		if searchFilter != "" && !transactionMatchesSearch(txn, searchFilter) {
 			continue
 		}
+		if !transactionMatchesAmountRange(txn, query.AmountMin, query.AmountMax) {
+			continue
+		}
 		if !query.OccurredFrom.IsZero() && txn.OccurredAt.Before(query.OccurredFrom) {
 			continue
 		}
@@ -497,6 +502,9 @@ func (r *InMemoryTransactionRepository) CountByUser(userID string, query Transac
 		if searchFilter != "" && !transactionMatchesSearch(txn, searchFilter) {
 			continue
 		}
+		if !transactionMatchesAmountRange(txn, query.AmountMin, query.AmountMax) {
+			continue
+		}
 		if !query.OccurredFrom.IsZero() && txn.OccurredAt.Before(query.OccurredFrom) {
 			continue
 		}
@@ -525,6 +533,17 @@ func (r *InMemoryTransactionRepository) CountByUser(userID string, query Transac
 		count++
 	}
 	return count, nil
+}
+
+func transactionMatchesAmountRange(txn Transaction, minAmount *float64, maxAmount *float64) bool {
+	amount := txn.Amount
+	if minAmount != nil && amount < *minAmount {
+		return false
+	}
+	if maxAmount != nil && amount > *maxAmount {
+		return false
+	}
+	return true
 }
 
 func transactionMatchesSearch(txn Transaction, search string) bool {

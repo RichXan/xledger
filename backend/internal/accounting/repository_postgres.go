@@ -448,6 +448,16 @@ func (r *PostgresTransactionRepository) ListByUser(userID string, query Transact
 		args = append(args, "%"+strings.ToLower(strings.TrimSpace(query.Search))+"%")
 		argIdx++
 	}
+	if query.AmountMin != nil {
+		sqlQuery += ` AND amount >= $` + itoa(argIdx)
+		args = append(args, *query.AmountMin)
+		argIdx++
+	}
+	if query.AmountMax != nil {
+		sqlQuery += ` AND amount <= $` + itoa(argIdx)
+		args = append(args, *query.AmountMax)
+		argIdx++
+	}
 	if !query.OccurredFrom.IsZero() {
 		sqlQuery += ` AND occurred_at >= $` + itoa(argIdx)
 		args = append(args, query.OccurredFrom)
@@ -546,6 +556,16 @@ func (r *PostgresTransactionRepository) CountByUser(userID string, query Transac
 			LOWER(type) LIKE $` + itoa(argIdx) + `
 		)`
 		args = append(args, "%"+strings.ToLower(strings.TrimSpace(query.Search))+"%")
+		argIdx++
+	}
+	if query.AmountMin != nil {
+		sqlQuery += ` AND amount >= $` + itoa(argIdx)
+		args = append(args, *query.AmountMin)
+		argIdx++
+	}
+	if query.AmountMax != nil {
+		sqlQuery += ` AND amount <= $` + itoa(argIdx)
+		args = append(args, *query.AmountMax)
 		argIdx++
 	}
 	if !query.OccurredFrom.IsZero() {

@@ -3,6 +3,7 @@ package portability
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -126,6 +127,22 @@ func (h *Handler) Export(c *gin.Context) {
 	query.LedgerID = strings.TrimSpace(c.Query("ledger_id"))
 	query.AccountID = strings.TrimSpace(c.Query("account_id"))
 	query.Search = strings.TrimSpace(c.Query("q"))
+	if raw := c.Query("amount_min"); raw != "" {
+		parsed, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return
+		}
+		query.AmountMin = &parsed
+	}
+	if raw := c.Query("amount_max"); raw != "" {
+		parsed, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+			return
+		}
+		query.AmountMax = &parsed
+	}
 	if raw := c.Query("from"); raw != "" {
 		parsed, err := time.Parse(time.RFC3339, raw)
 		if err != nil {
