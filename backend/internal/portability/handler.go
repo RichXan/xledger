@@ -125,6 +125,7 @@ func (h *Handler) Export(c *gin.Context) {
 	query := ExportQuery{Format: c.DefaultQuery("format", "csv")}
 	query.LedgerID = strings.TrimSpace(c.Query("ledger_id"))
 	query.AccountID = strings.TrimSpace(c.Query("account_id"))
+	query.Search = strings.TrimSpace(c.Query("q"))
 	if raw := c.Query("from"); raw != "" {
 		parsed, err := time.Parse(time.RFC3339, raw)
 		if err != nil {

@@ -44,6 +44,7 @@ export function useTransactionsWithOptions(options?: {
 }
 
 export function useTransactionReviewSummary(options?: {
+  q?: string
   dateFrom?: string
   dateTo?: string
   accountId?: string
@@ -52,7 +53,7 @@ export function useTransactionReviewSummary(options?: {
   const { session } = useAuth()
 
   return useQuery({
-    queryKey: ['transactions', 'review-summary', options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? ''],
+    queryKey: ['transactions', 'review-summary', options?.q ?? '', options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? ''],
     queryFn: () => getTransactionReviewSummary(session!.accessToken, options),
     enabled: Boolean(session?.accessToken),
     retry: false,
@@ -64,6 +65,7 @@ export function useTransactionReviewItems(options?: {
   page?: number
   pageSize?: number
   reason?: 'all' | TransactionReviewReason
+  q?: string
   dateFrom?: string
   dateTo?: string
   accountId?: string
@@ -79,6 +81,7 @@ export function useTransactionReviewItems(options?: {
       options?.page ?? 1,
       options?.pageSize ?? 20,
       options?.reason ?? 'all',
+      options?.q ?? '',
       options?.dateFrom ?? '',
       options?.dateTo ?? '',
       options?.accountId ?? '',

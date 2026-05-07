@@ -112,6 +112,7 @@ export interface ImportConfirmRequest {
 
 export interface ExportTransactionsOptions {
   format?: 'csv' | 'json'
+  q?: string
   dateFrom?: string
   dateTo?: string
   accountId?: string
@@ -157,6 +158,7 @@ export function getTransactions(
 export function getTransactionReviewSummary(
   accessToken: string,
   options?: {
+    q?: string
     dateFrom?: string
     dateTo?: string
     accountId?: string
@@ -164,6 +166,9 @@ export function getTransactionReviewSummary(
   },
 ) {
   const params = new URLSearchParams()
+  if (options?.q) {
+    params.set('q', options.q)
+  }
   if (options?.dateFrom) {
     params.set('date_from', options.dateFrom)
   }
@@ -188,6 +193,7 @@ export function getTransactionReviewItems(
     page?: number
     pageSize?: number
     reason?: 'all' | TransactionReviewReason
+    q?: string
     dateFrom?: string
     dateTo?: string
     accountId?: string
@@ -200,6 +206,9 @@ export function getTransactionReviewItems(
   })
   if (options?.reason && options.reason !== 'all') {
     params.set('reason', options.reason)
+  }
+  if (options?.q) {
+    params.set('q', options.q)
   }
   if (options?.dateFrom) {
     params.set('date_from', options.dateFrom)
@@ -279,6 +288,9 @@ export async function exportTransactions(accessToken: string, options?: ExportTr
   const params = new URLSearchParams({ format: options?.format ?? 'csv' })
   if (options?.dateFrom) {
     params.set('from', options.dateFrom)
+  }
+  if (options?.q) {
+    params.set('q', options.q)
   }
   if (options?.dateTo) {
     params.set('to', options.dateTo)

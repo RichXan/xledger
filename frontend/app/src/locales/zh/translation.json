@@ -330,7 +330,8 @@
       "noMatching": "没有匹配的交易。",
       "initial": "先创建第一笔交易，或在移动端流程中使用快捷记账。",
       "createFirst": "创建第一笔交易",
-      "openQuickEntry": "打开快捷记账"
+      "openQuickEntry": "打开快捷记账",
+      "clearFilters": "清除筛选"
     },
     "undo": {
       "deleted": "交易已删除",

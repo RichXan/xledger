@@ -340,6 +340,7 @@ func (s *TransactionService) ListTransactions(ctx context.Context, userID string
 	query.AccountID = strings.TrimSpace(query.AccountID)
 	query.CategoryID = strings.TrimSpace(query.CategoryID)
 	query.TagID = strings.TrimSpace(query.TagID)
+	query.Search = strings.TrimSpace(query.Search)
 	if !query.OccurredFrom.IsZero() && !query.OccurredTo.IsZero() && query.OccurredFrom.After(query.OccurredTo) {
 		return nil, &contractError{code: TXN_VALIDATION_FAILED}
 	}
@@ -526,6 +527,7 @@ func (s *TransactionService) ListTransactionsWithTotal(ctx context.Context, user
 	query.AccountID = strings.TrimSpace(query.AccountID)
 	query.CategoryID = strings.TrimSpace(query.CategoryID)
 	query.TagID = strings.TrimSpace(query.TagID)
+	query.Search = strings.TrimSpace(query.Search)
 	if !query.OccurredFrom.IsZero() && !query.OccurredTo.IsZero() && query.OccurredFrom.After(query.OccurredTo) {
 		return nil, 0, &contractError{code: TXN_VALIDATION_FAILED}
 	}

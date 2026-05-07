@@ -397,6 +397,7 @@ export function TransactionsPage() {
     ledgerId: selectedLedgerFilter || undefined,
   })
   const reviewSummaryQuery = useTransactionReviewSummary({
+    q: listSearchQuery.trim() || undefined,
     dateFrom: listRange.from,
     dateTo: listRange.to,
     accountId: selectedAccountFilter || undefined,
@@ -406,6 +407,7 @@ export function TransactionsPage() {
     page: 1,
     pageSize: 200,
     reason: reviewReasonFilter,
+    q: listSearchQuery.trim() || undefined,
     dateFrom: listRange.from,
     dateTo: listRange.to,
     accountId: selectedAccountFilter || undefined,
@@ -662,6 +664,7 @@ export function TransactionsPage() {
     const exportRange = view === 'calendar' ? monthRange : listRange
     const content = await exportTransactionsMutation.mutateAsync({
       format: 'csv',
+      q: listSearchQuery.trim() || undefined,
       dateFrom: exportRange.from,
       dateTo: exportRange.to,
       accountId: selectedAccountFilter || undefined,
@@ -740,6 +743,17 @@ export function TransactionsPage() {
 
   function handleDismissReview(tx: TransactionRecord) {
     setDismissedReviewIds((current) => new Set(current).add(tx.id))
+  }
+
+  function handleClearListFilters() {
+    setListSearchQuery('')
+    setSelectedAccountFilter('')
+    setSelectedLedgerFilter('')
+    setDateRangePreset('120')
+    setQuickFilter('all')
+    setReviewReasonFilter('all')
+    setListRangeClock(Date.now())
+    navigate('/transactions', { replace: true })
   }
 
   async function handleUndoDelete() {
@@ -1139,7 +1153,13 @@ export function TransactionsPage() {
                       </Button>
                     </div>
                   </>
-                ) : null}
+                ) : (
+                  <div className="mt-4 flex justify-center">
+                    <Button className="px-3 py-1.5 text-xs" variant="secondary" onClick={handleClearListFilters}>
+                      {t('transactionsPage.empty.clearFilters')}
+                    </Button>
+                  </div>
+                )}
               </article>
             )}
             {isMobileListLayout && filteredListTransactions.length > 0 ? (

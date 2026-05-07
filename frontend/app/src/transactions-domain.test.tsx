@@ -378,6 +378,22 @@ describe('transactions domain', () => {
     })
   })
 
+  it('offers a one-click reset when filters hide every transaction', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions?q=Nope'])
+    const user = userEvent.setup()
+
+    await screen.findByText(/no matching transactions/i)
+    await user.click(screen.getByRole('button', { name: /clear filters/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Food')).toBeInTheDocument()
+      expect(screen.getByText('Salary')).toBeInTheDocument()
+    })
+  })
+
   it('surfaces competitor-style smart views for transactions needing review', async () => {
     const fetchMock = createTransactionsFetchMock()
     global.fetch = fetchMock as typeof fetch
@@ -574,7 +590,7 @@ describe('transactions domain', () => {
     const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
 
-    renderTransactionsApp(['/transactions'])
+    renderTransactionsApp(['/transactions?q=Coffee'])
     const user = userEvent.setup()
 
     await waitFor(() => {
@@ -600,6 +616,7 @@ describe('transactions domain', () => {
     expect(exportUrl).toContain('format=csv')
     expect(exportUrl).toContain('account_id=acc-1')
     expect(exportUrl).toContain('ledger_id=ledger-1')
+    expect(exportUrl).toContain('q=Coffee')
     expect(exportUrl).toContain('from=')
     expect(exportUrl).toContain('to=')
     expect(createObjectURL).toHaveBeenCalled()

@@ -410,6 +410,9 @@ func (r *PostgresTransactionRepository) WithTransferPairLock(userID string, pair
 }
 
 func (r *PostgresTransactionRepository) ListByUser(userID string, query TransactionQuery) ([]Transaction, error) {
+	if query.UseTransactionIDs && len(query.TransactionIDs) == 0 {
+		return []Transaction{}, nil
+	}
 	sqlQuery := `
 		SELECT id, user_id, ledger_id, account_id, category_id, category_name, memo,
 			from_account_id, to_account_id, transfer_pair_id, transfer_side,
@@ -433,6 +436,16 @@ func (r *PostgresTransactionRepository) ListByUser(userID string, query Transact
 	if query.CategoryID != "" {
 		sqlQuery += ` AND category_id = $` + itoa(argIdx)
 		args = append(args, query.CategoryID)
+		argIdx++
+	}
+	if strings.TrimSpace(query.Search) != "" {
+		sqlQuery += ` AND (
+			LOWER(id::text) LIKE $` + itoa(argIdx) + ` OR
+			LOWER(COALESCE(memo, '')) LIKE $` + itoa(argIdx) + ` OR
+			LOWER(COALESCE(category_name, '')) LIKE $` + itoa(argIdx) + ` OR
+			LOWER(type) LIKE $` + itoa(argIdx) + `
+		)`
+		args = append(args, "%"+strings.ToLower(strings.TrimSpace(query.Search))+"%")
 		argIdx++
 	}
 	if !query.OccurredFrom.IsZero() {
@@ -499,6 +512,9 @@ func (r *PostgresTransactionRepository) ListByUser(userID string, query Transact
 }
 
 func (r *PostgresTransactionRepository) CountByUser(userID string, query TransactionQuery) (int, error) {
+	if query.UseTransactionIDs && len(query.TransactionIDs) == 0 {
+		return 0, nil
+	}
 	sqlQuery := `
 		SELECT COUNT(*)
 		FROM transactions
@@ -520,6 +536,16 @@ func (r *PostgresTransactionRepository) CountByUser(userID string, query Transac
 	if query.CategoryID != "" {
 		sqlQuery += ` AND category_id = $` + itoa(argIdx)
 		args = append(args, query.CategoryID)
+		argIdx++
+	}
+	if strings.TrimSpace(query.Search) != "" {
+		sqlQuery += ` AND (
+			LOWER(id::text) LIKE $` + itoa(argIdx) + ` OR
+			LOWER(COALESCE(memo, '')) LIKE $` + itoa(argIdx) + ` OR
+			LOWER(COALESCE(category_name, '')) LIKE $` + itoa(argIdx) + ` OR
+			LOWER(type) LIKE $` + itoa(argIdx) + `
+		)`
+		args = append(args, "%"+strings.ToLower(strings.TrimSpace(query.Search))+"%")
 		argIdx++
 	}
 	if !query.OccurredFrom.IsZero() {

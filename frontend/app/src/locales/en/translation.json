@@ -330,7 +330,8 @@
       "noMatching": "No matching transactions.",
       "initial": "Start by creating your first transaction, or jump to Quick Entry on mobile workflows.",
       "createFirst": "Create First Transaction",
-      "openQuickEntry": "Open Quick Entry"
+      "openQuickEntry": "Open Quick Entry",
+      "clearFilters": "Clear Filters"
     },
     "undo": {
       "deleted": "Transaction deleted",

@@ -227,7 +227,7 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
 		return
 	}
-	query := TransactionQuery{LedgerID: c.Query("ledger_id"), AccountID: c.Query("account_id"), CategoryID: c.Query("category_id"), TagID: c.Query("tag_id")}
+	query := TransactionQuery{LedgerID: c.Query("ledger_id"), AccountID: c.Query("account_id"), CategoryID: c.Query("category_id"), TagID: c.Query("tag_id"), Search: c.Query("q")}
 	if rawFrom := c.Query("date_from"); rawFrom != "" {
 		parsed, err := time.Parse(time.RFC3339, rawFrom)
 		if err != nil {
@@ -338,7 +338,7 @@ func (h *Handler) ReviewItems(c *gin.Context) {
 }
 
 func parseTransactionListQuery(c *gin.Context, includePagination bool) (TransactionQuery, bool) {
-	query := TransactionQuery{LedgerID: c.Query("ledger_id"), AccountID: c.Query("account_id"), CategoryID: c.Query("category_id"), TagID: c.Query("tag_id")}
+	query := TransactionQuery{LedgerID: c.Query("ledger_id"), AccountID: c.Query("account_id"), CategoryID: c.Query("category_id"), TagID: c.Query("tag_id"), Search: c.Query("q")}
 	if rawFrom := c.Query("date_from"); rawFrom != "" {
 		parsed, err := time.Parse(time.RFC3339, rawFrom)
 		if err != nil {

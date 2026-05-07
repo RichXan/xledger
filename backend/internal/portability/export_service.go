@@ -22,6 +22,7 @@ type ExportQuery struct {
 	To        time.Time
 	LedgerID  string
 	AccountID string
+	Search    string
 	Timeout   time.Duration
 }
 
@@ -62,6 +63,7 @@ func (s *ExportService) Export(ctx context.Context, userID string, query ExportQ
 	txnQuery := accounting.TransactionQuery{
 		LedgerID:     strings.TrimSpace(query.LedgerID),
 		AccountID:    strings.TrimSpace(query.AccountID),
+		Search:       strings.TrimSpace(query.Search),
 		OccurredFrom: query.From,
 		OccurredTo:   query.To,
 	}

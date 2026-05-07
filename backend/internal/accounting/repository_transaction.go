@@ -90,6 +90,7 @@ type TransactionQuery struct {
 	AccountID         string
 	CategoryID        string
 	TagID             string
+	Search            string
 	OccurredFrom      time.Time
 	OccurredTo        time.Time
 	Page              int
@@ -372,6 +373,7 @@ func (r *InMemoryTransactionRepository) ListByUser(userID string, query Transact
 	ledgerFilter := strings.TrimSpace(query.LedgerID)
 	accountFilter := strings.TrimSpace(query.AccountID)
 	categoryFilter := strings.TrimSpace(query.CategoryID)
+	searchFilter := strings.ToLower(strings.TrimSpace(query.Search))
 	allowedTxnIDs := map[string]bool{}
 	if query.UseTransactionIDs {
 		for _, txnID := range query.TransactionIDs {
@@ -401,6 +403,9 @@ func (r *InMemoryTransactionRepository) ListByUser(userID string, query Transact
 			continue
 		}
 		if categoryFilter != "" && strings.TrimSpace(ptrString(txn.CategoryID)) != categoryFilter {
+			continue
+		}
+		if searchFilter != "" && !transactionMatchesSearch(txn, searchFilter) {
 			continue
 		}
 		if !query.OccurredFrom.IsZero() && txn.OccurredAt.Before(query.OccurredFrom) {
@@ -457,6 +462,7 @@ func (r *InMemoryTransactionRepository) CountByUser(userID string, query Transac
 	ledgerFilter := strings.TrimSpace(query.LedgerID)
 	accountFilter := strings.TrimSpace(query.AccountID)
 	categoryFilter := strings.TrimSpace(query.CategoryID)
+	searchFilter := strings.ToLower(strings.TrimSpace(query.Search))
 	allowedTxnIDs := map[string]bool{}
 	if query.UseTransactionIDs {
 		for _, txnID := range query.TransactionIDs {
@@ -488,6 +494,9 @@ func (r *InMemoryTransactionRepository) CountByUser(userID string, query Transac
 		if categoryFilter != "" && strings.TrimSpace(ptrString(txn.CategoryID)) != categoryFilter {
 			continue
 		}
+		if searchFilter != "" && !transactionMatchesSearch(txn, searchFilter) {
+			continue
+		}
 		if !query.OccurredFrom.IsZero() && txn.OccurredAt.Before(query.OccurredFrom) {
 			continue
 		}
@@ -516,6 +525,25 @@ func (r *InMemoryTransactionRepository) CountByUser(userID string, query Transac
 		count++
 	}
 	return count, nil
+}
+
+func transactionMatchesSearch(txn Transaction, search string) bool {
+	if search == "" {
+		return true
+	}
+	candidates := []string{
+		txn.ID,
+		txn.Memo,
+		txn.CategoryName,
+		txn.Type,
+		txn.OccurredAt.Format(time.RFC3339),
+	}
+	for _, candidate := range candidates {
+		if strings.Contains(strings.ToLower(candidate), search) {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *InMemoryTransactionRepository) ListByTransferPairForUser(userID string, pairID string) ([]Transaction, error) {

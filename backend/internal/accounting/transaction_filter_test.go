@@ -118,6 +118,123 @@ func TestListTransactions_MultiFilterStableOrder(t *testing.T) {
 	}
 }
 
+func TestListTransactions_SearchQueryMatchesMemoCategoryAndType(t *testing.T) {
+	ctx := context.Background()
+	service, ledger, _, account, _, categoryService, _ := newTransactionFilterFixture(t)
+
+	coffeeCategory, err := categoryService.CreateCategory(ctx, "user-1", classification.CategoryCreateInput{Name: "Coffee"})
+	if err != nil {
+		t.Fatalf("create coffee category: %v", err)
+	}
+	travelCategory, err := categoryService.CreateCategory(ctx, "user-1", classification.CategoryCreateInput{Name: "Travel"})
+	if err != nil {
+		t.Fatalf("create travel category: %v", err)
+	}
+
+	now := time.Date(2026, 5, 7, 8, 30, 0, 0, time.UTC)
+	latteTxn, err := service.CreateTransaction(ctx, "user-1", TransactionCreateInput{
+		LedgerID:   ledger.ID,
+		AccountID:  &account.ID,
+		CategoryID: &coffeeCategory.ID,
+		Type:       TransactionTypeExpense,
+		Amount:     18,
+		Memo:       "morning latte",
+		OccurredAt: now,
+	})
+	if err != nil {
+		t.Fatalf("create latte txn: %v", err)
+	}
+	if _, err := service.CreateTransaction(ctx, "user-1", TransactionCreateInput{
+		LedgerID:   ledger.ID,
+		AccountID:  &account.ID,
+		CategoryID: &travelCategory.ID,
+		Type:       TransactionTypeExpense,
+		Amount:     88,
+		Memo:       "airport taxi",
+		OccurredAt: now.Add(time.Minute),
+	}); err != nil {
+		t.Fatalf("create taxi txn: %v", err)
+	}
+
+	items, total, err := service.ListTransactionsWithTotal(ctx, "user-1", TransactionQuery{Search: "LATTE", Page: 1, PageSize: 20})
+	if err != nil {
+		t.Fatalf("search transactions: %v", err)
+	}
+	if total != 1 || len(items) != 1 || items[0].ID != latteTxn.ID {
+		t.Fatalf("expected search to return only latte txn, total=%d items=%#v", total, items)
+	}
+
+	items, total, err = service.ListTransactionsWithTotal(ctx, "user-1", TransactionQuery{Search: "coffee", Page: 1, PageSize: 20})
+	if err != nil {
+		t.Fatalf("search category transactions: %v", err)
+	}
+	if total != 1 || len(items) != 1 || items[0].ID != latteTxn.ID {
+		t.Fatalf("expected category search to return only coffee txn, total=%d items=%#v", total, items)
+	}
+}
+
+func TestListTransactions_SearchQueryParamFiltersResults(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	service, ledger, _, account, _, categoryService, _ := newTransactionFilterFixture(t)
+
+	category, err := categoryService.CreateCategory(ctx, "user-1", classification.CategoryCreateInput{Name: "Coffee"})
+	if err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	if _, err := service.CreateTransaction(ctx, "user-1", TransactionCreateInput{
+		LedgerID:   ledger.ID,
+		AccountID:  &account.ID,
+		CategoryID: &category.ID,
+		Type:       TransactionTypeExpense,
+		Amount:     18,
+		Memo:       "morning latte",
+		OccurredAt: time.Date(2026, 5, 7, 8, 30, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("create latte txn: %v", err)
+	}
+	if _, err := service.CreateTransaction(ctx, "user-1", TransactionCreateInput{
+		LedgerID:   ledger.ID,
+		AccountID:  &account.ID,
+		Type:       TransactionTypeIncome,
+		Amount:     120,
+		Memo:       "salary",
+		OccurredAt: time.Date(2026, 5, 7, 9, 30, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("create salary txn: %v", err)
+	}
+
+	handler := NewHandler(nil, nil, service)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("user_id", "user-1")
+		c.Next()
+	})
+	r.GET("/transactions", handler.ListTransactions)
+
+	req := httptest.NewRequest(http.MethodGet, "/transactions?q=latte&page=1&page_size=20", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Data struct {
+			Items      []Transaction `json:"items"`
+			Pagination struct {
+				Total int `json:"total"`
+			} `json:"pagination"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response body: %v", err)
+	}
+	if body.Data.Pagination.Total != 1 || len(body.Data.Items) != 1 || body.Data.Items[0].Memo != "morning latte" {
+		t.Fatalf("expected q param to filter to latte transaction, got %#v", body.Data)
+	}
+}
+
 func TestListTransactions_InvalidRange_ReturnsBadRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	handler := NewHandler(nil, nil, &TransactionService{})

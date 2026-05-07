@@ -155,6 +155,63 @@ func TestExport_FiltersByLedgerAndAccount(t *testing.T) {
 	}
 }
 
+func TestExport_FiltersBySearchQuery(t *testing.T) {
+	ctx := context.Background()
+	ledgerRepo := accounting.NewInMemoryLedgerRepository()
+	accountRepo := accounting.NewInMemoryAccountRepository()
+	txnRepo := accounting.NewInMemoryTransactionRepository()
+	classificationRepo := classification.NewInMemoryRepository()
+	categoryService := classification.NewCategoryService(classificationRepo)
+	tagService := classification.NewTagService(classificationRepo)
+	txnService := accounting.NewTransactionService(txnRepo, ledgerRepo, accountRepo, categoryService, tagService)
+
+	ledger, err := ledgerRepo.Create("user-1", accounting.LedgerCreateInput{Name: "Main", IsDefault: true})
+	if err != nil {
+		t.Fatalf("seed ledger: %v", err)
+	}
+	account, err := accountRepo.Create("user-1", accounting.AccountCreateInput{Name: "Cash", Type: "cash"})
+	if err != nil {
+		t.Fatalf("seed account: %v", err)
+	}
+	category, err := categoryService.CreateCategory(ctx, "user-1", classification.CategoryCreateInput{Name: "Coffee"})
+	if err != nil {
+		t.Fatalf("seed category: %v", err)
+	}
+	if _, err := txnService.CreateTransaction(ctx, "user-1", accounting.TransactionCreateInput{
+		LedgerID:   ledger.ID,
+		AccountID:  &account.ID,
+		CategoryID: &category.ID,
+		Type:       accounting.TransactionTypeExpense,
+		Amount:     18,
+		Memo:       "morning latte",
+		OccurredAt: time.Date(2026, 5, 7, 8, 30, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("seed latte txn: %v", err)
+	}
+	if _, err := txnService.CreateTransaction(ctx, "user-1", accounting.TransactionCreateInput{
+		LedgerID:   ledger.ID,
+		AccountID:  &account.ID,
+		Type:       accounting.TransactionTypeIncome,
+		Amount:     120,
+		Memo:       "salary",
+		OccurredAt: time.Date(2026, 5, 7, 9, 30, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("seed salary txn: %v", err)
+	}
+
+	service := NewExportService(NewExportRepository(txnRepo, categoryService))
+	content, err := service.Export(ctx, "user-1", ExportQuery{Format: "csv", Search: "latte"})
+	if err != nil {
+		t.Fatalf("export searched csv: %v", err)
+	}
+	if !strings.Contains(content, "morning latte") {
+		t.Fatalf("expected searched transaction in export, got %s", content)
+	}
+	if strings.Contains(content, "salary") {
+		t.Fatalf("expected search to exclude salary transaction, got %s", content)
+	}
+}
+
 func ExportPerf10K(t *testing.T) {
 	ctx := context.Background()
 	service := newExportFixture(t)
