@@ -2,16 +2,12 @@ package reporting
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
 	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/common/timex"
 )
-
-const trendCacheTTL = 5 * time.Minute
 
 type TrendQuery struct {
 	From        time.Time
@@ -58,21 +54,6 @@ func (s *TrendService) GetTrend(ctx context.Context, userID string, query TrendQ
 	loc, ok := timex.ParseUserTZ(strings.TrimSpace(query.Timezone))
 	if !ok {
 		return TrendResult{}, &contractError{code: STAT_QUERY_INVALID}
-	}
-
-	cacheKey := fmt.Sprintf("rep:trend:%s:%s:%s:%s:%s",
-		userID, query.Granularity, query.Timezone,
-		query.From.Format(time.RFC3339), query.To.Format(time.RFC3339),
-	)
-
-	// Cache-Aside: probe cache first
-	if s.cache != nil {
-		if data, ok, err := s.cache.Get(cacheKey); ok && err == nil {
-			var result TrendResult
-			if json.Unmarshal(data, &result) == nil {
-				return result, nil
-			}
-		}
 	}
 
 	txnQuery := accounting.TransactionQuery{OccurredFrom: query.From, OccurredTo: query.To}
@@ -141,13 +122,6 @@ func (s *TrendService) GetTrend(ctx context.Context, userID string, query TrendQ
 	}
 
 	result := TrendResult{Points: points}
-
-	// Write-back to cache
-	if s.cache != nil {
-		if data, err := json.Marshal(result); err == nil {
-			_ = s.cache.Set(cacheKey, data, trendCacheTTL)
-		}
-	}
 
 	_ = ctx
 	return result, nil

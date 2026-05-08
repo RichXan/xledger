@@ -144,6 +144,44 @@ func TestTrend_EmptyWindowReturnsZeroSeries(t *testing.T) {
 	}
 }
 
+func TestTrend_DoesNotServeStaleEmptyCacheAfterTransactionChange(t *testing.T) {
+	ctx := context.Background()
+	ledgerRepo, accountRepo, txnRepo, categoryService, txnService := newTrendFixture(t)
+	repo := NewRepository(accountRepo, txnRepo, categoryService)
+	trend := NewTrendService(repo, newMemoryReportingCache())
+
+	ledger, err := ledgerRepo.Create("user-1", accounting.LedgerCreateInput{Name: "Main", IsDefault: true})
+	if err != nil {
+		t.Fatalf("seed ledger: %v", err)
+	}
+	from := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC)
+	empty, err := trend.GetTrend(ctx, "user-1", TrendQuery{From: from, To: to, Granularity: "day"})
+	if err != nil {
+		t.Fatalf("empty trend query: %v", err)
+	}
+	if len(empty.Points) != 1 || empty.Points[0].Expense != 0 {
+		t.Fatalf("expected empty cached trend seed, got %#v", empty.Points)
+	}
+
+	if _, err := txnService.CreateTransaction(ctx, "user-1", accounting.TransactionCreateInput{
+		LedgerID:   ledger.ID,
+		Type:       accounting.TransactionTypeExpense,
+		Amount:     35,
+		OccurredAt: from.Add(10 * time.Hour),
+	}); err != nil {
+		t.Fatalf("seed expense: %v", err)
+	}
+
+	updated, err := trend.GetTrend(ctx, "user-1", TrendQuery{From: from, To: to, Granularity: "day"})
+	if err != nil {
+		t.Fatalf("updated trend query: %v", err)
+	}
+	if len(updated.Points) != 1 || updated.Points[0].Expense != 35 {
+		t.Fatalf("expected trend to reflect new transaction instead of stale cache, got %#v", updated.Points)
+	}
+}
+
 func TestTrend_InvalidParams_ReturnsSTAT_QUERY_INVALID(t *testing.T) {
 	repo := NewRepository(accounting.NewInMemoryAccountRepository(), accounting.NewInMemoryTransactionRepository(), classification.NewCategoryService(classification.NewInMemoryRepository()))
 	trend := NewTrendService(repo, nil)

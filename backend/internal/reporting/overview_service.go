@@ -2,8 +2,6 @@ package reporting
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -13,7 +11,6 @@ import (
 const (
 	STAT_QUERY_INVALID = "STAT_QUERY_INVALID"
 	STAT_TIMEOUT       = "STAT_TIMEOUT"
-	overviewCacheTTL   = 5 * time.Minute
 )
 
 type contractError struct{ code string }
@@ -62,21 +59,6 @@ func (s *OverviewService) GetOverview(ctx context.Context, userID string, query 
 		return OverviewResult{}, &contractError{code: STAT_QUERY_INVALID}
 	}
 
-	cacheKey := fmt.Sprintf("rep:overview:%s:%s:%s:%s",
-		userID, query.LedgerID,
-		query.From.Format(time.RFC3339), query.To.Format(time.RFC3339),
-	)
-
-	// Cache-Aside: probe cache first
-	if s.cache != nil {
-		if data, ok, err := s.cache.Get(cacheKey); ok && err == nil {
-			var result OverviewResult
-			if json.Unmarshal(data, &result) == nil {
-				return result, nil
-			}
-		}
-	}
-
 	// TotalAssets still requires account listing (no SQL agg today)
 	var totalAssets float64
 	if s.repo.accountRepo != nil {
@@ -105,13 +87,6 @@ func (s *OverviewService) GetOverview(ctx context.Context, userID string, query 
 		Income:      income,
 		Expense:     expense,
 		Net:         income - expense,
-	}
-
-	// Write-back
-	if s.cache != nil {
-		if data, err := json.Marshal(result); err == nil {
-			_ = s.cache.Set(cacheKey, data, overviewCacheTTL)
-		}
 	}
 
 	_ = ctx

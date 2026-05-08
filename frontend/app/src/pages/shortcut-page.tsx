@@ -4,18 +4,41 @@ import { Button } from '@/components/ui/button'
 import { PageSection } from '@/components/ui/page-section'
 import { useGenerateShortcut } from '@/features/management/management-hooks'
 
+function isLoopbackHost(hostname: string) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]'
+}
+
+function getShortcutBaseEndpoint(apiEndpoint: string | null) {
+  if (!apiEndpoint) return null
+
+  try {
+    const apiUrl = new URL(apiEndpoint)
+    const appUrl = new URL(window.location.origin)
+    if (isLoopbackHost(apiUrl.hostname) && isLoopbackHost(appUrl.hostname)) {
+      return window.location.origin
+    }
+    return apiEndpoint.replace(/\/+$/, '')
+  } catch {
+    return window.location.origin
+  }
+}
+
 export function ShortcutPage() {
   const { t } = useTranslation()
   const [generatedToken, setGeneratedToken] = useState<string | null>(null)
   const [apiEndpoint, setApiEndpoint] = useState<string | null>(null)
+  const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const generateMutation = useGenerateShortcut()
+  const shortcutBaseEndpoint = getShortcutBaseEndpoint(apiEndpoint)
+  const shortcutEndpoint = shortcutBaseEndpoint ? `${shortcutBaseEndpoint}/api/shortcuts/quick-add` : null
 
   async function handleGenerateShortcut() {
     try {
-      const result = await generateMutation.mutateAsync({ name: t('shortcutPage.eyebrow') })
+      const result = await generateMutation.mutateAsync({ name: t('shortcutPage.eyebrow'), expiresIn: 90 })
       setGeneratedToken(result.pat_token)
       setApiEndpoint(result.api_endpoint)
+      setExpiresAt(result.expires_at ?? null)
       setCopied(false)
     } catch (error: unknown) {
       console.error('API Error:', error)
@@ -33,8 +56,8 @@ export function ShortcutPage() {
   }
 
   function handleCopyApiEndpoint() {
-    if (apiEndpoint) {
-      navigator.clipboard.writeText(apiEndpoint)
+    if (shortcutEndpoint) {
+      navigator.clipboard.writeText(shortcutEndpoint)
     }
   }
 
@@ -78,7 +101,7 @@ export function ShortcutPage() {
                       <p className="text-xs font-medium text-on-surface-variant">{t('shortcutPage.apiEndpoint')}</p>
                       <div className="mt-1 flex items-center justify-between gap-2">
                         <code className="text-xs text-primary font-mono truncate">
-                          {apiEndpoint}/api/shortcuts/quick-add
+                          {shortcutEndpoint}
                         </code>
                         <Button variant="ghost" onClick={handleCopyApiEndpoint}>
                           {t('common.copy')}
@@ -97,6 +120,14 @@ export function ShortcutPage() {
                         </Button>
                       </div>
                     </div>
+                    {expiresAt ? (
+                      <>
+                        <div className="border-t border-outline/10" />
+                        <p className="text-xs font-medium text-on-surface-variant">
+                          {t('shortcutPage.expiresAt', { date: new Date(expiresAt).toLocaleDateString() })}
+                        </p>
+                      </>
+                    ) : null}
                   </div>
 
                   <div className="mt-4 rounded-xl bg-surface-container-high p-4 text-xs text-on-surface">
@@ -110,6 +141,18 @@ export function ShortcutPage() {
                       <li>{t('shortcutPage.manualSteps.addAuthorization')}</li>
                       <li>{t('shortcutPage.manualSteps.setJson')}</li>
                     </ol>
+                  </div>
+
+                  <div className="mt-4 rounded-xl bg-surface-container-high p-4 text-xs text-on-surface">
+                    <p className="mb-2 font-bold">{t('shortcutPage.samplePayloadTitle')}</p>
+                    <pre className="overflow-x-auto rounded-lg bg-white p-3 font-mono text-[11px] leading-relaxed text-on-surface">
+{`{
+  "amount": 35,
+  "type": "expense",
+  "category": "Lunch",
+  "memo": "weekday lunch"
+}`}
+                    </pre>
                   </div>
                 </div>
               )}

@@ -50,6 +50,43 @@ type MappedImportPreviewRow = {
   category: string
 }
 
+type CategoryOption = {
+  id: string
+  name: string
+}
+
+const COMMON_CATEGORY_KEYWORDS = [
+  'breakfast',
+  'lunch',
+  'dinner',
+  'food',
+  'groceries',
+  'transport',
+  'transit',
+  'taxi',
+  'salary',
+  'income',
+  'rent',
+  'utilities',
+  'shopping',
+]
+
+function getCategoryPriority(name: string) {
+  const normalized = name.toLowerCase()
+  const index = COMMON_CATEGORY_KEYWORDS.findIndex((keyword) => normalized.includes(keyword))
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index
+}
+
+function buildCategoryOptionGroups(categories: CategoryOption[]) {
+  const common = [...categories]
+    .filter((category) => getCategoryPriority(category.name) !== Number.MAX_SAFE_INTEGER)
+    .sort((a, b) => getCategoryPriority(a.name) - getCategoryPriority(b.name) || a.name.localeCompare(b.name))
+  const commonIds = new Set(common.map((category) => category.id))
+  const other = categories.filter((category) => !commonIds.has(category.id))
+
+  return { common, other }
+}
+
 function toLocalDateKey(value: Date) {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
 }
@@ -494,6 +531,7 @@ export function TransactionsPage() {
 
   const accountNameById = useMemo(() => new Map(accounts.map((account) => [account.id, account.name])), [accounts])
   const ledgerNameById = useMemo(() => new Map(ledgers.map((ledger) => [ledger.id, ledger.name])), [ledgers])
+  const categoryOptionGroups = useMemo(() => buildCategoryOptionGroups(categories), [categories])
   const duplicateTransactionIds = useMemo(() => buildDuplicateIds(listTransactions), [listTransactions])
   const backendReviewReasonById = useMemo(
     () => new Map(reviewItems.map((item) => [item.transaction.id, item.reasons as ReviewReasonKey[]])),
@@ -504,6 +542,7 @@ export function TransactionsPage() {
   const usingBackendReviewItems =
     reviewItemsQuery.isSuccess && (quickFilter === 'review' || reviewReasonFilter !== 'all')
   const importMappingReady = isImportMappingReady(importMapping)
+  const canSubmitTransaction = Number(amount) > 0 && Boolean(ledgers[0]?.id)
   const importMappedPreviewRows = useMemo(() => {
     const preview = importPreviewMutation.data
     if (!preview) return []
@@ -527,7 +566,9 @@ export function TransactionsPage() {
   }, [accounts, importDefaultAccountId, importDefaultLedgerId, ledgers])
 
   useEffect(() => {
-    if (accountId && accounts.length > 0 && !accounts.some((account) => account.id === accountId)) {
+    if (!accountId && accounts.length === 1) {
+      setAccountId(accounts[0].id)
+    } else if (accountId && accounts.length > 0 && !accounts.some((account) => account.id === accountId)) {
       setAccountId('')
     }
     if (categoryId && categories.length > 0 && !categories.some((category) => category.id === categoryId)) {
@@ -1796,24 +1837,43 @@ export function TransactionsPage() {
               <Button variant="ghost" onClick={() => setShowAddDialog(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button type="submit" form="add-transaction-form">
+              <Button type="submit" form="add-transaction-form" disabled={!canSubmitTransaction || createTransactionMutation.isPending}>
                 {t('transactionsPage.addDialog.save')}
               </Button>
             </>
           }
         >
           <form id="add-transaction-form" className="grid gap-5 md:grid-cols-2" onSubmit={(event) => void handleCreateTransaction(event)}>
-            <TextField label={t('transaction.amount')} type="number" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" />
+            <TextField aria-label={t('transaction.amount')} label={t('transaction.amount')} type="number" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" helperText={t('transactionsPage.addDialog.amountHelper')} />
             <TextField label={t('transaction.dateTime')} type="datetime-local" step="1" value={date} onChange={(event) => setDate(event.target.value)} />
-            <SelectField label={t('transaction.category')} value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+            <SelectField aria-label={t('transaction.category')} label={t('transaction.category')} value={categoryId} onChange={(event) => setCategoryId(event.target.value)} helperText={t('transactionsPage.addDialog.categoryHelper')}>
               <option value="">{t('transactionsPage.addDialog.selectCategory')}</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
+              {categoryOptionGroups.common.length > 0 ? (
+                <optgroup label={t('transactionsPage.addDialog.commonCategories')}>
+                  {categoryOptionGroups.common.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              {categoryOptionGroups.other.length > 0 ? (
+                <optgroup label={t('transactionsPage.addDialog.allCategories')}>
+                  {categoryOptionGroups.other.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </SelectField>
-            <SelectField label={t('transaction.account')} value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+            <SelectField
+              label={t('transaction.account')}
+              aria-label={t('transaction.account')}
+              value={accountId}
+              onChange={(event) => setAccountId(event.target.value)}
+              helperText={accounts.length === 1 ? t('transactionsPage.addDialog.singleAccountHelper') : undefined}
+            >
               <option value="">{t('transactionsPage.addDialog.selectAccount')}</option>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>

@@ -143,10 +143,14 @@ export function useCreateTransaction() {
 
   return useMutation({
     mutationFn: (input: CreateTransactionInput) => createTransaction(session!.accessToken, input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['transactions', 'list'] })
-      void queryClient.invalidateQueries({ queryKey: ['transactions', 'review-summary'] })
-      void queryClient.invalidateQueries({ queryKey: ['transactions', 'review-items'] })
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'list'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-summary'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-items'] })
+      await queryClient.invalidateQueries({ queryKey: ['reporting', 'overview'] })
+      await queryClient.invalidateQueries({ queryKey: ['reporting', 'trend'] })
+      await queryClient.invalidateQueries({ queryKey: ['reporting', 'category'] })
+      await queryClient.invalidateQueries({ queryKey: ['reporting', 'keywords'] })
     },
   })
 }

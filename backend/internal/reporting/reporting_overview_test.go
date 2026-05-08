@@ -9,6 +9,29 @@ import (
 	"xledger/backend/internal/classification"
 )
 
+type memoryReportingCache struct {
+	values map[string][]byte
+}
+
+func newMemoryReportingCache() *memoryReportingCache {
+	return &memoryReportingCache{values: map[string][]byte{}}
+}
+
+func (c *memoryReportingCache) Get(key string) ([]byte, bool, error) {
+	value, ok := c.values[key]
+	return value, ok, nil
+}
+
+func (c *memoryReportingCache) Set(key string, value []byte, _ time.Duration) error {
+	c.values[key] = value
+	return nil
+}
+
+func (c *memoryReportingCache) Delete(key string) error {
+	delete(c.values, key)
+	return nil
+}
+
 func TestOverview_TotalAssetsIndependentFromLedgerFilter(t *testing.T) {
 	ctx := context.Background()
 	deps := newReportingFixture(t)
@@ -61,6 +84,33 @@ func TestOverview_TransferOffsetsExcludedFromIncomeExpense(t *testing.T) {
 	}
 	if result.Income != 50 || result.Expense != 30 || result.Net != 20 {
 		t.Fatalf("expected transfer pair excluded from income/expense/net, got income=%v expense=%v net=%v", result.Income, result.Expense, result.Net)
+	}
+}
+
+func TestOverview_DoesNotServeStaleEmptyCacheAfterAccountsChange(t *testing.T) {
+	ctx := context.Background()
+	accountRepo := accounting.NewInMemoryAccountRepository()
+	txnRepo := accounting.NewInMemoryTransactionRepository()
+	overview := NewOverviewService(NewRepository(accountRepo, txnRepo, nil), newMemoryReportingCache())
+
+	empty, err := overview.GetOverview(ctx, "user-1", OverviewQuery{})
+	if err != nil {
+		t.Fatalf("empty overview query: %v", err)
+	}
+	if empty.TotalAssets != 0 {
+		t.Fatalf("expected empty total assets before account creation, got %v", empty.TotalAssets)
+	}
+
+	if _, err := accountRepo.Create("user-1", accounting.AccountCreateInput{Name: "Wallet", Type: "cash", InitialBalance: 1000}); err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+
+	updated, err := overview.GetOverview(ctx, "user-1", OverviewQuery{})
+	if err != nil {
+		t.Fatalf("updated overview query: %v", err)
+	}
+	if updated.TotalAssets != 1000 {
+		t.Fatalf("expected overview to reflect new account instead of stale cache, got %v", updated.TotalAssets)
 	}
 }
 

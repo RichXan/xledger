@@ -7,7 +7,9 @@
       "Bash(ls -la /home/xan/paramita/xledger/docker-compose*.yml)",
       "Bash(curl -s -X POST http://127.0.0.1:8080/api/auth/send-code -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"test@example.com\"\"}')",
       "Bash(curl -s \"http://127.0.0.1:8080/api/auth/google/callback?error_code=access_denied&error_reason=user_denied\")",
-      "Bash(docker build:*)"
+      "Bash(docker build:*)",
+      "Skill(update-config)",
+      "Bash(claude mcp *)"
     ]
   }
 }

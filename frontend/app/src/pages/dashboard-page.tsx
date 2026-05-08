@@ -231,9 +231,13 @@ export function DashboardPage() {
       return
     }
     const currentMonthBar = bars.find((bar) => bar.key === currentMonthKey)
-    const hasSelected = activeBarKey ? bars.some((bar) => bar.key === activeBarKey) : false
-    if (!hasSelected) {
-      setActiveBarKey(currentMonthBar?.key ?? bars[bars.length - 1].key)
+    const selectedBar = activeBarKey ? bars.find((bar) => bar.key === activeBarKey) : null
+    const latestActiveBar = [...bars].reverse().find((bar) => bar.total > 0)
+    const preferredBar = currentMonthBar && currentMonthBar.total > 0
+      ? currentMonthBar
+      : latestActiveBar ?? currentMonthBar ?? bars[bars.length - 1]
+    if (!selectedBar || (selectedBar.total === 0 && preferredBar.total > 0)) {
+      setActiveBarKey(preferredBar.key)
     }
   }, [activeBarKey, bars, currentMonthKey])
 
@@ -326,6 +330,7 @@ export function DashboardPage() {
             <p className="mt-3 text-sm text-primary-fixed">
               {t('dashboard.net')} <span>{formatCurrency(derived.net)}</span>
             </p>
+            <p className="mt-1 text-xs text-primary-fixed">{t('dashboard.totalAssetsHint')}</p>
             <p className="mt-4 text-xs text-primary-fixed">{t('dashboard.lastSynced')} {syncedLabel}</p>
           </article>
         </div>

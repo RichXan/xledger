@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './features/auth/auth-context'
+import { useCreateTransaction } from './features/transactions/transactions-hooks'
 
 const originalFetch = global.fetch
 
@@ -30,6 +31,43 @@ function renderTransactionsApp(initialEntries: string[]) {
         <MemoryRouter initialEntries={initialEntries}>
           <App />
         </MemoryRouter>
+      </AuthProvider>
+    </QueryClientProvider>,
+  )
+}
+
+function renderCreateTransactionProbe(queryClient: QueryClient) {
+  window.localStorage.setItem(
+    'xledger.auth',
+    JSON.stringify({
+      accessToken: 'access.demo.token',
+      refreshToken: 'refresh.demo.token',
+      email: 'demo@example.com',
+    }),
+  )
+
+  function Probe() {
+    const createTransaction = useCreateTransaction()
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          void createTransaction.mutateAsync({
+            ledger_id: 'ledger-1',
+            type: 'expense',
+            amount: 12,
+          })
+        }}
+      >
+        Create transaction
+      </button>
+    )
+  }
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Probe />
       </AuthProvider>
     </QueryClientProvider>,
   )
@@ -476,6 +514,60 @@ describe('transactions domain', () => {
       expect(screen.getAllByText(/^posted_at$/i).length).toBeGreaterThan(0)
       expect(screen.getAllByText(/^details$/i).length).toBeGreaterThan(0)
     })
+  })
+
+  it('refreshes reporting summaries after a transaction is created', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    global.fetch = fetchMock as typeof fetch
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+
+    renderCreateTransactionProbe(queryClient)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: /create transaction/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/transactions', expect.objectContaining({ method: 'POST' }))
+    })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['reporting', 'overview'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['reporting', 'trend'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['reporting', 'category'] })
+  })
+
+  it('preselects the only account and explains category choice in the add transaction modal', async () => {
+    const baseFetchMock = createTransactionsFetchMock()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/accounts')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              items: [{ id: 'acc-solo', name: 'Only Wallet', type: 'cash', initial_balance: 100 }],
+              pagination: { page: 1, page_size: 1, total: 1, total_pages: 1 },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      return baseFetchMock(input, init)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /add transaction/i }))
+
+    expect(screen.getByLabelText(/account/i)).toHaveValue('acc-solo')
+    expect(screen.getByText(/common categories appear first/i)).toBeInTheDocument()
   })
 
   it('remembers the last transaction form defaults after saving', async () => {

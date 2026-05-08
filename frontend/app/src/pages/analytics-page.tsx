@@ -181,7 +181,7 @@ export function AnalyticsPage() {
 
   const income = useMemo(() => trendPoints.reduce((sum, point) => sum + point.income, 0), [trendPoints])
   const expense = useMemo(() => trendPoints.reduce((sum, point) => sum + point.expense, 0), [trendPoints])
-  const netWorth = income - expense
+  const periodNetCashflow = income - expense
   const savingsRate = income > 0 ? ((income - expense) / income) * 100 : null
   const savingsRateLabel = savingsRate === null ? t('analyticsPage.noIncomeRate') : `${savingsRate >= 0 ? '+' : ''}${savingsRate.toFixed(1)}%`
 
@@ -324,9 +324,11 @@ export function AnalyticsPage() {
       setActiveBarLabel(null)
       return
     }
-    const hasSelected = activeBarLabel ? barsByBucket.some((bar) => bar.label === activeBarLabel) : false
-    if (!hasSelected) {
-      setActiveBarLabel(barsByBucket[0].label)
+    const selectedBucket = activeBarLabel ? barsByBucket.find((bar) => bar.label === activeBarLabel) : null
+    const firstActiveBucket = barsByBucket.find((bar) => bar.revenue > 0 || bar.investment > 0)
+    const selectedBucketIsEmpty = selectedBucket ? selectedBucket.revenue === 0 && selectedBucket.investment === 0 : false
+    if (!selectedBucket || (selectedBucketIsEmpty && firstActiveBucket)) {
+      setActiveBarLabel((firstActiveBucket ?? barsByBucket[0]).label)
     }
   }, [activeBarLabel, barsByBucket])
 
@@ -392,7 +394,7 @@ export function AnalyticsPage() {
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-2xl border border-[#67d79c]/70 bg-white p-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('analyticsPage.totalNetWorth')}</p>
-            <p className="mt-3 font-headline text-4xl font-extrabold text-on-surface">{formatCurrency(netWorth)}</p>
+            <p className="mt-3 font-headline text-4xl font-extrabold text-on-surface">{formatCurrency(periodNetCashflow)}</p>
           </article>
           <article className="rounded-2xl bg-white p-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{t('analyticsPage.income')}</p>

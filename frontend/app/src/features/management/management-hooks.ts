@@ -55,6 +55,8 @@ export function useCreateAccount() {
     mutationFn: (input: { name: string; type: string; initial_balance: number }) => createAccount(session!.accessToken, input),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['management', 'accounts'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'accounts'] })
+      await queryClient.invalidateQueries({ queryKey: ['reporting', 'overview'] })
     },
   })
 }

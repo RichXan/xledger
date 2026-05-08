@@ -365,6 +365,8 @@ describe('dashboard and analytics pages', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /analytics/i })).toBeInTheDocument()
+      expect(screen.getByText(/period net cashflow/i)).toBeInTheDocument()
+      expect(screen.queryByText(/total net worth/i)).not.toBeInTheDocument()
       expect(screen.getByRole('heading', { name: /spending cloud/i })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: /cashflow rhythm/i })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: /insight summary/i })).toBeInTheDocument()
@@ -490,6 +492,92 @@ describe('dashboard and analytics pages', () => {
     expect(screen.getByText('May payroll')).toBeInTheDocument()
     expect(screen.getAllByText('Food').length).toBeGreaterThan(0)
     expect(screen.getByText('Lunch')).toBeInTheDocument()
+  })
+
+  it('selects the first cashflow rhythm bucket with activity by default', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-05-08T10:15:00'))
+    const expectedFrom = new Date(2026, 4, 3, 0, 0, 0, 0).toISOString()
+    const expectedTo = new Date(2026, 4, 3, 23, 59, 59, 999).toISOString()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { email: 'demo@example.com' } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/trend?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              points: [
+                { bucket_start: '2026-05-01T00:00:00Z', income: 0, expense: 0 },
+                { bucket_start: '2026-05-03T00:00:00Z', income: 0, expense: 45 },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/category')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { items: [{ category_id: 'food', category_name: 'Food', amount: 45 }] },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/keywords')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { items: [{ text: 'Lunch', amount: 45, count: 1 }] },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/transactions?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              items: [{ id: 'txn-food', type: 'expense', amount: 45, category_name: 'Food', occurred_at: '2026-05-03T12:10:00Z', memo: 'Lunch' }],
+              pagination: { page: 1, page_size: 8, total: 1, total_pages: 1 },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderProtectedApp(['/analytics'])
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => {
+        const url = new URL(String(input), 'http://localhost')
+        return (
+          url.pathname === '/api/transactions' &&
+          url.searchParams.get('date_from') === expectedFrom &&
+          url.searchParams.get('date_to') === expectedTo
+        )
+      })).toBe(true)
+    })
+    expect(screen.getAllByText('Lunch').length).toBeGreaterThan(0)
   })
 
   it('drills from analytics category and keyword cards into matching transactions', async () => {

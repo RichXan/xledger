@@ -17,6 +17,26 @@ import {
 } from '@/features/management/management-hooks'
 import { formatCurrency } from '@/lib/format'
 
+const CATEGORY_PRIORITY = [
+  'Lunch',
+  'Dinner',
+  'Breakfast',
+  'Coffee',
+  'Groceries',
+  'Transport',
+  'Rent',
+  'Utilities',
+  'Salary',
+  'Bonus',
+  'Investment',
+  'Travel',
+]
+
+function getCategoryPriority(name: string) {
+  const index = CATEGORY_PRIORITY.findIndex((item) => item.toLowerCase() === name.toLowerCase())
+  return index === -1 ? CATEGORY_PRIORITY.length : index
+}
+
 export function AccountsPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -50,17 +70,22 @@ export function AccountsPage() {
   const normalizedCategoryQuery = categoryQuery.trim().toLowerCase()
   const normalizedTagQuery = tagQuery.trim().toLowerCase()
 
+  const sortedCategories = useMemo(
+    () => [...categories].sort((a, b) => getCategoryPriority(a.name) - getCategoryPriority(b.name) || a.name.localeCompare(b.name)),
+    [categories],
+  )
+
   const filteredCategories = useMemo(() => {
-    if (!normalizedCategoryQuery) return categories
-    return categories.filter((category) => category.name.toLowerCase().includes(normalizedCategoryQuery))
-  }, [categories, normalizedCategoryQuery])
+    if (!normalizedCategoryQuery) return sortedCategories
+    return sortedCategories.filter((category) => category.name.toLowerCase().includes(normalizedCategoryQuery))
+  }, [normalizedCategoryQuery, sortedCategories])
 
   const filteredTags = useMemo(() => {
     if (!normalizedTagQuery) return tags
     return tags.filter((tag) => tag.name.toLowerCase().includes(normalizedTagQuery))
   }, [normalizedTagQuery, tags])
 
-  const categoryPreviewCount = 16
+  const categoryPreviewCount = 8
   const tagPreviewCount = 14
   const visibleCategories = showAllCategories ? filteredCategories : filteredCategories.slice(0, categoryPreviewCount)
   const visibleTags = showAllTags ? filteredTags : filteredTags.slice(0, tagPreviewCount)
@@ -212,6 +237,7 @@ export function AccountsPage() {
                   </Button>
                 ) : null}
               </div>
+              <p className="mt-2 text-xs leading-relaxed text-on-surface-variant">{t('accountsPage.categoryHelper')}</p>
               <div className="mt-3">
                 <label className="relative block">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />

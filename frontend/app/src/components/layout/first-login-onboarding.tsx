@@ -33,6 +33,9 @@ export function FirstLoginOnboarding() {
   }, [session?.email])
 
   const shouldEvaluate = !['/login', '/auth/google/callback'].includes(location.pathname)
+  const isSetupRoute = ['/accounts', '/transactions'].some(
+    (path) => location.pathname === path || location.pathname.startsWith(`${path}/`),
+  )
   const accountsCount = getItemCount(accountsQuery.data)
   const ledgersCount = getItemCount(ledgersQuery.data)
   const transactionsCount = getItemCount(transactionsQuery.data)
@@ -47,11 +50,11 @@ export function FirstLoginOnboarding() {
     !transactionsQuery.isError
 
   const shouldShow = useMemo(() => {
-    if (!session?.email || dismissed || !isReady) {
+    if (!session?.email || dismissed || !isReady || isSetupRoute) {
       return false
     }
     return accountsCount === 0 && transactionsCount === 0 && ledgersCount <= 1
-  }, [accountsCount, dismissed, isReady, ledgersCount, session?.email, transactionsCount])
+  }, [accountsCount, dismissed, isReady, isSetupRoute, ledgersCount, session?.email, transactionsCount])
 
   function dismiss() {
     if (session?.email) {

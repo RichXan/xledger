@@ -19,10 +19,10 @@ export function SelectField({
   const selectId = id ?? label.toLowerCase().replace(/\s+/g, '-')
 
   return (
-    <label className="block space-y-2" htmlFor={selectId}>
-      <span className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
+    <div className="block space-y-2">
+      <label className="block font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant" htmlFor={selectId}>
         {label}
-      </span>
+      </label>
       <select
         id={selectId}
         className={cn(
@@ -36,6 +36,6 @@ export function SelectField({
       </select>
       {helperText ? <p className="text-xs text-on-surface-variant">{helperText}</p> : null}
       {error ? <p className="text-xs font-medium text-error">{error}</p> : null}
-    </label>
+    </div>
   )
 }
