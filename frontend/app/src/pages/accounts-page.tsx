@@ -9,10 +9,13 @@ import { SelectField } from '@/components/ui/select-field'
 import { TextField } from '@/components/ui/text-field'
 import {
   useCreateAccount,
+  useCreateCategory,
   useCreateLedger,
+  useDeleteCategory,
   useDeleteLedger,
   useManagementOverview,
   useUpdateAccount,
+  useUpdateCategory,
   useUpdateLedger,
 } from '@/features/management/management-hooks'
 import { formatCurrency } from '@/lib/format'
@@ -55,6 +58,10 @@ export function AccountsPage() {
   const [tagQuery, setTagQuery] = useState('')
   const [showAllCategories, setShowAllCategories] = useState(false)
   const [showAllTags, setShowAllTags] = useState(false)
+  const [showCategoryForm, setShowCategoryForm] = useState(false)
+  const [categoryName, setCategoryName] = useState('')
+  const [editingCategoryID, setEditingCategoryID] = useState<string | null>(null)
+  const [editingCategoryName, setEditingCategoryName] = useState('')
 
   const { accountsQuery, ledgersQuery, categoriesQuery, tagsQuery } = useManagementOverview()
   const createAccountMutation = useCreateAccount()
@@ -62,6 +69,9 @@ export function AccountsPage() {
   const createLedgerMutation = useCreateLedger()
   const updateLedgerMutation = useUpdateLedger()
   const deleteLedgerMutation = useDeleteLedger()
+  const createCategoryMutation = useCreateCategory()
+  const updateCategoryMutation = useUpdateCategory()
+  const deleteCategoryMutation = useDeleteCategory()
 
   const accounts = accountsQuery.data?.items ?? []
   const ledgers = ledgersQuery.data?.items ?? []
@@ -124,6 +134,27 @@ export function AccountsPage() {
     await updateLedgerMutation.mutateAsync({ id: editingLedgerID, name: editingLedgerName })
     setEditingLedgerID(null)
     setEditingLedgerName('')
+  }
+
+  async function handleCreateCategory(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const trimmedName = categoryName.trim()
+    if (!trimmedName) return
+    await createCategoryMutation.mutateAsync({ name: trimmedName })
+    setCategoryName('')
+    setShowCategoryForm(false)
+    setCategoryQuery('')
+    setShowAllCategories(true)
+  }
+
+  async function handleUpdateCategory(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!editingCategoryID) return
+    const trimmedName = editingCategoryName.trim()
+    if (!trimmedName) return
+    await updateCategoryMutation.mutateAsync({ id: editingCategoryID, name: trimmedName })
+    setEditingCategoryID(null)
+    setEditingCategoryName('')
   }
 
   return (
@@ -231,13 +262,36 @@ export function AccountsPage() {
                 <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
                   {t('accountsPage.categories', { count: filteredCategories.length })}
                 </p>
-                {filteredCategories.length > categoryPreviewCount ? (
-                  <Button className="px-2.5 py-1 text-xs" variant="ghost" onClick={() => setShowAllCategories((current) => !current)}>
-                    {showAllCategories ? t('accountsPage.showLess') : t('accountsPage.showAll')}
+                <div className="flex items-center gap-1.5">
+                  <Button className="px-2.5 py-1 text-xs" variant="secondary" onClick={() => setShowCategoryForm((current) => !current)}>
+                    {t('accountsPage.newCategory')}
                   </Button>
-                ) : null}
+                  {filteredCategories.length > categoryPreviewCount ? (
+                    <Button className="px-2.5 py-1 text-xs" variant="ghost" onClick={() => setShowAllCategories((current) => !current)}>
+                      {showAllCategories ? t('accountsPage.showLess') : t('accountsPage.showAll')}
+                    </Button>
+                  ) : null}
+                </div>
               </div>
               <p className="mt-2 text-xs leading-relaxed text-on-surface-variant">{t('accountsPage.categoryHelper')}</p>
+              {showCategoryForm ? (
+                <form className="mt-3 flex flex-wrap items-end gap-2 rounded-xl border border-outline/10 bg-white p-3" onSubmit={(event) => void handleCreateCategory(event)}>
+                  <div className="min-w-0 flex-1">
+                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="new-category-name">
+                      {t('accountsPage.categoryName')}
+                    </label>
+                    <input
+                      id="new-category-name"
+                      value={categoryName}
+                      onChange={(event) => setCategoryName(event.target.value)}
+                      className="mt-1 h-10 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm text-on-surface"
+                    />
+                  </div>
+                  <Button type="submit" className="px-3 py-2 text-xs" disabled={createCategoryMutation.isPending || categoryName.trim() === ''}>
+                    {t('accountsPage.saveCategory')}
+                  </Button>
+                </form>
+              ) : null}
               <div className="mt-3">
                 <label className="relative block">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
@@ -251,9 +305,48 @@ export function AccountsPage() {
               </div>
               <div className="mt-4 flex max-h-44 flex-wrap gap-2 overflow-auto pr-1">
                 {visibleCategories.map((category) => (
-                  <span key={category.id} className="rounded-full border border-outline/10 bg-white px-3 py-1.5 text-sm text-on-surface">
-                    {category.name}
-                  </span>
+                  <div key={category.id} className="flex items-center gap-1 rounded-full border border-outline/10 bg-white px-3 py-1.5 text-sm text-on-surface">
+                    {editingCategoryID === category.id ? (
+                      <form className="flex items-center gap-1" onSubmit={(event) => void handleUpdateCategory(event)}>
+                        <label className="sr-only" htmlFor={`category-${category.id}`}>
+                          {t('accountsPage.categoryName')}
+                        </label>
+                        <input
+                          id={`category-${category.id}`}
+                          value={editingCategoryName}
+                          onChange={(event) => setEditingCategoryName(event.target.value)}
+                          className="h-8 w-36 rounded-lg border border-outline/20 px-2 text-xs"
+                        />
+                        <Button type="submit" className="px-2 py-1 text-xs" disabled={updateCategoryMutation.isPending || editingCategoryName.trim() === ''}>
+                          {t('accountsPage.saveCategory')}
+                        </Button>
+                      </form>
+                    ) : (
+                      <>
+                        <span>{category.name}</span>
+                        <button
+                          type="button"
+                          className="ml-1 rounded-full px-1.5 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary-fixed"
+                          aria-label={t('accountsPage.renameCategoryLabel', { name: category.name })}
+                          onClick={() => {
+                            setEditingCategoryID(category.id)
+                            setEditingCategoryName(category.name)
+                          }}
+                        >
+                          {t('common.edit')}
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full px-1.5 py-0.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-50"
+                          aria-label={t('accountsPage.archiveCategoryLabel', { name: category.name })}
+                          onClick={() => void deleteCategoryMutation.mutateAsync(category.id)}
+                          disabled={deleteCategoryMutation.isPending}
+                        >
+                          {t('accountsPage.archiveCategory')}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 ))}
                 {visibleCategories.length === 0 ? (
                   <p className="text-sm text-on-surface-variant">{t('accountsPage.noCategories')}</p>

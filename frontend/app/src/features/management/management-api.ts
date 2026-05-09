@@ -17,6 +17,7 @@ export interface LedgerItem {
 export interface CategoryItem {
   id: string
   name: string
+  archived_at?: string
 }
 
 export interface TagItem {
@@ -93,6 +94,29 @@ export function deleteLedger(accessToken: string, id: string) {
 
 export function getCategories(accessToken: string) {
   return requestEnvelope<PaginatedResponse<CategoryItem>>('/categories', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+}
+
+export function createCategory(accessToken: string, input: { name: string; parent_id?: string }) {
+  return requestEnvelope<CategoryItem>('/categories', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateCategory(accessToken: string, id: string, input: { name?: string; archived?: boolean }) {
+  return requestEnvelope<CategoryItem>(`/categories/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(input),
+  })
+}
+
+export function deleteCategory(accessToken: string, id: string) {
+  return requestEnvelope<{ deleted: boolean; archived?: boolean; category?: CategoryItem }>(`/categories/${id}`, {
+    method: 'DELETE',
     headers: { Authorization: `Bearer ${accessToken}` },
   })
 }

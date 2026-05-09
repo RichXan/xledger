@@ -412,14 +412,18 @@ export function DashboardPage() {
               {bars.map((bar) => {
               const incomeHeight = bar.total > 0 ? Math.round((bar.income / maxTotal) * 100) : 0
               const expenseHeight = bar.total > 0 ? Math.round((bar.expense / maxTotal) * 100) : 0
+              const hasActivity = bar.total > 0
               return (
                 <div key={bar.key} className="flex h-full flex-col justify-end gap-2">
                   <button
                     type="button"
+                    aria-label={`${bar.label} ${hasActivity ? 'activity' : 'no activity'} ${t('dashboard.income')} ${formatCurrency(bar.income)} ${t('dashboard.expense')} ${formatCurrency(bar.expense)}`}
                     className={`relative h-full rounded-xl border p-1 text-left transition ${
                       activeBar?.key === bar.key
                         ? 'border-primary/50 bg-surface-container'
-                        : 'border-outline/10 bg-surface-container-low'
+                        : hasActivity
+                          ? 'border-outline/10 bg-surface-container-low'
+                          : 'border-outline/10 bg-surface-container-low opacity-45'
                     }`}
                     onMouseEnter={() => setActiveBarKey(bar.key)}
                     onFocus={() => setActiveBarKey(bar.key)}
@@ -437,6 +441,9 @@ export function DashboardPage() {
                         bottom: `${Math.max(0, expenseHeight)}%`,
                       }}
                     />
+                    {hasActivity ? (
+                      <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary shadow-sm" />
+                    ) : null}
                   </button>
                   <p className="text-center text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">
                     {bar.label}

@@ -173,6 +173,9 @@ describe('App shell', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /getting started/i })).toBeInTheDocument()
+      expect(screen.getByText(/setup checklist/i)).toBeInTheDocument()
+      expect(screen.getByText(/create a balance source/i)).toBeInTheDocument()
+      expect(screen.getByText(/record the first transaction/i)).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /set up accounts/i })).toBeInTheDocument()
     })
   })

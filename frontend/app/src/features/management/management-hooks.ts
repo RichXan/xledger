@@ -2,8 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/auth-context'
 import {
   createAccount,
+  createCategory,
   createLedger,
   createPAT,
+  deleteCategory,
   deleteLedger,
   exportCsv,
   generateShortcut,
@@ -13,6 +15,7 @@ import {
   getPATs,
   getTags,
   revokePAT,
+  updateCategory,
   updateLedger,
   updateAccount,
 } from './management-api'
@@ -96,6 +99,46 @@ export function useDeleteLedger() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['management', 'ledgers'] })
       await queryClient.invalidateQueries({ queryKey: ['transactions', 'ledgers'] })
+    },
+  })
+}
+
+export function useCreateCategory() {
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: { name: string; parent_id?: string }) => createCategory(session!.accessToken, input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['management', 'categories'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'categories'] })
+    },
+  })
+}
+
+export function useUpdateCategory() {
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: { id: string; name?: string; archived?: boolean }) =>
+      updateCategory(session!.accessToken, input.id, { name: input.name, archived: input.archived }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['management', 'categories'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'categories'] })
+    },
+  })
+}
+
+export function useDeleteCategory() {
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => deleteCategory(session!.accessToken, id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['management', 'categories'] })
+      await queryClient.invalidateQueries({ queryKey: ['transactions', 'categories'] })
     },
   })
 }

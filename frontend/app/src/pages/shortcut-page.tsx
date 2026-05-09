@@ -32,6 +32,21 @@ export function ShortcutPage() {
   const generateMutation = useGenerateShortcut()
   const shortcutBaseEndpoint = getShortcutBaseEndpoint(apiEndpoint)
   const shortcutEndpoint = shortcutBaseEndpoint ? `${shortcutBaseEndpoint}/api/shortcuts/quick-add` : null
+  const shortcutSetup = shortcutEndpoint && generatedToken
+    ? [
+        'Method: POST',
+        `URL: ${shortcutEndpoint}`,
+        `Authorization: Bearer ${generatedToken}`,
+        'Content-Type: application/json',
+        '',
+        '{',
+        '  "amount": 35,',
+        '  "type": "expense",',
+        '  "category": "Lunch",',
+        '  "memo": "weekday lunch"',
+        '}',
+      ].join('\n')
+    : null
 
   async function handleGenerateShortcut() {
     try {
@@ -58,6 +73,12 @@ export function ShortcutPage() {
   function handleCopyApiEndpoint() {
     if (shortcutEndpoint) {
       navigator.clipboard.writeText(shortcutEndpoint)
+    }
+  }
+
+  function handleCopyShortcutSetup() {
+    if (shortcutSetup) {
+      navigator.clipboard.writeText(shortcutSetup)
     }
   }
 
@@ -154,6 +175,20 @@ export function ShortcutPage() {
 }`}
                     </pre>
                   </div>
+
+                  {shortcutSetup ? (
+                    <div className="mt-4 rounded-xl bg-primary text-white p-4 text-xs">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-bold">{t('shortcutPage.copySetupTitle')}</p>
+                        <Button className="bg-white px-3 py-1.5 text-xs text-primary hover:bg-primary-fixed" onClick={handleCopyShortcutSetup}>
+                          {t('shortcutPage.copySetup')}
+                        </Button>
+                      </div>
+                      <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap rounded-lg bg-white/10 p-3 font-mono text-[11px] leading-relaxed text-white">
+                        {shortcutSetup}
+                      </pre>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>

@@ -80,8 +80,11 @@ describe('shortcut page', () => {
     expect(await screen.findByText(`${window.location.origin}/api/shortcuts/quick-add`)).toBeInTheDocument()
     expect(screen.queryByText('http://127.0.0.1/api/shortcuts/quick-add')).not.toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getByText(/\"amount\": 35/i)).toBeInTheDocument()
-      expect(screen.getByText(/\"category\": \"Lunch\"/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/\"amount\": 35/i).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/\"category\": \"Lunch\"/i).length).toBeGreaterThan(0)
     })
+    expect(screen.getByText(/copy shortcut setup/i)).toBeInTheDocument()
+    expect(screen.getByText(/Authorization: Bearer pat.demo.token/i)).toBeInTheDocument()
+    expect(screen.getByText(/Method: POST/i)).toBeInTheDocument()
   })
 })

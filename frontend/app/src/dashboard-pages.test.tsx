@@ -127,6 +127,8 @@ describe('dashboard and analytics pages', () => {
       expect(screen.getByText(/tap or hover bars/i)).toBeInTheDocument()
       expect(screen.getByText(/income:/i)).toBeInTheDocument()
       expect(screen.getByText(/expense:/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /mar.*activity/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /apr.*no activity/i })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: /action center/i })).toBeInTheDocument()
       expect(screen.getByText(/2 items need review/i)).toBeInTheDocument()
       expect(screen.getByText(/top expense/i)).toBeInTheDocument()

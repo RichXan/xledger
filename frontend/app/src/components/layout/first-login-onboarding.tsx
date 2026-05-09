@@ -69,7 +69,7 @@ export function FirstLoginOnboarding() {
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4">
-      <div className="w-full max-w-xl rounded-3xl border border-outline/15 bg-white p-6 shadow-ambient md:p-7">
+      <div className="w-full max-w-2xl rounded-3xl border border-outline/15 bg-white p-6 shadow-ambient md:p-7">
         <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
           {t('layout.firstLogin.eyebrow')}
         </p>
@@ -80,8 +80,21 @@ export function FirstLoginOnboarding() {
           {t('layout.firstLogin.description')}
         </p>
 
-        <div className="mt-5 rounded-2xl border border-outline/10 bg-surface-container-low p-4 text-sm text-on-surface-variant">
-          {t('layout.firstLogin.tip')}
+        <div className="mt-5 rounded-2xl border border-outline/10 bg-surface-container-low p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">
+            {t('layout.firstLogin.checklistTitle')}
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-white p-3">
+              <p className="text-sm font-bold text-on-surface">{t('layout.firstLogin.accountStepTitle')}</p>
+              <p className="mt-1 text-xs text-on-surface-variant">{t('layout.firstLogin.accountStepDescription')}</p>
+            </div>
+            <div className="rounded-xl bg-white p-3">
+              <p className="text-sm font-bold text-on-surface">{t('layout.firstLogin.transactionStepTitle')}</p>
+              <p className="mt-1 text-xs text-on-surface-variant">{t('layout.firstLogin.transactionStepDescription')}</p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-on-surface-variant">{t('layout.firstLogin.tip')}</p>
         </div>
 
         <div className="mt-6 grid gap-2 sm:grid-cols-3">
