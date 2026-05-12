@@ -151,6 +151,7 @@ export function useCreateTransaction() {
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'trend'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'category'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'keywords'] })
+      await queryClient.invalidateQueries({ queryKey: ['budget', 'list'] })
     },
   })
 }
@@ -168,6 +169,7 @@ export function useDeleteTransaction() {
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'overview'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'trend'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'category'] })
+      await queryClient.invalidateQueries({ queryKey: ['budget', 'list'] })
     },
   })
 }
@@ -192,6 +194,7 @@ export function useUpdateTransaction() {
       await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-summary'] })
       await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-items'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting'] })
+      await queryClient.invalidateQueries({ queryKey: ['budget', 'list'] })
     },
   })
 }
@@ -226,6 +229,7 @@ export function useImportConfirm() {
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'overview'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'trend'] })
       await queryClient.invalidateQueries({ queryKey: ['reporting', 'category'] })
+      await queryClient.invalidateQueries({ queryKey: ['budget', 'list'] })
     },
   })
 }

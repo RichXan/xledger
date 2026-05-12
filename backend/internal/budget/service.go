@@ -79,6 +79,9 @@ func (s *Service) UpdateBudget(ctx context.Context, id string, amount float64, a
 	if err != nil {
 		return nil, err
 	}
+	if budget == nil {
+		return nil, fmt.Errorf("budget not found")
+	}
 	budget.Amount = amount
 	budget.AlertAt = alertAt
 	if err := s.repo.UpdateBudget(ctx, budget); err != nil {

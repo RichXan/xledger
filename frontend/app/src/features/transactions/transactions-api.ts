@@ -56,6 +56,7 @@ export interface LedgerRecord {
 export interface CategoryRecord {
   id: string
   name: string
+  archived_at?: string
 }
 
 export interface TagRecord {

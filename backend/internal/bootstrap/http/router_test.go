@@ -12,6 +12,7 @@ import (
 
 	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/auth"
+	"xledger/backend/internal/budget"
 	"xledger/backend/internal/classification"
 	"xledger/backend/internal/portability"
 	"xledger/backend/internal/reporting"
@@ -167,6 +168,48 @@ func TestStatsEndpoints_AcceptsAccessAndPAT(t *testing.T) {
 	if len(performJSON(t, r, http.MethodGet, "/api/stats/keywords", ``, pair.AccessToken, http.StatusOK)) == 0 {
 		t.Fatalf("expected keyword payload")
 	}
+}
+
+func TestBudgetEndpoints_AcceptsAccessAndPAT(t *testing.T) {
+	now := func() time.Time { return time.Now().UTC() }
+	authRepo := auth.NewInMemoryRepository(now)
+	authHandler := auth.NewHandler(auth.NewCodeService(authRepo, &countingSender{}, nil, now, func() string { return "123456" }))
+	pair, err := auth.NewSessionService(authRepo, nil, now).IssueSession(context.Background(), "budget-auth@example.com")
+	if err != nil {
+		t.Fatalf("issue session: %v", err)
+	}
+	patService := portability.NewPATService(nil)
+	patToken := issuePATToken(t, patService, "budget-auth@example.com")
+
+	ledgerRepo := accounting.NewInMemoryLedgerRepository()
+	accountRepo := accounting.NewInMemoryAccountRepository()
+	txnRepo := accounting.NewInMemoryTransactionRepository()
+	classificationRepo := classification.NewInMemoryRepository()
+	categoryService := classification.NewCategoryService(classificationRepo)
+	tagService := classification.NewTagService(classificationRepo)
+	txnService := accounting.NewTransactionService(txnRepo, ledgerRepo, accountRepo, categoryService, tagService)
+	budgetHandler := budget.NewHandler(budget.NewService(budget.NewInMemoryRepository(), txnService))
+
+	r, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
+		AuthHandler:   authHandler,
+		BudgetHandler: budgetHandler,
+		PATService:    patService,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+
+	category, err := categoryService.CreateCategory(context.Background(), "budget-auth@example.com", classification.CategoryCreateInput{Name: "Food"})
+	if err != nil {
+		t.Fatalf("seed category: %v", err)
+	}
+
+	performJSON(t, r, http.MethodGet, "/api/budgets", ``, pair.AccessToken, http.StatusOK)
+	created := performJSON(t, r, http.MethodPost, "/api/budgets", `{"category_id":"`+category.ID+`","amount":800,"alert_at":80}`, pair.AccessToken, http.StatusCreated)
+	if got := responseFieldFromData(t, created, "category_id"); got != category.ID {
+		t.Fatalf("expected created budget category %q, got %q", category.ID, got)
+	}
+	performJSON(t, r, http.MethodGet, "/api/budgets", ``, patToken, http.StatusOK)
 }
 
 func TestImportPreviewEndpoint_AcceptsAccessAndPAT(t *testing.T) {

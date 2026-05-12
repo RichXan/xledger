@@ -53,6 +53,7 @@ type MappedImportPreviewRow = {
 type CategoryOption = {
   id: string
   name: string
+  archived_at?: string
 }
 
 const COMMON_CATEGORY_KEYWORDS = [
@@ -524,7 +525,10 @@ export function TransactionsPage() {
   const calendarTransactions = calendarTransactionsQuery.data?.items ?? []
   const listTransactions = listTransactionsQuery.data?.items ?? []
   const reviewItems = reviewItemsQuery.data?.items ?? []
-  const categories = options.categoriesQuery.data?.items ?? []
+  const categories = useMemo(
+    () => (options.categoriesQuery.data?.items ?? []).filter((category) => !category.archived_at),
+    [options.categoriesQuery.data?.items],
+  )
   const accounts = options.accountsQuery.data?.items ?? []
   const ledgers = options.ledgersQuery.data?.items ?? []
   const tags = options.tagsQuery.data?.items ?? []

@@ -15,6 +15,7 @@ import (
 	"xledger/backend/internal/auth"
 	"xledger/backend/internal/bootstrap/config"
 	"xledger/backend/internal/bootstrap/infrastructure"
+	"xledger/backend/internal/budget"
 	"xledger/backend/internal/classification"
 	"xledger/backend/internal/portability"
 	"xledger/backend/internal/push"
@@ -31,6 +32,7 @@ type Dependencies struct {
 	ClassificationHandler *classification.Handler
 	PortabilityHandler    *portability.Handler
 	ReportingHandler      *reporting.Handler
+	BudgetHandler         *budget.Handler
 	PushHandler           *push.Handler
 	UserIDResolver        userIDResolver
 	PATService            *portability.PATService
@@ -92,7 +94,7 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 	portabilityHandler := deps.PortabilityHandler
 	reportingHandler := deps.ReportingHandler
 	var businessDeps *defaultBusinessDeps
-	if accountingHandler == nil || classificationHandler == nil || portabilityHandler == nil || reportingHandler == nil {
+	if accountingHandler == nil || classificationHandler == nil || portabilityHandler == nil || reportingHandler == nil || deps.BudgetHandler == nil {
 		businessDeps = newDefaultBusinessDeps()
 	}
 	patService := deps.PATService
@@ -185,6 +187,22 @@ func NewRouterWithDependencies(trustedProxies []string, deps Dependencies) (*gin
 		reportingGroup.GET("/stats/keywords", reportingHandler.Keywords)
 	}
 
+	budgetHandler := deps.BudgetHandler
+	if budgetHandler == nil && businessDeps != nil {
+		budgetHandler = budget.NewHandler(budget.NewService(budget.NewInMemoryRepository(), businessDeps.txnService))
+	}
+	if budgetHandler != nil {
+		budgetGroup := r.Group("/api")
+		budgetGroup.Use(accountingAuthMiddleware(deps.UserIDResolver, patService))
+		budgetGroup.GET("/budgets", budgetHandler.ListBudgets)
+		budgetGroup.POST("/budgets", budgetHandler.CreateBudget)
+		budgetGroup.PATCH("/budgets/:id", budgetHandler.UpdateBudget)
+		budgetGroup.DELETE("/budgets/:id", budgetHandler.DeleteBudget)
+		budgetGroup.GET("/budget-alerts", budgetHandler.ListAlerts)
+		budgetGroup.GET("/budget-preferences", budgetHandler.GetPreferences)
+		budgetGroup.PATCH("/budget-preferences", budgetHandler.UpdatePreferences)
+	}
+
 	// Push handler registration
 	pushHandler := deps.PushHandler
 	if pushHandler == nil {
@@ -242,6 +260,7 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config, redisClient *redis.C
 		reporting.NewKeywordService(reportingRepo),
 	)
 	portabilityHandler := newPortabilityHandlerWithPostgreSQL(db, acctDeps.TxnRepo, acctDeps.LedgerService, acctDeps.CategoryService)
+	budgetHandler := budget.NewHandler(budget.NewService(budget.NewPostgresRepository(db), acctDeps.TxnService))
 
 	deps := Dependencies{
 		AuthHandler:           authHandler,
@@ -249,6 +268,7 @@ func NewRouterWithPostgreSQL(db *sql.DB, cfg config.Config, redisClient *redis.C
 		ClassificationHandler: classificationHandler,
 		PortabilityHandler:    portabilityHandler,
 		ReportingHandler:      reportingHandler,
+		BudgetHandler:         budgetHandler,
 		PushHandler:           push.NewHandler(push.NewService()),
 		UserIDResolver:        postgresUserIDResolver(db),
 		PATService:            portabilityHandler.GetPATService(),

@@ -12,6 +12,10 @@ const AnalyticsPage = lazy(async () => {
   const module = await import('@/pages/analytics-page')
   return { default: module.AnalyticsPage }
 })
+const BudgetPage = lazy(async () => {
+  const module = await import('@/pages/budget-page')
+  return { default: module.BudgetPage }
+})
 const AccountsPage = lazy(async () => {
   const module = await import('@/pages/accounts-page')
   return { default: module.AccountsPage }
@@ -92,6 +96,16 @@ export default function App() {
             <ProtectedLayout>
               <AppShell>
                 <AnalyticsPage />
+              </AppShell>
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/budgets"
+          element={
+            <ProtectedLayout>
+              <AppShell>
+                <BudgetPage />
               </AppShell>
             </ProtectedLayout>
           }
