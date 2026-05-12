@@ -53,8 +53,11 @@ type MappedImportPreviewRow = {
 type CategoryOption = {
   id: string
   name: string
+  parent_id?: string
   archived_at?: string
 }
+
+const INCOME_CATEGORY_KEYWORDS = ['income', 'salary', 'bonus', 'investment income', 'other income', '收入', '工资', '薪资', '奖金', '投资收益']
 
 const COMMON_CATEGORY_KEYWORDS = [
   'breakfast',
@@ -71,6 +74,26 @@ const COMMON_CATEGORY_KEYWORDS = [
   'utilities',
   'shopping',
 ]
+
+function normalizeCategoryOptionName(name: string) {
+  return name
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+function isIncomeCategoryOption(category: CategoryOption, categoryByID: ReadonlyMap<string, CategoryOption>) {
+  const names: string[] = []
+  let current: CategoryOption | undefined = category
+  const visited = new Set<string>()
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id)
+    names.push(normalizeCategoryOptionName(current.name))
+    current = current.parent_id ? categoryByID.get(current.parent_id) : undefined
+  }
+  return names.some((name) => INCOME_CATEGORY_KEYWORDS.some((keyword) => name === keyword || name.endsWith(` ${keyword}`)))
+}
 
 function getCategoryPriority(name: string) {
   const normalized = name.toLowerCase()
@@ -416,6 +439,7 @@ export function TransactionsPage() {
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(() => new Set())
   const [bulkCategoryId, setBulkCategoryId] = useState('')
   const [bulkMessage, setBulkMessage] = useState('')
+  const [transactionMessage, setTransactionMessage] = useState('')
 
   useEffect(() => {
     setListSearchQuery(searchParamQ)
@@ -535,7 +559,16 @@ export function TransactionsPage() {
 
   const accountNameById = useMemo(() => new Map(accounts.map((account) => [account.id, account.name])), [accounts])
   const ledgerNameById = useMemo(() => new Map(ledgers.map((ledger) => [ledger.id, ledger.name])), [ledgers])
-  const categoryOptionGroups = useMemo(() => buildCategoryOptionGroups(categories), [categories])
+  const categoryById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories])
+  const transactionTypeCategories = useMemo(() => {
+    const filtered = categories.filter((category) => (
+      transactionType === 'income'
+        ? isIncomeCategoryOption(category, categoryById)
+        : !isIncomeCategoryOption(category, categoryById)
+    ))
+    return filtered.length > 0 ? filtered : categories
+  }, [categories, categoryById, transactionType])
+  const categoryOptionGroups = useMemo(() => buildCategoryOptionGroups(transactionTypeCategories), [transactionTypeCategories])
   const duplicateTransactionIds = useMemo(() => buildDuplicateIds(listTransactions), [listTransactions])
   const backendReviewReasonById = useMemo(
     () => new Map(reviewItems.map((item) => [item.transaction.id, item.reasons as ReviewReasonKey[]])),
@@ -575,10 +608,10 @@ export function TransactionsPage() {
     } else if (accountId && accounts.length > 0 && !accounts.some((account) => account.id === accountId)) {
       setAccountId('')
     }
-    if (categoryId && categories.length > 0 && !categories.some((category) => category.id === categoryId)) {
+    if (categoryId && transactionTypeCategories.length > 0 && !transactionTypeCategories.some((category) => category.id === categoryId)) {
       setCategoryId('')
     }
-  }, [accountId, accounts, categories, categoryId])
+  }, [accountId, accounts, categoryId, transactionTypeCategories])
 
   const filteredListTransactions = useMemo(() => {
     const now = new Date()
@@ -719,6 +752,7 @@ export function TransactionsPage() {
     setAmount('')
     setMemo('')
     setDate(toLocalDateTimeInputValue(new Date()))
+    setTransactionMessage(t('transactionsPage.addDialog.saved'))
   }
 
   async function handlePreviewImport(event: React.FormEvent<HTMLFormElement>) {
@@ -1169,6 +1203,12 @@ export function TransactionsPage() {
                 </label>
               </div>
             </article>
+
+            {transactionMessage ? (
+              <div role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                {transactionMessage}
+              </div>
+            ) : null}
 
             {selectedTransactions.length > 0 || bulkMessage ? (
               <article className="rounded-2xl border border-primary/20 bg-primary-fixed p-4">

@@ -68,6 +68,20 @@ describe('shortcut page', () => {
         )
       }
 
+      if (url.endsWith('/api/shortcuts/quick-add')) {
+        expect(init?.method).toBe('POST')
+        expect(init?.headers).toEqual(expect.objectContaining({ Authorization: 'Bearer pat.demo.token' }))
+        expect(JSON.parse(String(init?.body))).toEqual(expect.objectContaining({
+          amount: 35,
+          type: 'expense',
+          category: 'Lunch',
+        }))
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { id: 'txn-1' } }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
       throw new Error(`Unexpected URL: ${url}`)
     })
     global.fetch = fetchMock as typeof fetch
@@ -86,5 +100,9 @@ describe('shortcut page', () => {
     expect(screen.getByText(/copy shortcut setup/i)).toBeInTheDocument()
     expect(screen.getByText(/Authorization: Bearer pat.demo.token/i)).toBeInTheDocument()
     expect(screen.getByText(/Method: POST/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /send test entry/i }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/test entry sent/i)
   })
 })

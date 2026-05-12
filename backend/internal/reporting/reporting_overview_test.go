@@ -53,6 +53,53 @@ func TestOverview_TotalAssetsIndependentFromLedgerFilter(t *testing.T) {
 	}
 }
 
+func TestOverview_TotalAssetsReflectsAccountTransactions(t *testing.T) {
+	ctx := context.Background()
+	deps := newReportingFixture(t)
+
+	accounts, err := deps.accountRepo.ListByUser("user-1")
+	if err != nil {
+		t.Fatalf("list accounts: %v", err)
+	}
+	var walletID string
+	for _, account := range accounts {
+		if account.Name == "Wallet" {
+			walletID = account.ID
+		}
+	}
+	if walletID == "" {
+		t.Fatal("expected seeded wallet account")
+	}
+
+	if _, err := deps.txnRepo.Create("user-1", accounting.TransactionCreateInput{
+		LedgerID:   deps.primaryLedger.ID,
+		AccountID:  &walletID,
+		Type:       accounting.TransactionTypeIncome,
+		Amount:     25,
+		OccurredAt: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("seed account income: %v", err)
+	}
+	if _, err := deps.txnRepo.Create("user-1", accounting.TransactionCreateInput{
+		LedgerID:   deps.primaryLedger.ID,
+		AccountID:  &walletID,
+		Type:       accounting.TransactionTypeExpense,
+		Amount:     10,
+		OccurredAt: time.Date(2026, 3, 1, 13, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("seed account expense: %v", err)
+	}
+
+	overview := NewOverviewService(NewRepository(deps.accountRepo, deps.txnRepo, deps.categoryService), nil)
+	result, err := overview.GetOverview(ctx, "user-1", OverviewQuery{})
+	if err != nil {
+		t.Fatalf("overview query: %v", err)
+	}
+	if result.TotalAssets != 315 {
+		t.Fatalf("expected total_assets to include account transaction effects, got %v", result.TotalAssets)
+	}
+}
+
 func TestOverview_AccountNullIncludedInIncomeExpenseNotAssets(t *testing.T) {
 	ctx := context.Background()
 	deps := newReportingFixture(t)

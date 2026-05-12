@@ -6,6 +6,7 @@ export interface AccountItem {
   name: string
   type: string
   initial_balance: number
+  current_balance?: number
 }
 
 export interface LedgerItem {
@@ -17,6 +18,7 @@ export interface LedgerItem {
 export interface CategoryItem {
   id: string
   name: string
+  parent_id?: string
   archived_at?: string
 }
 

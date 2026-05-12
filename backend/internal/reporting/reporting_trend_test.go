@@ -271,6 +271,9 @@ func (r slowTransactionRepo) MarkStatsInputRecalculated(string, string) error { 
 func (r slowTransactionRepo) GetOverviewStats(string, accounting.TransactionQuery) (float64, float64, error) {
 	return 0, 0, nil
 }
+func (r slowTransactionRepo) GetAccountBalanceDeltas(string) (map[string]float64, error) {
+	return map[string]float64{}, nil
+}
 func (r slowTransactionRepo) GetTrendStats(_ string, _ accounting.TransactionQuery, _ string, _ *time.Location) ([]accounting.TrendRow, error) {
 	time.Sleep(r.delay)
 	return []accounting.TrendRow{}, nil

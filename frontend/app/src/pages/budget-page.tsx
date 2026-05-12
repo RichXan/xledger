@@ -6,12 +6,35 @@ import { PageSection } from '@/components/ui/page-section'
 import { SelectField } from '@/components/ui/select-field'
 import { TextField } from '@/components/ui/text-field'
 import { useBudgets, useCreateBudget } from '@/features/budget/budget-hooks'
+import type { CategoryItem } from '@/features/management/management-api'
 import { useManagementOverview } from '@/features/management/management-hooks'
 import { formatCurrency } from '@/lib/format'
 
 function clampPercent(value: number) {
   if (!Number.isFinite(value)) return 0
   return Math.max(0, Math.min(100, Math.round(value)))
+}
+
+const incomeCategoryKeywords = ['income', 'salary', 'bonus', 'investment income', 'other income', '收入', '工资', '薪资', '奖金', '投资收益']
+
+function normalizeCategoryName(name: string) {
+  return name
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+function isIncomeCategory(category: CategoryItem, categoryByID: ReadonlyMap<string, CategoryItem>) {
+  const names: string[] = []
+  let current: CategoryItem | undefined = category
+  const visited = new Set<string>()
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id)
+    names.push(normalizeCategoryName(current.name))
+    current = current.parent_id ? categoryByID.get(current.parent_id) : undefined
+  }
+  return names.some((name) => incomeCategoryKeywords.some((keyword) => name === keyword || name.endsWith(` ${keyword}`)))
 }
 
 export function BudgetPage() {
@@ -22,11 +45,27 @@ export function BudgetPage() {
   const [categoryID, setCategoryID] = useState('')
   const [amount, setAmount] = useState('1000')
   const [alertAt, setAlertAt] = useState('80')
+  const [successMessage, setSuccessMessage] = useState('')
 
   const budgets = budgetsQuery.data?.budgets ?? []
   const categories = categoriesQuery.data?.items ?? []
-  const activeCategories = useMemo(() => categories.filter((category) => !category.archived_at), [categories])
   const categoryNameByID = useMemo(() => new Map(categories.map((category) => [category.id, category.name])), [categories])
+  const categoryByID = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories])
+  const budgetedCategoryIDs = useMemo(() => new Set(budgets.map((budget) => budget.category_id)), [budgets])
+  const activeCategories = useMemo(
+    () => categories.filter((category) => (
+      !category.archived_at &&
+      !budgetedCategoryIDs.has(category.id) &&
+      !isIncomeCategory(category, categoryByID)
+    )),
+    [budgetedCategoryIDs, categories, categoryByID],
+  )
+  const budgetedCategoryNames = useMemo(
+    () => budgets
+      .map((budget) => categoryNameByID.get(budget.category_id))
+      .filter((name): name is string => Boolean(name)),
+    [budgets, categoryNameByID],
+  )
   const totalBudgeted = budgets.reduce((sum, budget) => sum + budget.amount, 0)
   const totalSpent = budgets.reduce((sum, budget) => sum + budget.spent, 0)
   const totalRemaining = budgets.reduce((sum, budget) => sum + Math.max(0, budget.remaining), 0)
@@ -35,11 +74,13 @@ export function BudgetPage() {
   async function handleCreateBudget(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!categoryID) return
+    const selectedCategoryName = categoryNameByID.get(categoryID) ?? t('budgetPage.unknownCategory')
     await createBudgetMutation.mutateAsync({
       category_id: categoryID,
       amount: Number(amount),
       alert_at: Number(alertAt),
     })
+    setSuccessMessage(t('budgetPage.createdMessage', { category: selectedCategoryName }))
     setCategoryID('')
     setAmount('1000')
     setAlertAt('80')
@@ -146,6 +187,11 @@ export function BudgetPage() {
                   </option>
                 ))}
               </SelectField>
+              {budgetedCategoryNames.length > 0 ? (
+                <p className="rounded-xl bg-primary-fixed px-3 py-2 text-xs font-semibold text-primary">
+                  {t('budgetPage.existingBudgetHint', { categories: budgetedCategoryNames.join(', ') })}
+                </p>
+              ) : null}
               <TextField
                 label={t('budgetPage.monthlyLimit')}
                 type="number"
@@ -166,6 +212,11 @@ export function BudgetPage() {
               <Button type="submit" disabled={!categoryID || Number(amount) <= 0 || createBudgetMutation.isPending}>
                 {t('budgetPage.createBudget')}
               </Button>
+              {successMessage ? (
+                <p role="status" className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+                  {successMessage}
+                </p>
+              ) : null}
             </form>
           </section>
         </div>

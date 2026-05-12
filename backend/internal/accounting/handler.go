@@ -72,6 +72,7 @@ type transactionServicer interface {
 	ListTransactionsWithTotal(ctx context.Context, userID string, query TransactionQuery) ([]Transaction, int, error)
 	GetReviewSummary(ctx context.Context, userID string, query TransactionQuery) (TransactionReviewSummary, error)
 	ListReviewItems(ctx context.Context, userID string, query TransactionReviewQuery) ([]TransactionReviewItem, int, error)
+	GetAccountBalanceDeltas(ctx context.Context, userID string) (map[string]float64, error)
 }
 
 type Handler struct {
@@ -84,6 +85,16 @@ type createAccountRequest struct {
 	Name           string  `json:"name"`
 	Type           string  `json:"type"`
 	InitialBalance float64 `json:"initial_balance"`
+}
+
+type accountListItem struct {
+	ID             string     `json:"id"`
+	UserID         string     `json:"user_id"`
+	Name           string     `json:"name"`
+	Type           string     `json:"type"`
+	InitialBalance float64    `json:"initial_balance"`
+	CurrentBalance float64    `json:"current_balance"`
+	ArchivedAt     *time.Time `json:"archived_at,omitempty"`
 }
 
 type updateAccountRequest struct {
@@ -446,6 +457,26 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 		h.writeError(c, err)
 		return
 	}
+	deltas := map[string]float64{}
+	if h.transactionService != nil {
+		deltas, err = h.transactionService.GetAccountBalanceDeltas(c.Request.Context(), userID)
+		if err != nil {
+			h.writeError(c, err)
+			return
+		}
+	}
+	items := make([]accountListItem, 0, len(accounts))
+	for _, account := range accounts {
+		items = append(items, accountListItem{
+			ID:             account.ID,
+			UserID:         account.UserID,
+			Name:           account.Name,
+			Type:           account.Type,
+			InitialBalance: account.InitialBalance,
+			CurrentBalance: account.InitialBalance + deltas[account.ID],
+			ArchivedAt:     account.ArchivedAt,
+		})
+	}
 	page, pageSize := 1, len(accounts)
 	if rawPage := c.Query("page"); rawPage != "" {
 		if parsed, err := strconv.Atoi(rawPage); err == nil && parsed > 0 {
@@ -463,7 +494,7 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 			return
 		}
 	}
-	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"items": accounts, "pagination": gin.H{"page": page, "page_size": pageSize, "total": len(accounts), "total_pages": 1}})
+	httpx.JSON(c, http.StatusOK, "OK", "成功", gin.H{"items": items, "pagination": gin.H{"page": page, "page_size": pageSize, "total": len(accounts), "total_pages": 1}})
 }
 
 func (h *Handler) GetAccount(c *gin.Context) {

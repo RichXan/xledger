@@ -500,6 +500,7 @@ describe('transactions domain', () => {
     expect(createCall?.[1]?.body).toEqual(
       expect.stringContaining(`"occurred_at":"${new Date('2026-03-03T12:34:56').toISOString()}"`),
     )
+    expect(await screen.findByText(/transaction saved/i)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /import/i }))
     const file = new File(['date,amount,description\n2026-03-01,25,Lunch'], 'transactions.csv', {

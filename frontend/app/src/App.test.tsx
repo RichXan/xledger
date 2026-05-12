@@ -179,4 +179,93 @@ describe('App shell', () => {
       expect(screen.getByRole('button', { name: /set up accounts/i })).toBeInTheDocument()
     })
   })
+
+  it('keeps onboarding visible as progress after the first account exists', async () => {
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { email: 'progress@example.com' } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.endsWith('/api/stats/overview')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { total_assets: 1000, income: 0, expense: 0, net: 0 },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/trend?')) {
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { points: [] } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.endsWith('/api/accounts')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              items: [{ id: 'acc-1', name: 'Cash Wallet', type: 'cash', initial_balance: 1000 }],
+              pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.endsWith('/api/ledgers')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              items: [{ id: 'ledger-1', name: 'Default Ledger', is_default: true }],
+              pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/transactions?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { items: [], pagination: { page: 1, page_size: 1, total: 0, total_pages: 0 } },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    }) as typeof fetch
+
+    window.localStorage.setItem(
+      'xledger.auth',
+      JSON.stringify({
+        accessToken: 'access.progress.token',
+        refreshToken: 'refresh.progress.token',
+        email: 'progress@example.com',
+      }),
+    )
+
+    renderApp(['/dashboard'])
+
+    await waitFor(() => {
+      expect(screen.getByText(/1\/2 completed/i)).toBeInTheDocument()
+      expect(screen.getByText(/cash wallet/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /add transaction/i })).toBeInTheDocument()
+    })
+  })
 })

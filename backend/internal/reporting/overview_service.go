@@ -66,8 +66,12 @@ func (s *OverviewService) GetOverview(ctx context.Context, userID string, query 
 		if err != nil {
 			return OverviewResult{}, err
 		}
+		deltas, err := s.repo.GetAccountBalanceDeltas(userID)
+		if err != nil {
+			return OverviewResult{}, err
+		}
 		for _, a := range accounts {
-			totalAssets += a.InitialBalance
+			totalAssets += a.InitialBalance + deltas[a.ID]
 		}
 	}
 

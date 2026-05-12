@@ -695,6 +695,45 @@ func (r *PostgresTransactionRepository) GetOverviewStats(userID string, query Tr
 	return income, expense, nil
 }
 
+func (r *PostgresTransactionRepository) GetAccountBalanceDeltas(userID string) (map[string]float64, error) {
+	rows, err := r.db.Query(`
+		SELECT account_id, COALESCE(SUM(delta), 0)
+		FROM (
+			SELECT account_id, amount AS delta
+			FROM transactions
+			WHERE user_id = $1 AND deleted_at IS NULL AND type = 'income' AND account_id IS NOT NULL
+			UNION ALL
+			SELECT account_id, -amount AS delta
+			FROM transactions
+			WHERE user_id = $1 AND deleted_at IS NULL AND type = 'expense' AND account_id IS NOT NULL
+			UNION ALL
+			SELECT from_account_id AS account_id, -amount AS delta
+			FROM transactions
+			WHERE user_id = $1 AND deleted_at IS NULL AND type = 'transfer' AND transfer_side = 'from' AND from_account_id IS NOT NULL
+			UNION ALL
+			SELECT to_account_id AS account_id, amount AS delta
+			FROM transactions
+			WHERE user_id = $1 AND deleted_at IS NULL AND type = 'transfer' AND transfer_side = 'to' AND to_account_id IS NOT NULL
+		) balance_deltas
+		GROUP BY account_id
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	deltas := map[string]float64{}
+	for rows.Next() {
+		var accountID string
+		var delta float64
+		if err := rows.Scan(&accountID, &delta); err != nil {
+			return nil, err
+		}
+		deltas[strings.TrimSpace(accountID)] = delta
+	}
+	return deltas, rows.Err()
+}
+
 // GetTrendStats uses date_trunc + GROUP BY to compute per-bucket income/expense
 // aggregations on the database side.
 func (r *PostgresTransactionRepository) GetTrendStats(userID string, query TransactionQuery, granularity string, loc *time.Location) ([]TrendRow, error) {

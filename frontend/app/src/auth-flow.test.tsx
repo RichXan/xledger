@@ -155,6 +155,8 @@ describe('auth flow', () => {
 
     await user.click(screen.getByRole('button', { name: /password/i }))
     await user.click(screen.getByRole('button', { name: /register/i }))
+    expect(screen.getByRole('heading', { name: /create your account/i })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /welcome back/i })).not.toBeInTheDocument()
     await user.type(screen.getByLabelText(/email address/i), 'password.user@example.com')
     await user.type(screen.getByLabelText(/display name/i), 'Password User')
     await user.type(screen.getByLabelText(/^password$/i), 'Strong-pass-1234')

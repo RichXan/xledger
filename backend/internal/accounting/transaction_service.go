@@ -123,6 +123,11 @@ func (s *TransactionService) CreateForAutomation(userID string, input Transactio
 	return s.CreateTransaction(context.Background(), userID, input)
 }
 
+func (s *TransactionService) GetAccountBalanceDeltas(ctx context.Context, userID string) (map[string]float64, error) {
+	_ = ctx
+	return s.repo.GetAccountBalanceDeltas(strings.TrimSpace(userID))
+}
+
 func (s *TransactionService) CreateTransfer(ctx context.Context, userID string, input TransactionTransferInput) (Transaction, error) {
 	userID = strings.TrimSpace(userID)
 	if userID == "" {

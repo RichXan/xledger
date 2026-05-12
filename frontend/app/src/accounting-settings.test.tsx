@@ -61,7 +61,7 @@ function createManagementFetchMock(initialCategories: MockCategory[] = [{ id: 'c
           code: 'OK',
           message: '成功',
           data: {
-            items: [{ id: 'acc-1', name: 'Cash Wallet', type: 'cash', initial_balance: 1000 }],
+            items: [{ id: 'acc-1', name: 'Cash Wallet', type: 'cash', initial_balance: 1000, current_balance: 875 }],
             pagination: { page: 1, page_size: 1, total: 1, total_pages: 1 },
           },
         }),
@@ -229,6 +229,8 @@ describe('accounting settings domain', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Cash Wallet')).toBeInTheDocument()
+      expect(screen.getAllByText('¥875.00').length).toBeGreaterThan(0)
+      expect(screen.getByText('Opening ¥1,000.00')).toBeInTheDocument()
       expect(screen.getByText('Default Ledger')).toBeInTheDocument()
       expect(screen.getByText('Food')).toBeInTheDocument()
       expect(screen.getByText('Dining')).toBeInTheDocument()

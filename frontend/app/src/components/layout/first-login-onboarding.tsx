@@ -14,6 +14,14 @@ function getItemCount(data?: { items?: unknown }) {
   return Array.isArray(data?.items) ? data.items.length : 0
 }
 
+function getFirstAccountName(data?: { items?: unknown }) {
+  if (!Array.isArray(data?.items)) return null
+  const account = data.items[0]
+  if (typeof account !== 'object' || account === null || !('name' in account)) return null
+  const name = account.name
+  return typeof name === 'string' && name.trim() ? name.trim() : null
+}
+
 export function FirstLoginOnboarding() {
   const { t } = useTranslation()
   const location = useLocation()
@@ -39,6 +47,8 @@ export function FirstLoginOnboarding() {
   const accountsCount = getItemCount(accountsQuery.data)
   const ledgersCount = getItemCount(ledgersQuery.data)
   const transactionsCount = getItemCount(transactionsQuery.data)
+  const firstAccountName = getFirstAccountName(accountsQuery.data)
+  const completedSteps = (accountsCount > 0 ? 1 : 0) + (transactionsCount > 0 ? 1 : 0)
 
   const isReady =
     shouldEvaluate &&
@@ -53,8 +63,8 @@ export function FirstLoginOnboarding() {
     if (!session?.email || dismissed || !isReady || isSetupRoute) {
       return false
     }
-    return accountsCount === 0 && transactionsCount === 0 && ledgersCount <= 1
-  }, [accountsCount, dismissed, isReady, isSetupRoute, ledgersCount, session?.email, transactionsCount])
+    return transactionsCount === 0 && ledgersCount <= 1
+  }, [dismissed, isReady, isSetupRoute, ledgersCount, session?.email, transactionsCount])
 
   function dismiss() {
     if (session?.email) {
@@ -81,16 +91,31 @@ export function FirstLoginOnboarding() {
         </p>
 
         <div className="mt-5 rounded-2xl border border-outline/10 bg-surface-container-low p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">
-            {t('layout.firstLogin.checklistTitle')}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">
+              {t('layout.firstLogin.checklistTitle')}
+            </p>
+            <p className="rounded-full bg-white px-3 py-1 text-xs font-bold text-primary">
+              {t('layout.firstLogin.progress', { completed: completedSteps })}
+            </p>
+          </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl bg-white p-3">
-              <p className="text-sm font-bold text-on-surface">{t('layout.firstLogin.accountStepTitle')}</p>
-              <p className="mt-1 text-xs text-on-surface-variant">{t('layout.firstLogin.accountStepDescription')}</p>
+              <p className="text-sm font-bold text-on-surface">
+                {accountsCount > 0 ? t('layout.firstLogin.completedPrefix') : null}
+                {t('layout.firstLogin.accountStepTitle')}
+              </p>
+              <p className="mt-1 text-xs text-on-surface-variant">
+                {firstAccountName
+                  ? t('layout.firstLogin.accountReady', { account: firstAccountName })
+                  : t('layout.firstLogin.accountStepDescription')}
+              </p>
             </div>
-            <div className="rounded-xl bg-white p-3">
-              <p className="text-sm font-bold text-on-surface">{t('layout.firstLogin.transactionStepTitle')}</p>
+            <div className="rounded-xl bg-white p-3 ring-2 ring-primary/20">
+              <p className="text-sm font-bold text-on-surface">
+                {accountsCount > 0 ? t('layout.firstLogin.nextUpPrefix') : null}
+                {t('layout.firstLogin.transactionStepTitle')}
+              </p>
               <p className="mt-1 text-xs text-on-surface-variant">{t('layout.firstLogin.transactionStepDescription')}</p>
             </div>
           </div>
@@ -101,7 +126,6 @@ export function FirstLoginOnboarding() {
           <Button
             className="px-3 py-2 text-sm"
             onClick={() => {
-              dismiss()
               void navigate('/accounts')
             }}
           >
@@ -111,7 +135,6 @@ export function FirstLoginOnboarding() {
             className="px-3 py-2 text-sm"
             variant="secondary"
             onClick={() => {
-              dismiss()
               void navigate('/transactions')
             }}
           >

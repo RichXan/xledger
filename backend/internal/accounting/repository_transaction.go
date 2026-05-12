@@ -119,6 +119,8 @@ type TransactionRepository interface {
 	// GetOverviewStats returns aggregated income/expense sums for the reporting overview.
 	// Implementations may push the aggregation to the database (e.g., SQL SUM/FILTER).
 	GetOverviewStats(userID string, query TransactionQuery) (totalIncome float64, totalExpense float64, err error)
+	// GetAccountBalanceDeltas returns account balance effects from all non-deleted transactions.
+	GetAccountBalanceDeltas(userID string) (map[string]float64, error)
 	// GetTrendStats returns per-bucket income/expense rows for trend charts.
 	// Implementations may use date_trunc + GROUP BY on the database side.
 	GetTrendStats(userID string, query TransactionQuery, granularity string, loc *time.Location) ([]TrendRow, error)
@@ -609,6 +611,36 @@ func (r *InMemoryTransactionRepository) GetOverviewStats(userID string, query Tr
 		}
 	}
 	return income, expense, nil
+}
+
+func (r *InMemoryTransactionRepository) GetAccountBalanceDeltas(userID string) (map[string]float64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	deltas := map[string]float64{}
+	for _, txn := range r.transactions {
+		if txn.UserID != userID || txn.DeletedAt != nil {
+			continue
+		}
+		switch txn.Type {
+		case TransactionTypeIncome:
+			if txn.AccountID != nil && strings.TrimSpace(*txn.AccountID) != "" {
+				deltas[strings.TrimSpace(*txn.AccountID)] += txn.Amount
+			}
+		case TransactionTypeExpense:
+			if txn.AccountID != nil && strings.TrimSpace(*txn.AccountID) != "" {
+				deltas[strings.TrimSpace(*txn.AccountID)] -= txn.Amount
+			}
+		case TransactionTypeTransfer:
+			if txn.TransferSide == transferSideFrom && txn.FromAccountID != nil && strings.TrimSpace(*txn.FromAccountID) != "" {
+				deltas[strings.TrimSpace(*txn.FromAccountID)] -= txn.Amount
+			}
+			if txn.TransferSide == transferSideTo && txn.ToAccountID != nil && strings.TrimSpace(*txn.ToAccountID) != "" {
+				deltas[strings.TrimSpace(*txn.ToAccountID)] += txn.Amount
+			}
+		}
+	}
+	return deltas, nil
 }
 
 // GetTrendStats is an in-memory implementation of the reporting aggregation interface.

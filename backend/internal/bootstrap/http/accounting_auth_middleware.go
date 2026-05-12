@@ -30,7 +30,7 @@ func accountingAuthMiddleware(resolver userIDResolver, patService *portability.P
 			return
 		}
 
-		email, ok := parseBusinessAuthEmail(token, patService, c.Request.URL.Path)
+		identity, identityIsUserID, ok := parseBusinessAuthIdentity(token, patService, c.Request.URL.Path)
 		if !ok {
 			httpx.JSON(c, http.StatusUnauthorized, "AUTH_UNAUTHORIZED", "未认证或凭证无效", nil)
 			c.Abort()
@@ -38,8 +38,10 @@ func accountingAuthMiddleware(resolver userIDResolver, patService *portability.P
 		}
 
 		resolvedUserID := ""
-		if resolver != nil {
-			value, err := resolver(c.Request.Context(), email)
+		if identityIsUserID {
+			resolvedUserID = strings.TrimSpace(identity)
+		} else if resolver != nil {
+			value, err := resolver(c.Request.Context(), identity)
 			if err != nil {
 				httpx.JSON(c, http.StatusUnauthorized, "AUTH_UNAUTHORIZED", "未认证或凭证无效", nil)
 				c.Abort()
@@ -52,7 +54,7 @@ func accountingAuthMiddleware(resolver userIDResolver, patService *portability.P
 				return
 			}
 		} else {
-			resolvedUserID = email
+			resolvedUserID = identity
 		}
 
 		c.Set("user_id", resolvedUserID)
@@ -60,25 +62,25 @@ func accountingAuthMiddleware(resolver userIDResolver, patService *portability.P
 	}
 }
 
-func parseBusinessAuthEmail(token string, patService *portability.PATService, path string) (string, bool) {
+func parseBusinessAuthIdentity(token string, patService *portability.PATService, path string) (identity string, identityIsUserID bool, ok bool) {
 	parsed, err := auth.ParseSessionToken(token)
 	if err == nil && parsed.Type == "access" && strings.TrimSpace(parsed.Email) != "" && time.Now().UTC().Before(parsed.ExpiresAt) {
-		return strings.TrimSpace(parsed.Email), true
+		return strings.TrimSpace(parsed.Email), false, true
 	}
 
 	lowerToken := strings.ToLower(token)
 	if strings.HasPrefix(lowerToken, "pat:") {
 		if patService == nil {
-			return "", false
+			return "", false, false
 		}
-		email, valErr := patService.ValidatePAT(context.Background(), token, path)
-		if valErr == nil && email != "" {
-			return email, true
+		userID, valErr := patService.ValidatePAT(context.Background(), token, path)
+		if valErr == nil && userID != "" {
+			return userID, true, true
 		}
-		return "", false
+		return "", false, false
 	}
 
-	return "", false
+	return "", false, false
 }
 
 func postgresUserIDResolver(db *sql.DB) userIDResolver {

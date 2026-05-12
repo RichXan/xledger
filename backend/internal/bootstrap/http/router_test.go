@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"xledger/backend/internal/accounting"
 	"xledger/backend/internal/auth"
 	"xledger/backend/internal/budget"
@@ -346,6 +348,40 @@ func TestAccountingAuthMiddleware_RejectsPATWhenValidationFails(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected unauthorized for invalid PAT, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAccountingAuthMiddleware_AcceptsPATUserIDWhenResolverExists(t *testing.T) {
+	patService := portability.NewPATService(func() time.Time { return time.Now().UTC() })
+	patToken, _, err := patService.CreatePAT(context.Background(), "user-1", "shortcut", nil)
+	if err != nil {
+		t.Fatalf("create pat: %v", err)
+	}
+
+	resolverCalled := false
+	r := gin.New()
+	r.Use(accountingAuthMiddleware(func(context.Context, string) (string, error) {
+		resolverCalled = true
+		return "", nil
+	}, patService))
+	r.POST("/api/shortcuts/quick-add", func(c *gin.Context) {
+		c.String(http.StatusOK, c.GetString("user_id"))
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/shortcuts/quick-add", strings.NewReader(`{}`))
+	req.Header.Set("Authorization", "Bearer "+patToken)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected PAT to authenticate as user id, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if rec.Body.String() != "user-1" {
+		t.Fatalf("expected user-1, got %q", rec.Body.String())
+	}
+	if resolverCalled {
+		t.Fatalf("expected PAT user id to skip email resolver")
 	}
 }
 

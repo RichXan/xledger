@@ -120,3 +120,72 @@ func TestAccountCreate_InvalidPayload_ReturnsACCOUNT_INVALID(t *testing.T) {
 		t.Fatalf("expected nil data, got %#v", body["data"])
 	}
 }
+
+func TestListAccounts_IncludesCurrentBalance(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ledgerRepo := NewInMemoryLedgerRepository()
+	accountRepo := NewInMemoryAccountRepository()
+	transactionRepo := NewInMemoryTransactionRepository()
+	ledgerService := NewLedgerService(ledgerRepo)
+	accountService := NewAccountService(accountRepo)
+	transactionService := NewTransactionService(transactionRepo, ledgerRepo, accountRepo, nil, nil)
+
+	ledger, err := ledgerService.CreateLedger(context.Background(), "user-1", LedgerCreateInput{Name: "Default", IsDefault: true})
+	if err != nil {
+		t.Fatalf("seed ledger: %v", err)
+	}
+	account, err := accountService.CreateAccount(context.Background(), "user-1", AccountCreateInput{
+		Name:           "Cash",
+		Type:           "cash",
+		InitialBalance: 1000,
+	})
+	if err != nil {
+		t.Fatalf("seed account: %v", err)
+	}
+	if _, err := transactionService.CreateTransaction(context.Background(), "user-1", TransactionCreateInput{
+		LedgerID:  ledger.ID,
+		AccountID: &account.ID,
+		Type:      TransactionTypeExpense,
+		Amount:    125,
+	}); err != nil {
+		t.Fatalf("seed transaction: %v", err)
+	}
+
+	handler := NewHandler(ledgerService, accountService, transactionService)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("user_id", "user-1")
+		c.Next()
+	})
+	r.GET("/accounts", handler.ListAccounts)
+
+	req := httptest.NewRequest(http.MethodGet, "/accounts", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var body struct {
+		Data struct {
+			Items []struct {
+				ID             string  `json:"id"`
+				InitialBalance float64 `json:"initial_balance"`
+				CurrentBalance float64 `json:"current_balance"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response body: %v", err)
+	}
+	if len(body.Data.Items) != 1 {
+		t.Fatalf("expected 1 account, got %#v", body.Data.Items)
+	}
+	if body.Data.Items[0].InitialBalance != 1000 {
+		t.Fatalf("expected initial balance 1000, got %v", body.Data.Items[0].InitialBalance)
+	}
+	if body.Data.Items[0].CurrentBalance != 875 {
+		t.Fatalf("expected current balance 875, got %v", body.Data.Items[0].CurrentBalance)
+	}
+}

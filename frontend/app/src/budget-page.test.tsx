@@ -60,9 +60,10 @@ describe('budget page', () => {
             data: {
               items: [
                 { id: 'cat-food', name: 'Food' },
+                { id: 'cat-transport', name: 'Transport' },
                 { id: 'cat-old', name: 'Archived Old', archived_at: '2026-05-01T00:00:00Z' },
               ],
-              pagination: { page: 1, page_size: 2, total: 2, total_pages: 1 },
+              pagination: { page: 1, page_size: 3, total: 3, total_pages: 1 },
             },
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
@@ -70,12 +71,12 @@ describe('budget page', () => {
       }
 
       if (url.endsWith('/api/budgets') && init?.method === 'POST') {
-        expect(init.body).toBe(JSON.stringify({ category_id: 'cat-food', amount: 1200, alert_at: 75 }))
+        expect(init.body).toBe(JSON.stringify({ category_id: 'cat-transport', amount: 1200, alert_at: 75 }))
         return new Response(
           JSON.stringify({
             code: 'OK',
             message: 'Success',
-            data: { id: 'budget-new', category_id: 'cat-food', amount: 1200, period: 'monthly', alert_at: 75 },
+            data: { id: 'budget-new', category_id: 'cat-transport', amount: 1200, period: 'monthly', alert_at: 75 },
           }),
           { status: 201, headers: { 'Content-Type': 'application/json' } },
         )
@@ -120,7 +121,7 @@ describe('budget page', () => {
       expect(screen.queryByRole('option', { name: /archived old/i })).not.toBeInTheDocument()
     })
 
-    await user.selectOptions(screen.getByLabelText(/category/i), 'cat-food')
+    await user.selectOptions(screen.getByLabelText(/category/i), 'cat-transport')
     await user.clear(screen.getByLabelText(/monthly limit/i))
     await user.type(screen.getByLabelText(/monthly limit/i), '1200')
     await user.clear(screen.getByLabelText(/alert at/i))
@@ -132,6 +133,76 @@ describe('budget page', () => {
         '/api/budgets',
         expect.objectContaining({ method: 'POST' }),
       )
+    })
+  })
+
+  it('keeps budget choices focused on unbudgeted expense categories', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { email: 'budget@example.com' } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.endsWith('/api/categories')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              items: [
+                { id: 'cat-food', name: '🍱 Food' },
+                { id: 'cat-lunch', name: '🍜 Lunch', parent_id: 'cat-food' },
+                { id: 'cat-income', name: '💰 Income' },
+                { id: 'cat-salary', name: '💼 Salary', parent_id: 'cat-income' },
+                { id: 'cat-transport', name: '🚕 Transport' },
+              ],
+              pagination: { page: 1, page_size: 5, total: 5, total_pages: 1 },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.endsWith('/api/budgets')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              budgets: [
+                {
+                  id: 'budget-food',
+                  category_id: 'cat-food',
+                  amount: 1000,
+                  period: 'monthly',
+                  alert_at: 80,
+                  spent: 100,
+                  remaining: 900,
+                  percent: 10,
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderBudgetApp()
+
+    await waitFor(() => {
+      expect(screen.queryByRole('option', { name: /food/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /salary/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /income/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('option', { name: /transport/i })).toBeInTheDocument()
+      expect(screen.getByText(/food already has a monthly budget/i)).toBeInTheDocument()
     })
   })
 })

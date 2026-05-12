@@ -7,6 +7,7 @@ import { DialogShell } from '@/components/ui/dialog-shell'
 import { PageSection } from '@/components/ui/page-section'
 import { SelectField } from '@/components/ui/select-field'
 import { TextField } from '@/components/ui/text-field'
+import type { AccountItem } from '@/features/management/management-api'
 import {
   useCreateAccount,
   useCreateCategory,
@@ -38,6 +39,12 @@ const CATEGORY_PRIORITY = [
 function getCategoryPriority(name: string) {
   const index = CATEGORY_PRIORITY.findIndex((item) => item.toLowerCase() === name.toLowerCase())
   return index === -1 ? CATEGORY_PRIORITY.length : index
+}
+
+function getCurrentBalance(account: AccountItem) {
+  return typeof account.current_balance === 'number' && Number.isFinite(account.current_balance)
+    ? account.current_balance
+    : account.initial_balance
 }
 
 export function AccountsPage() {
@@ -101,7 +108,7 @@ export function AccountsPage() {
   const visibleTags = showAllTags ? filteredTags : filteredTags.slice(0, tagPreviewCount)
 
   const totals = useMemo(
-    () => accounts.reduce((acc, account) => acc + (Number.isFinite(account.initial_balance) ? account.initial_balance : 0), 0),
+    () => accounts.reduce((acc, account) => acc + getCurrentBalance(account), 0),
     [accounts],
   )
 
@@ -187,7 +194,10 @@ export function AccountsPage() {
                       <p className="mt-1 text-xs uppercase tracking-[0.12em] text-on-surface-variant">{account.type}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-headline text-2xl font-extrabold text-on-surface">{formatCurrency(account.initial_balance)}</p>
+                      <p className="font-headline text-2xl font-extrabold text-on-surface">{formatCurrency(getCurrentBalance(account))}</p>
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        {t('accountsPage.openingBalance', { amount: formatCurrency(account.initial_balance) })}
+                      </p>
                       <Button
                         variant="ghost"
                         className="mt-2 px-0 py-0 text-xs"

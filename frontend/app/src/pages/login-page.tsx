@@ -155,7 +155,9 @@ export function LoginPage() {
           <div>
             <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-primary">{t('auth.loginPage.secureAccess')}</p>
             <h1 className="mt-3 font-headline text-4xl font-extrabold tracking-tight text-on-surface">
-              {t('auth.loginPage.welcomeBack')}
+              {authMethod === 'password' && passwordIntent === 'register'
+                ? t('auth.loginPage.createAccountTitle')
+                : t('auth.loginPage.welcomeBack')}
             </h1>
             <p className="mt-3 text-sm text-on-surface-variant">{t('auth.loginPage.signInHint')}</p>
           </div>

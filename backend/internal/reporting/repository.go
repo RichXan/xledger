@@ -35,6 +35,10 @@ func (r *Repository) GetOverviewStats(userID string, query accounting.Transactio
 	return r.txnRepo.GetOverviewStats(strings.TrimSpace(userID), query)
 }
 
+func (r *Repository) GetAccountBalanceDeltas(userID string) (map[string]float64, error) {
+	return r.txnRepo.GetAccountBalanceDeltas(strings.TrimSpace(userID))
+}
+
 func (r *Repository) GetTrendStats(userID string, query accounting.TransactionQuery, granularity string, loc *time.Location) ([]accounting.TrendRow, error) {
 	return r.txnRepo.GetTrendStats(strings.TrimSpace(userID), query, granularity, loc)
 }

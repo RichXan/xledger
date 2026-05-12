@@ -29,6 +29,9 @@ export function ShortcutPage() {
   const [apiEndpoint, setApiEndpoint] = useState<string | null>(null)
   const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [testMessage, setTestMessage] = useState<string | null>(null)
+  const [testError, setTestError] = useState<string | null>(null)
+  const [isTestingShortcut, setIsTestingShortcut] = useState(false)
   const generateMutation = useGenerateShortcut()
   const shortcutBaseEndpoint = getShortcutBaseEndpoint(apiEndpoint)
   const shortcutEndpoint = shortcutBaseEndpoint ? `${shortcutBaseEndpoint}/api/shortcuts/quick-add` : null
@@ -55,6 +58,8 @@ export function ShortcutPage() {
       setApiEndpoint(result.api_endpoint)
       setExpiresAt(result.expires_at ?? null)
       setCopied(false)
+      setTestMessage(null)
+      setTestError(null)
     } catch (error: unknown) {
       console.error('API Error:', error)
       const message = error instanceof Error ? error.message : String(error)
@@ -79,6 +84,38 @@ export function ShortcutPage() {
   function handleCopyShortcutSetup() {
     if (shortcutSetup) {
       navigator.clipboard.writeText(shortcutSetup)
+    }
+  }
+
+  async function handleTestShortcut() {
+    if (!shortcutEndpoint || !generatedToken) return
+
+    setIsTestingShortcut(true)
+    setTestMessage(null)
+    setTestError(null)
+    try {
+      const response = await fetch(shortcutEndpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${generatedToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: 35,
+          type: 'expense',
+          category: 'Lunch',
+          memo: 'weekday lunch',
+        }),
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+      setTestMessage(t('shortcutPage.testSuccess'))
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      setTestError(t('shortcutPage.testFailed', { message }))
+    } finally {
+      setIsTestingShortcut(false)
     }
   }
 
@@ -174,6 +211,17 @@ export function ShortcutPage() {
   "memo": "weekday lunch"
 }`}
                     </pre>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <Button
+                        className="px-3 py-1.5 text-xs"
+                        onClick={() => void handleTestShortcut()}
+                        disabled={isTestingShortcut}
+                      >
+                        {isTestingShortcut ? t('shortcutPage.testingShortcut') : t('shortcutPage.testShortcut')}
+                      </Button>
+                      {testMessage ? <p role="status" className="text-xs font-semibold text-primary">{testMessage}</p> : null}
+                      {testError ? <p role="alert" className="text-xs font-semibold text-error">{testError}</p> : null}
+                    </div>
                   </div>
 
                   {shortcutSetup ? (
