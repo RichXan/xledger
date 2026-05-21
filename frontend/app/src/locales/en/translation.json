@@ -268,7 +268,7 @@
     },
     "mobileDevice": {
       "title": "Use on Mobile Device",
-      "description": "Scan the QR code below on your phone or tablet to open the mobile-friendly Xledger experience.",
+      "description": "Scan the QR code below on your phone or tablet. The mobile page will guide you to add Xledger to your home screen so you do not need to scan again.",
       "switchToMobile": "Switch to Mobile Version",
       "qrAlt": "Mobile entry QR code",
       "localhostHint": "This is a local address. A real phone needs a domain or IP it can reach on the same network."
@@ -684,10 +684,14 @@
   },
   "pwa": {
     "eyebrow": "Mobile install guide",
+    "mobileEntryEyebrow": "Scanned mobile entry",
     "installTitle": "Add to Home Screen",
     "installDescription": "Turn Xledger into a home-screen app for daily mobile use. It opens faster, keeps the ledger focused, and avoids hunting through browser tabs.",
+    "mobileEntryTitle": "Add to Home Screen",
+    "mobileEntryDescription": "After scanning the QR code, add Xledger to your phone home screen once. Next time, open it directly like an app without returning to the desktop QR code.",
     "installNow": "Install Now",
     "backToApp": "Back to app",
+    "openApp": "Open Xledger",
     "installedStatus": "Already running as an app",
     "installedDescription": "Xledger is already opened from your home screen. You can keep using it like a lightweight mobile app.",
     "browserStatus": "Opened in the browser",

@@ -200,6 +200,36 @@ describe('App shell', () => {
     expect(screen.getByRole('button', { name: /back to app/i })).toBeInTheDocument()
   })
 
+  it('guides scanned mobile users to add Xledger to the home screen before opening the app', async () => {
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { email: 'mobile@example.com' } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    }) as typeof fetch
+
+    window.localStorage.setItem(
+      'xledger.auth',
+      JSON.stringify({
+        accessToken: 'access.mobile.token',
+        refreshToken: 'refresh.mobile.token',
+        email: 'mobile@example.com',
+      }),
+    )
+
+    renderApp(['/mobile'])
+
+    expect(await screen.findByRole('heading', { name: /add to home screen/i })).toBeInTheDocument()
+    expect(screen.getByText(/after scanning the QR code/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /open xledger/i })).toBeInTheDocument()
+  })
+
   it('shows first-time onboarding when ledger setup is still empty', async () => {
     global.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)

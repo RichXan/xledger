@@ -268,7 +268,7 @@
     },
     "mobileDevice": {
       "title": "在移动设备使用",
-      "description": "您可以在手机或平板上扫描下方二维码，进入适合移动端使用的 Xledger。",
+      "description": "请用手机或平板扫描下方二维码。打开后的移动页面会引导你把 Xledger 添加到主屏幕，之后就不需要再扫码。",
       "switchToMobile": "切换到移动版",
       "qrAlt": "移动版入口二维码",
       "localhostHint": "当前是本机地址，真实手机扫码需要使用同一网络可访问的域名或 IP。"
@@ -684,10 +684,14 @@
   },
   "pwa": {
     "eyebrow": "移动端安装指南",
+    "mobileEntryEyebrow": "扫码后的移动入口",
     "installTitle": "添加到手机主屏幕",
     "installDescription": "把 Xledger 变成主屏幕上的记账应用。之后可以更快打开、减少浏览器标签干扰，更适合每天在手机上记账。",
+    "mobileEntryTitle": "添加到手机主屏幕",
+    "mobileEntryDescription": "扫码打开后，只需要把 Xledger 添加到手机主屏幕一次。下次就能像打开 APP 一样直接进入，不用再回电脑扫码。",
     "installNow": "立即安装",
     "backToApp": "返回应用",
+    "openApp": "打开 Xledger",
     "installedStatus": "已以应用模式运行",
     "installedDescription": "当前已经从主屏幕打开 Xledger，可以像轻量手机应用一样继续使用。",
     "browserStatus": "当前在浏览器中打开",

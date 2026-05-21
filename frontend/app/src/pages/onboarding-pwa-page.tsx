@@ -13,14 +13,18 @@ function getInstallPlatform() {
   return 'desktop'
 }
 
-function getStandaloneStatus() {
+export function getStandaloneStatus() {
   if (typeof window === 'undefined') return false
   const displayModeStandalone = window.matchMedia?.('(display-mode: standalone)').matches ?? false
   const navigatorStandalone = 'standalone' in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
   return displayModeStandalone || navigatorStandalone
 }
 
-export function PWAOnboardingPage() {
+interface PWAOnboardingPageProps {
+  mobileEntry?: boolean
+}
+
+export function PWAOnboardingPage({ mobileEntry = false }: PWAOnboardingPageProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { canInstall, install } = usePwaInstall()
@@ -59,23 +63,25 @@ export function PWAOnboardingPage() {
       <section className="overflow-hidden rounded-2xl border border-outline/15 bg-surface-container-lowest shadow-ambient">
         <div className="grid gap-6 p-5 md:grid-cols-[1.05fr_0.95fr] md:p-7">
           <div>
-            <button
-              type="button"
-              className="mb-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline/15 bg-surface-container-low px-3 text-sm font-bold text-on-surface-variant"
-              onClick={() => leaveInstallGuide()}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {t('common.back')}
-            </button>
+            {mobileEntry ? null : (
+              <button
+                type="button"
+                className="mb-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline/15 bg-surface-container-low px-3 text-sm font-bold text-on-surface-variant"
+                onClick={() => leaveInstallGuide()}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {t('common.back')}
+              </button>
+            )}
             <div className="inline-flex items-center gap-2 rounded-full bg-primary-fixed px-3 py-1.5 text-xs font-bold text-primary">
               <Smartphone className="h-4 w-4" />
-              {t('pwa.eyebrow')}
+              {mobileEntry ? t('pwa.mobileEntryEyebrow') : t('pwa.eyebrow')}
             </div>
             <h2 className="mt-4 font-headline text-4xl font-extrabold leading-tight text-primary md:text-[44px]">
-              {t('pwa.installTitle')}
+              {mobileEntry ? t('pwa.mobileEntryTitle') : t('pwa.installTitle')}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-on-surface-variant">
-              {t('pwa.installDescription')}
+              {mobileEntry ? t('pwa.mobileEntryDescription') : t('pwa.installDescription')}
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               {canInstall ? (
@@ -85,7 +91,7 @@ export function PWAOnboardingPage() {
                 </Button>
               ) : null}
               <Button variant="secondary" onClick={() => leaveInstallGuide('/dashboard')}>
-                {t('pwa.backToApp')}
+                {mobileEntry ? t('pwa.openApp') : t('pwa.backToApp')}
               </Button>
             </div>
           </div>
