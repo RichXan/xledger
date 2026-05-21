@@ -642,6 +642,59 @@ describe('transactions domain', () => {
     expect(window.localStorage.getItem('xledger.import.defaults')).toContain('acc-1')
   })
 
+  it('confirms imports when preview-normalized headers hide a CSV BOM marker', async () => {
+    const baseFetchMock = createTransactionsFetchMock()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/import/csv') && init?.method === 'POST') {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: '成功',
+            data: {
+              columns: ['时间', '类型', '用途/来源', '金额', '备注', '金额正负处理', '父记录'],
+              sample_rows: [['2026/05/05 00:30', '支出', '🚕交通', '5', '充电', '-¥5.00', '']],
+              mappingSlots: ['date', 'amount', 'description'],
+              mappingCandidates: ['时间', '类型', '用途/来源', '金额', '备注', '金额正负处理', '父记录'],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      return baseFetchMock(input, init)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /import/i }))
+    const file = new File(
+      ['\uFEFF时间,类型,用途/来源,金额,备注,金额正负处理,父记录\n2026/05/05 00:30,支出,🚕交通,5,充电,-¥5.00,'],
+      'auto-ledger.csv',
+      { type: 'text/csv' },
+    )
+    await user.upload(screen.getByLabelText(/csv file/i), file)
+    await user.click(screen.getByRole('button', { name: /preview import/i }))
+    await screen.findByRole('heading', { name: /field mapping/i })
+    await user.click(screen.getByRole('button', { name: /confirm import/i }))
+
+    await waitFor(() => {
+      const confirmCall = fetchMock.mock.calls.find(([url, init]) => (
+        String(url).endsWith('/api/import/csv/confirm') && init?.method === 'POST'
+      ))
+      expect(confirmCall).toBeTruthy()
+      const body = JSON.parse(String(confirmCall?.[1]?.body))
+      expect(body.rows[0]).toMatchObject({
+        date: '2026/05/05 00:30',
+        amount: 5,
+        description: '充电',
+        type: 'expense',
+        category: '🚕交通',
+      })
+    })
+  })
+
   it('keeps failed transactions selected when a bulk category update partially fails', async () => {
     const baseFetchMock = createTransactionsFetchMock()
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

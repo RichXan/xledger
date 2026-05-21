@@ -44,8 +44,7 @@ type ImportConfirmResponse struct {
 }
 
 func normalizeImportTransactionType(value string) string {
-	normalized := strings.TrimSpace(strings.ToLower(value))
-	if normalized == "income" || normalized == "expense" {
+	if normalized := normalizeImportType(value); normalized != "" {
 		return normalized
 	}
 	return "expense"
@@ -108,7 +107,9 @@ func (s *ImportConfirmService) confirm(ctx context.Context, userID string, idemp
 			result.Rows = append(result.Rows, ImportConfirmRowResult{RowIndex: idx, Status: "failed", Reason: "invalid_row"})
 			continue
 		}
-		stored := storedImportRow{Date: trimmedDate, Amount: row.Amount, Description: trimmedDescription, Type: normalizeImportTransactionType(row.Type)}
+		normalizedType := normalizeImportTransactionType(row.Type)
+		row.Type = normalizedType
+		stored := storedImportRow{Date: trimmedDate, Amount: row.Amount, Description: trimmedDescription, Type: normalizedType}
 		if s.repo.HasTriple(userID, stored) {
 			result.SkipCount++
 			result.Rows = append(result.Rows, ImportConfirmRowResult{RowIndex: idx, Status: "skipped", Reason: "duplicate_transaction"})

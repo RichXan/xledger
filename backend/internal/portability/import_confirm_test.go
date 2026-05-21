@@ -192,6 +192,29 @@ func (r *recordingImportWriterRepo) SaveImportedTransaction(userID string, row I
 	return r.Repository.SaveImportedTransaction(userID, row)
 }
 
+func TestImportConfirm_NormalizesLocalizedTransactionTypeBeforePersisting(t *testing.T) {
+	repo := &recordingImportWriterRepo{Repository: NewRepository(func() time.Time {
+		return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC)
+	})}
+	service := NewImportConfirmService(repo)
+
+	result, err := service.Confirm("user-1", "import-localized-type", ImportConfirmRequest{Rows: []ImportRow{{
+		Date:        "2026-03-01",
+		Amount:      25,
+		Description: "salary",
+		Type:        "收入",
+	}}})
+	if err != nil {
+		t.Fatalf("expected localized transaction type import to succeed, got %v", err)
+	}
+	if result.SuccessCount != 1 {
+		t.Fatalf("expected one imported row, got %#v", result)
+	}
+	if len(repo.rows) != 1 || repo.rows[0].Type != "income" {
+		t.Fatalf("expected persisted row type to be normalized to income, got %#v", repo.rows)
+	}
+}
+
 type recordingImportCategorySyncer struct {
 	names []string
 }

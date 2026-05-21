@@ -307,9 +307,42 @@ function parseCsvText(text: string) {
 }
 
 function guessColumn(columns: string[], candidates: string[]) {
-  const normalized = columns.map((column) => column.trim().toLowerCase())
+  const normalized = columns.map((column) => normalizeImportColumnName(column).toLowerCase())
   const matchIndex = normalized.findIndex((column) => candidates.some((candidate) => column.includes(candidate)))
   return matchIndex >= 0 ? columns[matchIndex] : ''
+}
+
+function normalizeImportColumnName(column: string) {
+  return column.replace(/^\uFEFF/, '').trim()
+}
+
+function buildImportHeaderIndex(headers: string[]) {
+  return new Map(headers.map((header, index) => [normalizeImportColumnName(header), index]))
+}
+
+function readImportCell(row: string[], headerIndex: ReadonlyMap<string, number>, column: string) {
+  const index = headerIndex.get(normalizeImportColumnName(column))
+  return index === undefined ? '' : (row[index] ?? '').trim()
+}
+
+function parseImportAmountValue(value: string) {
+  const normalized = value
+    .trim()
+    .replace(/[¥￥,\s\u00A0]/g, '')
+    .replace(/^\((.*)\)$/, '-$1')
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? Math.abs(parsed) : 0
+}
+
+function normalizeImportRowType(type: string, amountSource: string): 'income' | 'expense' {
+  const normalizedType = type.trim().toLowerCase()
+  if (normalizedType.includes('income') || normalizedType.includes('收入') || normalizedType.includes('入账')) {
+    return 'income'
+  }
+  if (normalizedType.includes('expense') || normalizedType.includes('支出') || normalizedType.includes('出账')) {
+    return 'expense'
+  }
+  return amountSource.trim().startsWith('+') ? 'income' : 'expense'
 }
 
 function buildDefaultImportMapping(columns: string[]): ImportMapping {
@@ -333,18 +366,14 @@ function buildMappedImportPreviewRows(
   rows: string[][],
   mapping: ImportMapping,
 ): MappedImportPreviewRow[] {
-  const headerIndex = new Map(columns.map((header, index) => [header, index]))
-  const cell = (row: string[], column: string) => {
-    const index = headerIndex.get(column)
-    return index === undefined ? '' : (row[index] ?? '').trim()
-  }
+  const headerIndex = buildImportHeaderIndex(columns)
 
   return rows.map((row) => ({
-    date: cell(row, mapping.date),
-    amount: cell(row, mapping.amount),
-    description: cell(row, mapping.description),
-    type: cell(row, mapping.type),
-    category: cell(row, mapping.category),
+    date: readImportCell(row, headerIndex, mapping.date),
+    amount: readImportCell(row, headerIndex, mapping.amount),
+    description: readImportCell(row, headerIndex, mapping.description),
+    type: readImportCell(row, headerIndex, mapping.type),
+    category: readImportCell(row, headerIndex, mapping.category),
   }))
 }
 
@@ -356,20 +385,21 @@ async function buildImportConfirmPayload(
 ): Promise<ImportConfirmRequest> {
   const records = parseCsvText(await readFileText(file))
   const headers = records[0] ?? []
-  const headerIndex = new Map(headers.map((header, index) => [header, index]))
-  const cell = (row: string[], column: string) => {
-    const index = headerIndex.get(column)
-    return index === undefined ? '' : (row[index] ?? '').trim()
-  }
-  const rows: ImportRowInput[] = records.slice(1).map((row) => ({
-    date: cell(row, mapping.date),
-    amount: Number(cell(row, mapping.amount).replace(/[¥￥,\s]/g, '')),
-    description: cell(row, mapping.description),
-    type: cell(row, mapping.type),
-    category: cell(row, mapping.category),
-    account: cell(row, mapping.account),
-    ledger: cell(row, mapping.ledger),
-  }))
+  const headerIndex = buildImportHeaderIndex(headers)
+  const rows: ImportRowInput[] = records.slice(1).map((row) => {
+    const amountSource = readImportCell(row, headerIndex, mapping.amount)
+    const category = readImportCell(row, headerIndex, mapping.category)
+    const description = readImportCell(row, headerIndex, mapping.description) || category
+    return {
+      date: readImportCell(row, headerIndex, mapping.date),
+      amount: parseImportAmountValue(amountSource),
+      description,
+      type: normalizeImportRowType(readImportCell(row, headerIndex, mapping.type), amountSource),
+      category,
+      account: readImportCell(row, headerIndex, mapping.account),
+      ledger: readImportCell(row, headerIndex, mapping.ledger),
+    }
+  })
   return {
     rows,
     default_account_id: defaultAccountId || undefined,
