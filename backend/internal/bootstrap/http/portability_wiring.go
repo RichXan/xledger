@@ -11,8 +11,10 @@ import (
 func newDefaultPortabilityHandler(deps *defaultBusinessDeps) *portability.Handler {
 	repo := portability.NewRepository(nil)
 	var patService *portability.PATService
+	var categoryService *classification.CategoryService
 	if deps != nil {
 		patService = deps.patService
+		categoryService = deps.categoryService
 	}
 	if patService == nil {
 		patService = portability.NewPATService(nil)
@@ -31,7 +33,7 @@ func newDefaultPortabilityHandler(deps *defaultBusinessDeps) *portability.Handle
 
 	return portability.NewHandler(
 		portability.NewImportPreviewService(),
-		portability.NewImportConfirmService(repo),
+		newImportConfirmService(repo, categoryService),
 		exportService,
 		patService,
 		shortcutHandler,
@@ -50,9 +52,16 @@ func newPortabilityHandlerWithPostgreSQL(db *sql.DB, txnRepo accounting.Transact
 	}
 	return portability.NewHandler(
 		portability.NewImportPreviewService(),
-		portability.NewImportConfirmService(portability.NewPostgresRepository(db)),
+		newImportConfirmService(portability.NewPostgresRepository(db), categoryService),
 		portability.NewExportService(exportRepo),
 		patService,
 		shortcutHandler,
 	)
+}
+
+func newImportConfirmService(repo portability.ImportConfirmRepository, categoryService *classification.CategoryService) *portability.ImportConfirmService {
+	if categoryService == nil {
+		return portability.NewImportConfirmService(repo)
+	}
+	return portability.NewImportConfirmService(repo, categoryService)
 }

@@ -668,6 +668,8 @@ export function TransactionsPage() {
   }, [filteredListTransactions])
 
   const selectedTransactions = filteredListTransactions.filter((tx) => selectedTransactionIds.has(tx.id))
+  const allVisibleTransactionsSelected = filteredListTransactions.length > 0
+    && filteredListTransactions.every((tx) => selectedTransactionIds.has(tx.id))
   const hasActiveListFilters = Boolean(
     normalizedListSearchQuery ||
       selectedAccountFilter ||
@@ -858,6 +860,17 @@ export function TransactionsPage() {
       }
       return next
     })
+    setBulkMessage('')
+  }
+
+  function handleSelectAllVisibleTransactions() {
+    setSelectedTransactionIds(new Set(filteredListTransactions.map((tx) => tx.id)))
+    setBulkMessage('')
+  }
+
+  function handleClearTransactionSelection() {
+    setSelectedTransactionIds(new Set())
+    setBulkCategoryId('')
     setBulkMessage('')
   }
 
@@ -1093,7 +1106,7 @@ export function TransactionsPage() {
                     type="button"
                     aria-label={t(`transactionsPage.reviewFocus.ariaLabels.${filter.id}`)}
                     aria-pressed={reviewReasonFilter === filter.id}
-                    className={`min-h-8 rounded-full border px-3 py-1.5 text-[11px] font-bold transition ${
+                    className={`min-h-10 rounded-full border px-3 py-2 text-[11px] font-bold transition ${
                       reviewReasonFilter === filter.id
                         ? 'border-primary bg-white text-primary shadow-sm'
                         : 'border-outline/15 bg-white/70 text-on-surface-variant hover:border-primary/30 hover:text-primary'
@@ -1203,6 +1216,26 @@ export function TransactionsPage() {
                 </label>
               </div>
             </article>
+
+            {filteredListTransactions.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-outline/15 bg-white px-4 py-3">
+                <div>
+                  <p className="text-sm font-bold text-on-surface">
+                    {t('transactionsPage.bulk.visibleCount', { count: filteredListTransactions.length })}
+                  </p>
+                  <p className="text-xs text-on-surface-variant">{t('transactionsPage.bulk.selectHint')}</p>
+                </div>
+                <Button
+                  className="px-3 py-2 text-xs"
+                  variant="secondary"
+                  onClick={allVisibleTransactionsSelected ? handleClearTransactionSelection : handleSelectAllVisibleTransactions}
+                >
+                  {allVisibleTransactionsSelected
+                    ? t('transactionsPage.bulk.clearSelection')
+                    : t('transactionsPage.bulk.selectAllVisible')}
+                </Button>
+              </div>
+            ) : null}
 
             {transactionMessage ? (
               <div role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
@@ -1390,6 +1423,16 @@ export function TransactionsPage() {
                   const reviewReasonKeys = backendReviewReasonById.get(tx.id) ?? getReviewReasonKeys(tx, duplicateTransactionIds)
                   return (
                     <article key={tx.id} className="rounded-2xl border border-outline/15 bg-white p-4">
+                      <label className="mb-3 inline-flex items-center gap-2 text-xs font-bold text-on-surface-variant">
+                        <input
+                          type="checkbox"
+                          aria-label={t('transactionsPage.table.selectLabel', { name: tx.category_name || tx.memo?.trim() || tx.id })}
+                          className="h-4 w-4 rounded border-outline/30 text-primary"
+                          checked={selectedTransactionIds.has(tx.id)}
+                          onChange={(event) => toggleSelectedTransaction(tx.id, event.target.checked)}
+                        />
+                        {t('transactionsPage.table.select')}
+                      </label>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-base font-bold text-on-surface">

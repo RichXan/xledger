@@ -187,13 +187,14 @@ func (r *PostgresRepository) SaveImportedTransaction(userID string, row ImportRo
 	txnType := normalizeImportTransactionType(row.Type)
 	amount := math.Abs(row.Amount)
 	categoryName := strings.TrimSpace(row.Category)
+	categoryID := sql.NullString{String: strings.TrimSpace(row.CategoryID), Valid: strings.TrimSpace(row.CategoryID) != ""}
 
 	_, err = r.db.Exec(`
 		INSERT INTO transactions (
-			id, user_id, ledger_id, account_id, type, amount, occurred_at, category_name, memo, created_at
+			id, user_id, ledger_id, account_id, category_id, type, amount, occurred_at, category_name, memo, created_at
 		)
-		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW())
-	`, trimmedUserID, ledgerID, nullableString(accountID), txnType, amount, occurredAt.UTC(), categoryName, trimmedDescription)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+	`, trimmedUserID, ledgerID, nullableString(accountID), nullableString(categoryID), txnType, amount, occurredAt.UTC(), categoryName, trimmedDescription)
 	return err
 }
 

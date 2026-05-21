@@ -16,6 +16,7 @@
     "copy": "复制",
     "copied": "已复制",
     "saveChanges": "保存修改",
+    "back": "返回",
     "default": "默认",
     "unknownError": "未知错误"
   },
@@ -240,6 +241,7 @@
       "helpSettings": "可在设置中导出 CSV 备份，也可用 Apple 快捷指令进行移动端快速记录。",
       "goToTransactions": "前往交易",
       "installApp": "安装应用",
+      "installGuide": "手机设置",
       "updateApp": "更新应用",
       "updating": "更新中...",
       "openProfile": "打开个人资料",
@@ -263,6 +265,13 @@
       "updatePassword": "更新密码",
       "saveProfile": "保存资料",
       "ledgerUser": "账本用户"
+    },
+    "mobileDevice": {
+      "title": "在移动设备使用",
+      "description": "您可以在手机或平板上扫描下方二维码，进入适合移动端使用的 Xledger。",
+      "switchToMobile": "切换到移动版",
+      "qrAlt": "移动版入口二维码",
+      "localhostHint": "当前是本机地址，真实手机扫码需要使用同一网络可访问的域名或 IP。"
     },
     "firstLogin": {
       "eyebrow": "首次登录引导",
@@ -475,6 +484,10 @@
     },
     "bulk": {
       "selected": "已选择 {{count}} 条",
+      "visibleCount": "当前可见 {{count}} 条交易",
+      "selectHint": "选择当前筛选结果后，可一次性删除或批量清理。",
+      "selectAllVisible": "全选当前可见",
+      "clearSelection": "清除选择",
       "description": "无需逐条打开，即可批量完成重复清理动作。",
       "category": "批量分类",
       "applyCategory": "应用批量分类",
@@ -670,11 +683,32 @@
     "importMore": "继续导入"
   },
   "pwa": {
-    "installTitle": "添加到主屏幕",
-    "installDescription": "安装 Xledger 到你的主屏幕，随时快速访问",
-    "step1": "点击 Safari 底部的分享按钮",
-    "step2": "向下滚动，找到「添加到主屏幕」",
-    "step3": "点击右上角「添加」",
+    "eyebrow": "移动端安装指南",
+    "installTitle": "添加到手机主屏幕",
+    "installDescription": "把 Xledger 变成主屏幕上的记账应用。之后可以更快打开、减少浏览器标签干扰，更适合每天在手机上记账。",
+    "installNow": "立即安装",
+    "backToApp": "返回应用",
+    "installedStatus": "已以应用模式运行",
+    "installedDescription": "当前已经从主屏幕打开 Xledger，可以像轻量手机应用一样继续使用。",
+    "browserStatus": "当前在浏览器中打开",
+    "browserDescription": "按下面步骤操作一次，之后就可以直接从手机主屏幕打开 Xledger。",
+    "benefitFast": "更快记账",
+    "benefitHome": "主屏幕入口",
+    "benefitFocus": "独立窗口",
+    "stepLabel": "第 {{count}} 步",
+    "iosStep1": "在 Safari 中，点击底部工具栏的分享按钮。",
+    "iosStep2": "在分享面板中向下滑动，选择「添加到主屏幕」。",
+    "iosStep3": "保留名称 Xledger，然后点击右上角「添加」。",
+    "androidStep1": "在 Chrome 中，点击菜单，或点击页面出现的安装提示。",
+    "androidStep2": "选择「安装应用」或「添加到主屏幕」。",
+    "androidStep3": "确认安装后，从手机主屏幕打开 Xledger。",
+    "desktopStep1": "用 Chrome、Edge 或其它支持 PWA 的浏览器打开 Xledger。",
+    "desktopStep2": "点击地址栏安装图标，或从浏览器菜单中选择安装。",
+    "desktopStep3": "安装完成后，从启动器或桌面打开 Xledger。",
+    "longTermTitle": "面向真实用户长期使用",
+    "longTermHttps": "使用 HTTPS 域名，保证手机浏览器能稳定安装 PWA 并更新 Service Worker。",
+    "longTermLogin": "保持登录态安全稳定，并在手机端清晰提示登录过期。",
+    "longTermUpdate": "有新版本时通过站内更新按钮提示用户，不要求用户重新安装。",
     "gotIt": "知道了"
   },
   "errors": {

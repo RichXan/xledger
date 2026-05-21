@@ -1,10 +1,11 @@
-import { Bell, CircleHelp, CircleUserRound, Download, LogOut, RefreshCcw, Search } from 'lucide-react'
+import { Bell, CircleHelp, CircleUserRound, Download, LogOut, RefreshCcw, Search, Smartphone } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/ui/dialog-shell'
 import { TextField } from '@/components/ui/text-field'
+import { MobileDeviceDialog } from './mobile-device-dialog'
 import { useAuth } from '@/features/auth/auth-context'
 import { usePwaInstall } from '@/features/pwa/use-pwa-install'
 import { usePwaUpdate } from '@/features/pwa/use-pwa-update'
@@ -24,6 +25,7 @@ export function TopBar() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [mobileDeviceOpen, setMobileDeviceOpen] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [displayNameInput, setDisplayNameInput] = useState(displayName)
   const [oldPassword, setOldPassword] = useState('')
@@ -193,12 +195,28 @@ export function TopBar() {
                 {t('layout.topBar.installApp')}
               </Button>
             ) : null}
+            <Button
+              variant="secondary"
+              className="hidden h-10 px-3 md:inline-flex"
+              onClick={() => setMobileDeviceOpen(true)}
+            >
+              <Smartphone className="mr-1 h-4 w-4" />
+              {t('layout.mobileDevice.title')}
+            </Button>
             {updateAvailable ? (
               <Button variant="secondary" className="hidden h-10 px-3 md:inline-flex" onClick={() => void updateNow()} disabled={updating}>
                 <RefreshCcw className="mr-1 h-4 w-4" />
                 {updating ? t('layout.topBar.updating') : t('layout.topBar.updateApp')}
               </Button>
             ) : null}
+            <button
+              type="button"
+              className="grid h-10 w-10 place-items-center rounded-lg border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:hidden"
+              aria-label={t('layout.topBar.installGuide')}
+              onClick={() => navigate('/install')}
+            >
+              <Smartphone className="h-4 w-4" />
+            </button>
             <button
               type="button"
               className="grid h-10 w-10 place-items-center rounded-lg border border-outline/20 bg-surface-container-low text-on-surface-variant transition hover:bg-surface-container md:hidden"
@@ -277,6 +295,8 @@ export function TopBar() {
           </div>
         </DialogShell>
       ) : null}
+
+      {mobileDeviceOpen ? <MobileDeviceDialog onClose={() => setMobileDeviceOpen(false)} /> : null}
 
       {profileOpen ? (
         <DialogShell

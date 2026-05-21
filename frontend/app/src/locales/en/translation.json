@@ -16,6 +16,7 @@
     "copy": "Copy",
     "copied": "Copied",
     "saveChanges": "Save Changes",
+    "back": "Back",
     "default": "default",
     "unknownError": "Unknown error"
   },
@@ -240,6 +241,7 @@
       "helpSettings": "Use Settings -> Export CSV for backup, and Apple Shortcuts for fast mobile capture.",
       "goToTransactions": "Go To Transactions",
       "installApp": "Install App",
+      "installGuide": "Mobile Setup",
       "updateApp": "Update App",
       "updating": "Updating...",
       "openProfile": "Open profile",
@@ -263,6 +265,13 @@
       "updatePassword": "Update Password",
       "saveProfile": "Save Profile",
       "ledgerUser": "Ledger User"
+    },
+    "mobileDevice": {
+      "title": "Use on Mobile Device",
+      "description": "Scan the QR code below on your phone or tablet to open the mobile-friendly Xledger experience.",
+      "switchToMobile": "Switch to Mobile Version",
+      "qrAlt": "Mobile entry QR code",
+      "localhostHint": "This is a local address. A real phone needs a domain or IP it can reach on the same network."
     },
     "firstLogin": {
       "eyebrow": "First Login Guide",
@@ -475,6 +484,10 @@
     },
     "bulk": {
       "selected": "{{count}} selected",
+      "visibleCount": "{{count}} visible transactions",
+      "selectHint": "Select the current filtered result set, then delete or clean it up in one action.",
+      "selectAllVisible": "Select all visible",
+      "clearSelection": "Clear selection",
       "description": "Apply repetitive clean-up actions without opening each transaction.",
       "category": "Bulk Category",
       "applyCategory": "Apply Bulk Category",
@@ -670,11 +683,32 @@
     "importMore": "Import More"
   },
   "pwa": {
+    "eyebrow": "Mobile install guide",
     "installTitle": "Add to Home Screen",
-    "installDescription": "Install Xledger on your home screen for quick access",
-    "step1": "Tap the share button at the bottom of Safari",
-    "step2": "Scroll down and find \"Add to Home Screen\"",
-    "step3": "Tap \"Add\" in the top right corner",
+    "installDescription": "Turn Xledger into a home-screen app for daily mobile use. It opens faster, keeps the ledger focused, and avoids hunting through browser tabs.",
+    "installNow": "Install Now",
+    "backToApp": "Back to app",
+    "installedStatus": "Already running as an app",
+    "installedDescription": "Xledger is already opened from your home screen. You can keep using it like a lightweight mobile app.",
+    "browserStatus": "Opened in the browser",
+    "browserDescription": "Follow the steps below once. After that, open Xledger directly from your phone home screen.",
+    "benefitFast": "Faster entry",
+    "benefitHome": "Home-screen access",
+    "benefitFocus": "Standalone window",
+    "stepLabel": "Step {{count}}",
+    "iosStep1": "In Safari, tap the share button in the bottom toolbar.",
+    "iosStep2": "Scroll the share sheet and choose \"Add to Home Screen\".",
+    "iosStep3": "Keep the name Xledger, then tap \"Add\" in the top-right corner.",
+    "androidStep1": "In Chrome, tap the menu or the install prompt when it appears.",
+    "androidStep2": "Choose \"Install app\" or \"Add to Home screen\".",
+    "androidStep3": "Confirm the prompt, then open Xledger from your home screen.",
+    "desktopStep1": "Open Xledger in Chrome, Edge, or another PWA-capable browser.",
+    "desktopStep2": "Use the install icon in the address bar or the browser menu.",
+    "desktopStep3": "Install it, then open it from your launcher or desktop.",
+    "longTermTitle": "For long-term real-user use",
+    "longTermHttps": "Use an HTTPS domain so mobile browsers allow PWA installation and service worker updates reliably.",
+    "longTermLogin": "Keep users signed in securely and show clear expired-session messages on mobile.",
+    "longTermUpdate": "When a new version is available, use the in-app update button instead of asking users to reinstall.",
     "gotIt": "Got it"
   },
   "errors": {

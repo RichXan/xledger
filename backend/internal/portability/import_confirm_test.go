@@ -2,6 +2,7 @@ package portability
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -189,6 +190,45 @@ type recordingImportWriterRepo struct {
 func (r *recordingImportWriterRepo) SaveImportedTransaction(userID string, row ImportRow) error {
 	r.rows = append(r.rows, row)
 	return r.Repository.SaveImportedTransaction(userID, row)
+}
+
+type recordingImportCategorySyncer struct {
+	names []string
+}
+
+func (s *recordingImportCategorySyncer) FindOrCreateImportCategory(_ context.Context, _ string, name string) (string, string, error) {
+	s.names = append(s.names, name)
+	return "cat-imported", name, nil
+}
+
+func TestImportConfirm_SyncsImportedCategoryBeforePersistingRows(t *testing.T) {
+	repo := &recordingImportWriterRepo{Repository: NewRepository(func() time.Time {
+		return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC)
+	})}
+	syncer := &recordingImportCategorySyncer{}
+	service := NewImportConfirmService(repo, syncer)
+
+	result, err := service.Confirm("user-1", "import-category", ImportConfirmRequest{Rows: []ImportRow{{
+		Date:        "2026-03-01",
+		Amount:      25,
+		Description: "lunch",
+		Category:    "Team Meals",
+	}}})
+	if err != nil {
+		t.Fatalf("expected import with category sync to succeed, got %v", err)
+	}
+	if result.SuccessCount != 1 {
+		t.Fatalf("expected one imported row, got %#v", result)
+	}
+	if len(syncer.names) != 1 || syncer.names[0] != "Team Meals" {
+		t.Fatalf("expected category syncer to receive Team Meals, got %#v", syncer.names)
+	}
+	if len(repo.rows) != 1 {
+		t.Fatalf("expected one persisted row, got %#v", repo.rows)
+	}
+	if repo.rows[0].CategoryID != "cat-imported" || repo.rows[0].Category != "Team Meals" {
+		t.Fatalf("expected imported row to carry synced category id/name, got %#v", repo.rows[0])
+	}
 }
 
 func TestImportConfirm_AppliesDefaultAccountAndLedgerToRows(t *testing.T) {

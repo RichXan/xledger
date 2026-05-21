@@ -48,6 +48,10 @@ const ImportPage = lazy(async () => {
   const module = await import('@/pages/import-page')
   return { default: module.ImportPage }
 })
+const MobileEntryPage = lazy(async () => {
+  const module = await import('@/pages/mobile-entry-page')
+  return { default: module.MobileEntryPage }
+})
 
 function ProtectedLayout({ children }: { children: JSX.Element }) {
   return <RequireAuth>{children}</RequireAuth>
@@ -69,7 +73,18 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
-        <Route path="/pwa-onboarding" element={<PWAOnboardingPage />} />
+        <Route path="/mobile" element={<MobileEntryPage />} />
+        <Route path="/pwa-onboarding" element={<Navigate to="/install" replace />} />
+        <Route
+          path="/install"
+          element={
+            <ProtectedLayout>
+              <AppShell>
+                <PWAOnboardingPage />
+              </AppShell>
+            </ProtectedLayout>
+          }
+        />
         <Route
           path="/dashboard"
           element={

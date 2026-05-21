@@ -12,6 +12,7 @@ const originalRevokeObjectURL = URL.revokeObjectURL
 interface MockCategory {
   id: string
   name: string
+  archived_at?: string
 }
 
 function renderManagementApp(initialEntries: string[]) {
@@ -128,13 +129,14 @@ function createManagementFetchMock(initialCategories: MockCategory[] = [{ id: 'c
 
     if (url.endsWith('/api/categories/cat-1') && init?.method === 'DELETE') {
       const category = categories.find((item) => item.id === 'cat-1') ?? { id: 'cat-1', name: 'Dining Out' }
-      categories = categories.filter((item) => item.id !== 'cat-1')
+      const archivedCategory = { ...category, archived_at: '2026-05-13T00:00:00Z' }
+      categories = categories.map((item) => (item.id === 'cat-1' ? archivedCategory : item))
 
       return new Response(
         JSON.stringify({
           code: 'OK',
           message: '成功',
-          data: { deleted: true, archived: true, category },
+          data: { deleted: true, archived: true, category: archivedCategory },
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       )
@@ -292,6 +294,24 @@ describe('accounting settings domain', () => {
         expect.objectContaining({ method: 'DELETE' }),
       )
     })
+    await waitFor(() => {
+      expect(screen.queryByText('Dining Out')).not.toBeInTheDocument()
+    })
+  })
+
+  it('hides archived categories returned by the management API', async () => {
+    const fetchMock = createManagementFetchMock([
+      { id: 'cat-1', name: 'Food' },
+      { id: 'cat-archived', name: 'Old Category', archived_at: '2026-05-13T00:00:00Z' },
+    ])
+    global.fetch = fetchMock as typeof fetch
+
+    renderManagementApp(['/accounts'])
+
+    await waitFor(() => {
+      expect(screen.getByText('Food')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Old Category')).not.toBeInTheDocument()
   })
 
   it('keeps newly created categories visible when the preview list is full', async () => {

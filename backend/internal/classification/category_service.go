@@ -100,6 +100,31 @@ func (s *CategoryService) FindByName(_ context.Context, userID string, name stri
 	return "", nil
 }
 
+func (s *CategoryService) FindOrCreateImportCategory(ctx context.Context, userID string, name string) (string, string, error) {
+	normalizedUserID := strings.TrimSpace(userID)
+	normalizedName := strings.TrimSpace(name)
+	if normalizedUserID == "" || normalizedName == "" {
+		return "", "", &contractError{code: CAT_INVALID}
+	}
+	categories, err := s.repo.ListCategoriesByUser(normalizedUserID)
+	if err != nil {
+		return "", "", err
+	}
+	for _, cat := range categories {
+		if cat.ArchivedAt != nil {
+			continue
+		}
+		if strings.EqualFold(cat.Name, normalizedName) || strings.EqualFold(text.StripEmojiPrefix(cat.Name), normalizedName) {
+			return cat.ID, cat.Name, nil
+		}
+	}
+	created, err := s.CreateCategory(ctx, normalizedUserID, CategoryCreateInput{Name: normalizedName})
+	if err != nil {
+		return "", "", err
+	}
+	return created.ID, created.Name, nil
+}
+
 func (s *CategoryService) UpdateCategory(_ context.Context, userID string, categoryID string, input CategoryUpdateInput) (Category, error) {
 	normalizedUserID := strings.TrimSpace(userID)
 	normalizedCategoryID := strings.TrimSpace(categoryID)

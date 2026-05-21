@@ -82,7 +82,10 @@ export function AccountsPage() {
 
   const accounts = accountsQuery.data?.items ?? []
   const ledgers = ledgersQuery.data?.items ?? []
-  const categories = categoriesQuery.data?.items ?? []
+  const categories = useMemo(
+    () => (categoriesQuery.data?.items ?? []).filter((category) => !category.archived_at),
+    [categoriesQuery.data?.items],
+  )
   const tags = tagsQuery.data?.items ?? []
   const normalizedCategoryQuery = categoryQuery.trim().toLowerCase()
   const normalizedTagQuery = tagQuery.trim().toLowerCase()
@@ -273,11 +276,11 @@ export function AccountsPage() {
                   {t('accountsPage.categories', { count: filteredCategories.length })}
                 </p>
                 <div className="flex items-center gap-1.5">
-                  <Button className="px-2.5 py-1 text-xs" variant="secondary" onClick={() => setShowCategoryForm((current) => !current)}>
+                  <Button className="px-3 py-2 text-xs" variant="secondary" onClick={() => setShowCategoryForm((current) => !current)}>
                     {t('accountsPage.newCategory')}
                   </Button>
                   {filteredCategories.length > categoryPreviewCount ? (
-                    <Button className="px-2.5 py-1 text-xs" variant="ghost" onClick={() => setShowAllCategories((current) => !current)}>
+                    <Button className="px-3 py-2 text-xs" variant="ghost" onClick={() => setShowAllCategories((current) => !current)}>
                       {showAllCategories ? t('accountsPage.showLess') : t('accountsPage.showAll')}
                     </Button>
                   ) : null}
@@ -315,9 +318,9 @@ export function AccountsPage() {
               </div>
               <div className="mt-4 flex max-h-44 flex-wrap gap-2 overflow-auto pr-1">
                 {visibleCategories.map((category) => (
-                  <div key={category.id} className="flex items-center gap-1 rounded-full border border-outline/10 bg-white px-3 py-1.5 text-sm text-on-surface">
+                  <div key={category.id} className="flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-outline/10 bg-white px-3 py-2 text-sm text-on-surface">
                     {editingCategoryID === category.id ? (
-                      <form className="flex items-center gap-1" onSubmit={(event) => void handleUpdateCategory(event)}>
+                      <form className="flex max-w-full flex-wrap items-center gap-2" onSubmit={(event) => void handleUpdateCategory(event)}>
                         <label className="sr-only" htmlFor={`category-${category.id}`}>
                           {t('accountsPage.categoryName')}
                         </label>
@@ -325,18 +328,18 @@ export function AccountsPage() {
                           id={`category-${category.id}`}
                           value={editingCategoryName}
                           onChange={(event) => setEditingCategoryName(event.target.value)}
-                          className="h-8 w-36 rounded-lg border border-outline/20 px-2 text-xs"
+                          className="h-10 w-36 max-w-full rounded-lg border border-outline/20 px-2 text-xs"
                         />
-                        <Button type="submit" className="px-2 py-1 text-xs" disabled={updateCategoryMutation.isPending || editingCategoryName.trim() === ''}>
+                        <Button type="submit" className="px-3 py-2 text-xs" disabled={updateCategoryMutation.isPending || editingCategoryName.trim() === ''}>
                           {t('accountsPage.saveCategory')}
                         </Button>
                       </form>
                     ) : (
                       <>
-                        <span>{category.name}</span>
+                        <span className="min-w-0 break-words">{category.name}</span>
                         <button
                           type="button"
-                          className="ml-1 rounded-full px-1.5 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary-fixed"
+                          className="min-h-9 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary-fixed"
                           aria-label={t('accountsPage.renameCategoryLabel', { name: category.name })}
                           onClick={() => {
                             setEditingCategoryID(category.id)
@@ -347,7 +350,7 @@ export function AccountsPage() {
                         </button>
                         <button
                           type="button"
-                          className="rounded-full px-1.5 py-0.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-50"
+                          className="min-h-9 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-50"
                           aria-label={t('accountsPage.archiveCategoryLabel', { name: category.name })}
                           onClick={() => void deleteCategoryMutation.mutateAsync(category.id)}
                           disabled={deleteCategoryMutation.isPending}

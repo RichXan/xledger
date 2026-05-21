@@ -177,7 +177,7 @@ export function DashboardPage() {
     const isStandalone = window.matchMedia?.('(display-mode: standalone)').matches ?? false
     const hasDismissed = localStorage.getItem('pwa-onboarding-dismissed')
     if (isIOS && !isStandalone && !hasDismissed) {
-      navigate('/pwa-onboarding')
+      navigate('/install')
     }
   }, [navigate])
 

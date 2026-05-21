@@ -265,7 +265,7 @@ function createTransactionsFetchMock() {
       )
     }
 
-    if (url.endsWith('/api/transactions/txn-1') && init?.method === 'DELETE') {
+    if (/\/api\/transactions\/txn-[1-5]$/.test(url) && init?.method === 'DELETE') {
       return new Response(
         JSON.stringify({
           code: 'OK',
@@ -693,6 +693,32 @@ describe('transactions domain', () => {
       expect(patchCalls[0][1]?.body).toEqual(expect.stringContaining('"category_id":"cat-1"'))
       expect(patchCalls[0][1]?.body).toEqual(expect.stringContaining('"amount":25'))
     })
+  })
+
+  it('selects all visible transactions and deletes them in one bulk action', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await screen.findByText('Food')
+    await user.click(screen.getByRole('button', { name: /select all visible/i }))
+    await screen.findByText(/5 selected/i)
+    await user.click(screen.getByRole('button', { name: /delete selected/i }))
+
+    await waitFor(() => {
+      const deleteCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE')
+      expect(deleteCalls).toHaveLength(5)
+      expect(deleteCalls.map(([url]) => String(url))).toEqual(expect.arrayContaining([
+        '/api/transactions/txn-1',
+        '/api/transactions/txn-2',
+        '/api/transactions/txn-3',
+        '/api/transactions/txn-4',
+        '/api/transactions/txn-5',
+      ]))
+    })
+    expect(await screen.findByText(/5 transactions deleted/i)).toBeInTheDocument()
   })
 
   it('keeps import confirmation results visible with row outcomes and problem download', async () => {

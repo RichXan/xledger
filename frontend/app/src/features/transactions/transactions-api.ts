@@ -102,6 +102,7 @@ export interface ImportRowInput {
   description: string
   type?: string
   category?: string
+  category_id?: string
   account?: string
   ledger?: string
 }

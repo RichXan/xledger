@@ -17,6 +17,7 @@ type ImportRow struct {
 	Description string  `json:"description"`
 	Type        string  `json:"type,omitempty"`
 	Category    string  `json:"category,omitempty"`
+	CategoryID  string  `json:"category_id,omitempty"`
 	Account     string  `json:"account,omitempty"`
 	Ledger      string  `json:"ledger,omitempty"`
 	AccountID   string  `json:"account_id,omitempty"`
@@ -60,14 +61,27 @@ type ImportConfirmRepository interface {
 }
 
 type ImportConfirmService struct {
-	repo ImportConfirmRepository
+	repo           ImportConfirmRepository
+	categorySyncer ImportCategorySyncer
 }
 
-func NewImportConfirmService(repo ImportConfirmRepository) *ImportConfirmService {
-	return &ImportConfirmService{repo: repo}
+type ImportCategorySyncer interface {
+	FindOrCreateImportCategory(ctx context.Context, userID string, name string) (id string, displayName string, err error)
+}
+
+func NewImportConfirmService(repo ImportConfirmRepository, categorySyncer ...ImportCategorySyncer) *ImportConfirmService {
+	service := &ImportConfirmService{repo: repo}
+	if len(categorySyncer) > 0 {
+		service.categorySyncer = categorySyncer[0]
+	}
+	return service
 }
 
 func (s *ImportConfirmService) Confirm(userID string, idempotencyKey string, req ImportConfirmRequest) (ImportConfirmResponse, error) {
+	return s.confirm(context.Background(), userID, idempotencyKey, req)
+}
+
+func (s *ImportConfirmService) confirm(ctx context.Context, userID string, idempotencyKey string, req ImportConfirmRequest) (ImportConfirmResponse, error) {
 	userID = strings.TrimSpace(userID)
 	idempotencyKey = strings.TrimSpace(idempotencyKey)
 	if idempotencyKey == "" {
@@ -100,6 +114,18 @@ func (s *ImportConfirmService) Confirm(userID string, idempotencyKey string, req
 			result.Rows = append(result.Rows, ImportConfirmRowResult{RowIndex: idx, Status: "skipped", Reason: "duplicate_transaction"})
 			continue
 		}
+		if s.categorySyncer != nil && strings.TrimSpace(row.Category) != "" && strings.TrimSpace(row.CategoryID) == "" {
+			categoryID, categoryName, err := s.categorySyncer.FindOrCreateImportCategory(ctx, userID, row.Category)
+			if err != nil {
+				result.FailCount++
+				result.Rows = append(result.Rows, ImportConfirmRowResult{RowIndex: idx, Status: "failed", Reason: "persist_failed"})
+				continue
+			}
+			row.CategoryID = strings.TrimSpace(categoryID)
+			if strings.TrimSpace(categoryName) != "" {
+				row.Category = strings.TrimSpace(categoryName)
+			}
+		}
 		if hasTxnWriter {
 			if err := txnWriter.SaveImportedTransaction(userID, row); err != nil {
 				result.FailCount++
@@ -123,6 +149,5 @@ func (s *ImportConfirmService) Confirm(userID string, idempotencyKey string, req
 }
 
 func (s *ImportConfirmService) ConfirmContext(ctx context.Context, userID string, idempotencyKey string, req ImportConfirmRequest) (ImportConfirmResponse, error) {
-	_ = ctx
-	return s.Confirm(userID, idempotencyKey, req)
+	return s.confirm(ctx, userID, idempotencyKey, req)
 }

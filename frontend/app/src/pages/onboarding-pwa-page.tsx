@@ -1,77 +1,149 @@
-// frontend/app/src/pages/onboarding-pwa-page.tsx
-import { useState, useEffect } from 'react'
+import { ArrowLeft, CheckCircle2, Download, Home, Plus, Share2, Smartphone } from 'lucide-react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, Smartphone, ArrowRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import { usePwaInstall } from '@/features/pwa/use-pwa-install'
+
+function getInstallPlatform() {
+  if (typeof navigator === 'undefined') return 'desktop'
+  const ua = navigator.userAgent
+  if (/iPad|iPhone|iPod/.test(ua)) return 'ios'
+  if (/Android/i.test(ua)) return 'android'
+  return 'desktop'
+}
+
+function getStandaloneStatus() {
+  if (typeof window === 'undefined') return false
+  const displayModeStandalone = window.matchMedia?.('(display-mode: standalone)').matches ?? false
+  const navigatorStandalone = 'standalone' in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+  return displayModeStandalone || navigatorStandalone
+}
 
 export function PWAOnboardingPage() {
   const { t } = useTranslation()
-  const [visible, setVisible] = useState(false)
-  const [dismissed, setDismissed] = useState(false)
+  const navigate = useNavigate()
+  const { canInstall, install } = usePwaInstall()
+  const platform = useMemo(() => getInstallPlatform(), [])
+  const isStandalone = useMemo(() => getStandaloneStatus(), [])
 
-  useEffect(() => {
-    // 检测 iOS Safari 且未安装
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    const hasDismissed = localStorage.getItem('pwa-onboarding-dismissed')
-
-    if (isIOS && !isStandalone && !hasDismissed) {
-      setVisible(true)
+  function leaveInstallGuide(target?: string) {
+    window.localStorage.setItem('pwa-onboarding-dismissed', 'true')
+    if (target) {
+      navigate(target)
+      return
     }
-  }, [])
-
-  const handleDismiss = () => {
-    setDismissed(true)
-    localStorage.setItem('pwa-onboarding-dismissed', 'true')
+    navigate(-1)
   }
 
-  if (!visible || dismissed) return null
+  const steps = platform === 'ios'
+    ? [
+        { icon: Share2, label: t('pwa.iosStep1') },
+        { icon: Plus, label: t('pwa.iosStep2') },
+        { icon: Home, label: t('pwa.iosStep3') },
+      ]
+    : platform === 'android'
+      ? [
+          { icon: Download, label: t('pwa.androidStep1') },
+          { icon: Plus, label: t('pwa.androidStep2') },
+          { icon: Home, label: t('pwa.androidStep3') },
+        ]
+      : [
+          { icon: Download, label: t('pwa.desktopStep1') },
+          { icon: Plus, label: t('pwa.desktopStep2') },
+          { icon: Home, label: t('pwa.desktopStep3') },
+        ]
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center md:items-center">
-      <div className="absolute inset-0 bg-black/50" onClick={handleDismiss} />
-      <div className="relative w-full max-w-md rounded-t-3xl bg-white p-6 shadow-2xl md:rounded-3xl">
-        <button
-          onClick={handleDismiss}
-          className="absolute right-4 top-4 p-2 text-gray-400 hover:text-gray-600"
-        >
-          <X size={20} />
-        </button>
-
-        <div className="flex flex-col items-center text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <Smartphone className="text-primary" size={32} />
-          </div>
-
-          <h2 className="mb-2 text-xl font-bold text-on-surface">
-            {t('pwa.installTitle')}
-          </h2>
-          <p className="mb-6 text-sm text-on-surface-variant">
-            {t('pwa.installDescription')}
-          </p>
-
-          <div className="w-full space-y-3">
-            <div className="flex items-start gap-3 rounded-xl bg-surface-container p-4 text-left">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-white text-xs font-bold">1</span>
-              <p className="text-sm text-on-surface">{t('pwa.step1')}</p>
+    <div className="mx-auto max-w-5xl space-y-5">
+      <section className="overflow-hidden rounded-2xl border border-outline/15 bg-surface-container-lowest shadow-ambient">
+        <div className="grid gap-6 p-5 md:grid-cols-[1.05fr_0.95fr] md:p-7">
+          <div>
+            <button
+              type="button"
+              className="mb-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline/15 bg-surface-container-low px-3 text-sm font-bold text-on-surface-variant"
+              onClick={() => leaveInstallGuide()}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {t('common.back')}
+            </button>
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary-fixed px-3 py-1.5 text-xs font-bold text-primary">
+              <Smartphone className="h-4 w-4" />
+              {t('pwa.eyebrow')}
             </div>
-            <div className="flex items-start gap-3 rounded-xl bg-surface-container p-4 text-left">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-white text-xs font-bold">2</span>
-              <p className="text-sm text-on-surface">{t('pwa.step2')}</p>
-            </div>
-            <div className="flex items-start gap-3 rounded-xl bg-surface-container p-4 text-left">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-white text-xs font-bold">3</span>
-              <p className="text-sm text-on-surface">{t('pwa.step3')}</p>
+            <h2 className="mt-4 font-headline text-4xl font-extrabold leading-tight text-primary md:text-[44px]">
+              {t('pwa.installTitle')}
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-on-surface-variant">
+              {t('pwa.installDescription')}
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {canInstall ? (
+                <Button onClick={() => void install()}>
+                  <Download className="h-4 w-4" />
+                  {t('pwa.installNow')}
+                </Button>
+              ) : null}
+              <Button variant="secondary" onClick={() => leaveInstallGuide('/dashboard')}>
+                {t('pwa.backToApp')}
+              </Button>
             </div>
           </div>
 
-          <button
-            onClick={handleDismiss}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-white font-semibold"
-          >
-            {t('pwa.gotIt')} <ArrowRight size={18} />
-          </button>
+          <div className="rounded-2xl border border-primary/15 bg-primary-fixed p-4">
+            <div className="flex items-start gap-3 rounded-xl bg-white p-4">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary text-white">
+                {isStandalone ? <CheckCircle2 className="h-5 w-5" /> : <Smartphone className="h-5 w-5" />}
+              </div>
+              <div>
+                <p className="font-bold text-on-surface">
+                  {isStandalone ? t('pwa.installedStatus') : t('pwa.browserStatus')}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-on-surface-variant">
+                  {isStandalone ? t('pwa.installedDescription') : t('pwa.browserDescription')}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {[t('pwa.benefitFast'), t('pwa.benefitHome'), t('pwa.benefitFocus')].map((benefit) => (
+                <div key={benefit} className="rounded-xl bg-white/80 px-3 py-3 text-xs font-bold text-primary">
+                  {benefit}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-3">
+        {steps.map(({ icon: Icon, label }, index) => (
+          <article key={label} className="rounded-2xl border border-outline/15 bg-white p-4">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-container-low text-primary">
+                <Icon className="h-5 w-5" />
+              </div>
+              <span className="text-xs font-black uppercase tracking-[0.14em] text-on-surface-variant">
+                {t('pwa.stepLabel', { count: index + 1 })}
+              </span>
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-on-surface">{label}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="rounded-2xl border border-outline/15 bg-surface-container-low p-5">
+        <p className="font-label text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface-variant">
+          {t('pwa.longTermTitle')}
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {[t('pwa.longTermHttps'), t('pwa.longTermLogin'), t('pwa.longTermUpdate')].map((item) => (
+            <div key={item} className="flex items-start gap-3 rounded-xl bg-white p-4 text-sm leading-6 text-on-surface">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+              <span>{item}</span>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   )
 }

@@ -7,7 +7,7 @@ FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
 
 COPY frontend/app/package.json frontend/app/pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
+RUN corepack enable && corepack prepare pnpm@10.33.1 --activate && pnpm install --frozen-lockfile
 
 COPY frontend/app/ ./
 RUN pnpm run build

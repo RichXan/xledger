@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/auth-context'
+import type { PaginatedResponse } from '@/features/transactions/transactions-api'
 import {
   createAccount,
   createCategory,
@@ -18,7 +19,25 @@ import {
   updateCategory,
   updateLedger,
   updateAccount,
+  type CategoryItem,
 } from './management-api'
+
+type CategoryListCache = PaginatedResponse<CategoryItem>
+
+function removeArchivedCategoryFromCache(current: CategoryListCache | undefined, categoryID: string) {
+  if (!current?.items) return current
+  const nextItems = current.items.filter((category) => category.id !== categoryID && !category.archived_at)
+  if (nextItems.length === current.items.length) return current
+  return {
+    ...current,
+    items: nextItems,
+    pagination: {
+      ...current.pagination,
+      total: Math.max(0, current.pagination.total - (current.items.length - nextItems.length)),
+      total_pages: Math.max(1, Math.ceil(nextItems.length / Math.max(1, current.pagination.page_size))),
+    },
+  }
+}
 
 export function useManagementOverview() {
   const { session } = useAuth()
@@ -136,7 +155,9 @@ export function useDeleteCategory() {
 
   return useMutation({
     mutationFn: (id: string) => deleteCategory(session!.accessToken, id),
-    onSuccess: async () => {
+    onSuccess: async (_result, id) => {
+      queryClient.setQueryData<CategoryListCache>(['management', 'categories'], (current) => removeArchivedCategoryFromCache(current, id))
+      queryClient.setQueryData<CategoryListCache>(['transactions', 'categories'], (current) => removeArchivedCategoryFromCache(current, id))
       await queryClient.invalidateQueries({ queryKey: ['management', 'categories'] })
       await queryClient.invalidateQueries({ queryKey: ['transactions', 'categories'] })
     },
