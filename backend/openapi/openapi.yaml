@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Xledger Backend API
   version: v1.0.0
-  description: Xledger 智能个人财务管理平台 API
+  description: Xledger 鏅鸿兘涓汉璐㈠姟绠＄悊骞冲彴 API
 servers:
   - url: /api
 components:
@@ -25,7 +25,7 @@ components:
           example: OK
         message:
           type: string
-          example: 成功
+          example: 鎴愬姛
         data:
           nullable: true
     PaginatedEnvelope:
@@ -37,7 +37,7 @@ components:
           example: OK
         message:
           type: string
-          example: 成功
+          example: 鎴愬姛
         data:
           type: object
           required: [items, pagination]
@@ -96,7 +96,7 @@ components:
           format: uuid
         name:
           type: string
-          example: 总账本
+          example: Default ledger
         is_default:
           type: boolean
     Account:
@@ -111,7 +111,7 @@ components:
           format: uuid
         name:
           type: string
-          example: 招商银行储蓄卡
+          example: Bank account
         type:
           type: string
           enum: [debit, credit, cash, ewallet]
@@ -214,7 +214,7 @@ components:
           format: uuid
         name:
           type: string
-          example: 餐饮
+          example: 椁愰ギ
         parent_id:
           type: string
           format: uuid
@@ -235,7 +235,7 @@ components:
           format: uuid
         name:
           type: string
-          example: 月度
+          example: 鏈堝害
     OverviewStats:
       type: object
       required: [total_assets, income, expense, net]
@@ -329,10 +329,53 @@ components:
           type: array
           items:
             type: object
+    ImportJobStatusResult:
+      allOf:
+        - $ref: '#/components/schemas/ImportConfirmResult'
+        - type: object
+          required: [job_id, status, total_rows, processed_rows]
+          properties:
+            job_id:
+              type: string
+            status:
+              type: string
+              enum: [running, succeeded, failed]
+            total_rows:
+              type: integer
+            processed_rows:
+              type: integer
+            error_code:
+              type: string
+              nullable: true
+    GenerateShortcutRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          default: Xledger quick add
+          description: PAT name shown in the token list
+        expires_in:
+          type: integer
+          description: Token lifetime in days
+        default_ledger_id:
+          type: string
+          description: Ledger bound to the imported shortcut
+        default_account_id:
+          type: string
+          nullable: true
+          description: Optional default account bound to the shortcut
+        mode:
+          type: string
+          enum: [manual, ocr_confirm]
+          default: manual
+          description: Shortcut workflow mode
     GenerateShortcutResponse:
       type: object
       required: [pat_token, api_endpoint]
       properties:
+        shortcut_id:
+          type: string
+          description: Server generated shortcut binding ID
         pat_token:
           type: string
           description: PAT token (only shown once at creation)
@@ -341,14 +384,129 @@ components:
           type: string
           description: API base URL for the shortcut
           example: https://api.example.com
+        install_url:
+          type: string
+          description: Apple Shortcuts import URL when available
+        qr_url:
+          type: string
+          description: Optional QR code URL for installing the shortcut
+        default_ledger_id:
+          type: string
+          description: Ledger bound to the shortcut
+        default_account_id:
+          type: string
+          nullable: true
+          description: Account bound to the shortcut
         shortcut_url:
           type: string
           description: Deep link URL for Apple Shortcuts
-          example: shortcuts://run-shortcut?name=快捷记账
+          example: shortcuts://run-shortcut?name=蹇嵎璁拌处
         expires_at:
           type: string
           format: date-time
           nullable: true
+    QuickAddSuggestion:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        reason:
+          type: string
+        confidence:
+          type: number
+          format: double
+    QuickAddPreviewRequest:
+      type: object
+      required: [raw_text]
+      properties:
+        shortcut_id:
+          type: string
+        raw_text:
+          type: string
+          description: OCR text produced locally by Apple Shortcuts
+        source:
+          type: string
+          example: ios_shortcuts_ocr
+        idempotency_key:
+          type: string
+        default_ledger_id:
+          type: string
+        default_account_id:
+          type: string
+          nullable: true
+    QuickAddPreviewResponse:
+      type: object
+      required: [amount, type, memo, occurred_at, needs_review]
+      properties:
+        shortcut_id:
+          type: string
+        amount:
+          type: number
+          format: double
+        type:
+          type: string
+          enum: [expense, income]
+        memo:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        category_suggestion:
+          $ref: '#/components/schemas/QuickAddSuggestion'
+        ledger_suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuickAddSuggestion'
+        account_suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuickAddSuggestion'
+        needs_review:
+          type: boolean
+    QuickAddConfirmRequest:
+      type: object
+      required: [ledger_id, type, amount]
+      properties:
+        shortcut_id:
+          type: string
+        idempotency_key:
+          type: string
+        ledger_id:
+          type: string
+        account_id:
+          type: string
+          nullable: true
+        category_id:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [expense, income]
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+        memo:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+    QuickAddConfirmResponse:
+      type: object
+      required: [id, success]
+      properties:
+        id:
+          type: string
+        success:
+          type: boolean
+        amount:
+          type: number
+          format: double
+        type:
+          type: string
+          enum: [expense, income]
     QuickAddV2Request:
       type: object
       required: [amount, type]
@@ -365,10 +523,10 @@ components:
         category:
           type: string
           description: Category name (without emoji prefix)
-          example: 餐饮
+          example: 椁愰ギ
         memo:
           type: string
-          example: 午餐
+          example: 鍗堥
     QuickAddV2Response:
       type: object
       required: [id, success]
@@ -462,7 +620,7 @@ components:
 paths:
   /auth/send-code:
     post:
-      summary: 发送邮箱验证码
+      summary: 鍙戦€侀偖绠遍獙璇佺爜
       tags: [Auth]
       requestBody:
         required: true
@@ -477,16 +635,16 @@ paths:
                   format: email
       responses:
         '200':
-          description: 验证码已发送
+          description: Verification code sent
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Envelope'
         '429':
-          description: 触发限流
+          description: 瑙﹀彂闄愭祦
   /auth/verify-code:
     post:
-      summary: 验证码登录
+      summary: Verify code login
       tags: [Auth]
       requestBody:
         required: true
@@ -504,7 +662,7 @@ paths:
                   pattern: '^\d{6}$'
       responses:
         '200':
-          description: 登录成功
+          description: 鐧诲綍鎴愬姛
           content:
             application/json:
               schema:
@@ -515,10 +673,10 @@ paths:
                       data:
                         $ref: '#/components/schemas/TokenPair'
         '401':
-          description: 验证码无效或已过期
+          description: Verification code invalid or expired
   /auth/refresh:
     post:
-      summary: 刷新 Access Token
+      summary: 鍒锋柊 Access Token
       tags: [Auth]
       requestBody:
         required: true
@@ -532,7 +690,7 @@ paths:
                   type: string
       responses:
         '200':
-          description: 刷新成功
+          description: 鍒锋柊鎴愬姛
           content:
             application/json:
               schema:
@@ -544,22 +702,22 @@ paths:
                         $ref: '#/components/schemas/TokenPair'
   /auth/logout:
     post:
-      summary: 退出登录
+      summary: Logout
       tags: [Auth]
       security:
         - BearerAuth: []
       responses:
         '200':
-          description: 退出成功
+          description: Logged out
   /auth/me:
     get:
-      summary: 获取当前用户信息
+      summary: 鑾峰彇褰撳墠鐢ㄦ埛淇℃伅
       tags: [Auth]
       security:
         - BearerAuth: []
       responses:
         '200':
-          description: 用户信息
+          description: 鐢ㄦ埛淇℃伅
           content:
             application/json:
               schema:
@@ -571,20 +729,20 @@ paths:
                         $ref: '#/components/schemas/User'
   /ledgers:
     get:
-      summary: 获取账本列表
+      summary: 鑾峰彇璐︽湰鍒楄〃
       tags: [Ledgers]
       security:
         - BearerAuth: []
         - PATAuth: []
       responses:
         '200':
-          description: 账本列表
+          description: 璐︽湰鍒楄〃
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedEnvelope'
     post:
-      summary: 创建账本
+      summary: 鍒涘缓璐︽湰
       tags: [Ledgers]
       security:
         - BearerAuth: []
@@ -604,7 +762,7 @@ paths:
                   default: false
       responses:
         '201':
-          description: 创建成功
+          description: 鍒涘缓鎴愬姛
           content:
             application/json:
               schema:
@@ -616,7 +774,7 @@ paths:
                         $ref: '#/components/schemas/Ledger'
   /ledgers/{id}:
     patch:
-      summary: 更新账本
+      summary: 鏇存柊璐︽湰
       tags: [Ledgers]
       security:
         - BearerAuth: []
@@ -639,9 +797,9 @@ paths:
                   type: string
       responses:
         '200':
-          description: 更新成功
+          description: 鏇存柊鎴愬姛
     delete:
-      summary: 删除账本
+      summary: 鍒犻櫎璐︽湰
       tags: [Ledgers]
       security:
         - BearerAuth: []
@@ -655,25 +813,25 @@ paths:
             format: uuid
       responses:
         '200':
-          description: 删除成功
+          description: 鍒犻櫎鎴愬姛
         '409':
-          description: 默认账本不可删除
+          description: 榛樿璐︽湰涓嶅彲鍒犻櫎
   /accounts:
     get:
-      summary: 获取账户列表
+      summary: 鑾峰彇璐︽埛鍒楄〃
       tags: [Accounts]
       security:
         - BearerAuth: []
         - PATAuth: []
       responses:
         '200':
-          description: 账户列表
+          description: 璐︽埛鍒楄〃
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedEnvelope'
     post:
-      summary: 创建账户
+      summary: 鍒涘缓璐︽埛
       tags: [Accounts]
       security:
         - BearerAuth: []
@@ -696,10 +854,10 @@ paths:
                   format: double
       responses:
         '201':
-          description: 创建成功
+          description: 鍒涘缓鎴愬姛
   /accounts/{id}:
     get:
-      summary: 获取账户详情
+      summary: 鑾峰彇璐︽埛璇︽儏
       tags: [Accounts]
       security:
         - BearerAuth: []
@@ -713,9 +871,9 @@ paths:
             format: uuid
       responses:
         '200':
-          description: 账户详情
+          description: 璐︽埛璇︽儏
     patch:
-      summary: 更新账户
+      summary: 鏇存柊璐︽埛
       tags: [Accounts]
       security:
         - BearerAuth: []
@@ -743,9 +901,9 @@ paths:
                   type: boolean
       responses:
         '200':
-          description: 更新成功
+          description: 鏇存柊鎴愬姛
     delete:
-      summary: 删除账户
+      summary: 鍒犻櫎璐︽埛
       tags: [Accounts]
       security:
         - BearerAuth: []
@@ -759,10 +917,10 @@ paths:
             format: uuid
       responses:
         '200':
-          description: 删除成功
+          description: 鍒犻櫎鎴愬姛
   /transactions:
     get:
-      summary: 获取交易列表
+      summary: 鑾峰彇浜ゆ槗鍒楄〃
       tags: [Transactions]
       security:
         - BearerAuth: []
@@ -778,13 +936,13 @@ paths:
         - $ref: '#/components/parameters/DateToParam'
       responses:
         '200':
-          description: 交易列表
+          description: 浜ゆ槗鍒楄〃
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedEnvelope'
     post:
-      summary: 创建交易
+      summary: 鍒涘缓浜ゆ槗
       tags: [Transactions]
       security:
         - BearerAuth: []
@@ -833,10 +991,10 @@ paths:
                   format: date-time
       responses:
         '201':
-          description: 创建成功
+          description: 鍒涘缓鎴愬姛
   /transactions/review-summary:
     get:
-      summary: 获取交易复核摘要
+      summary: 鑾峰彇浜ゆ槗澶嶆牳鎽樿
       tags: [Transactions]
       security:
         - BearerAuth: []
@@ -850,7 +1008,7 @@ paths:
         - $ref: '#/components/parameters/DateToParam'
       responses:
         '200':
-          description: 复核摘要
+          description: 澶嶆牳鎽樿
           content:
             application/json:
               schema:
@@ -862,7 +1020,7 @@ paths:
                         $ref: '#/components/schemas/TransactionReviewSummary'
   /transactions/review-items:
     get:
-      summary: 获取交易复核队列
+      summary: 鑾峰彇浜ゆ槗澶嶆牳闃熷垪
       tags: [Transactions]
       security:
         - BearerAuth: []
@@ -883,7 +1041,7 @@ paths:
             enum: [all, uncategorized, duplicate, large]
       responses:
         '200':
-          description: 复核队列
+          description: 澶嶆牳闃熷垪
           content:
             application/json:
               schema:
@@ -900,7 +1058,7 @@ paths:
                               $ref: '#/components/schemas/TransactionReviewItem'
   /transactions/{id}:
     patch:
-      summary: 更新交易
+      summary: 鏇存柊浜ゆ槗
       tags: [Transactions]
       security:
         - BearerAuth: []
@@ -936,11 +1094,11 @@ paths:
                     format: uuid
       responses:
         '200':
-          description: 更新成功
+          description: 鏇存柊鎴愬姛
         '409':
-          description: 版本冲突
+          description: 鐗堟湰鍐茬獊
     delete:
-      summary: 删除交易
+      summary: 鍒犻櫎浜ゆ槗
       tags: [Transactions]
       security:
         - BearerAuth: []
@@ -958,25 +1116,25 @@ paths:
             type: integer
       responses:
         '200':
-          description: 删除成功
+          description: 鍒犻櫎鎴愬姛
         '409':
-          description: 版本冲突
+          description: 鐗堟湰鍐茬獊
   /categories:
     get:
-      summary: 获取分类列表
+      summary: 鑾峰彇鍒嗙被鍒楄〃
       tags: [Categories]
       security:
         - BearerAuth: []
         - PATAuth: []
       responses:
         '200':
-          description: 分类列表
+          description: 鍒嗙被鍒楄〃
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedEnvelope'
     post:
-      summary: 创建分类
+      summary: 鍒涘缓鍒嗙被
       tags: [Categories]
       security:
         - BearerAuth: []
@@ -997,10 +1155,10 @@ paths:
                   nullable: true
       responses:
         '201':
-          description: 创建成功
+          description: 鍒涘缓鎴愬姛
   /categories/{id}:
     patch:
-      summary: 更新分类
+      summary: 鏇存柊鍒嗙被
       tags: [Categories]
       security:
         - BearerAuth: []
@@ -1031,9 +1189,9 @@ paths:
                   type: boolean
       responses:
         '200':
-          description: 更新成功
+          description: 鏇存柊鎴愬姛
     delete:
-      summary: 删除分类
+      summary: 鍒犻櫎鍒嗙被
       tags: [Categories]
       security:
         - BearerAuth: []
@@ -1047,7 +1205,7 @@ paths:
             format: uuid
       responses:
         '200':
-          description: 删除成功（若被引用则归档）
+          description: Deleted or archived when referenced
           content:
             application/json:
               schema:
@@ -1064,20 +1222,20 @@ paths:
                             type: boolean
   /tags:
     get:
-      summary: 获取标签列表
+      summary: 鑾峰彇鏍囩鍒楄〃
       tags: [Tags]
       security:
         - BearerAuth: []
         - PATAuth: []
       responses:
         '200':
-          description: 标签列表
+          description: 鏍囩鍒楄〃
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedEnvelope'
     post:
-      summary: 创建标签
+      summary: 鍒涘缓鏍囩
       tags: [Tags]
       security:
         - BearerAuth: []
@@ -1094,12 +1252,12 @@ paths:
                   type: string
       responses:
         '201':
-          description: 创建成功
+          description: 鍒涘缓鎴愬姛
         '409':
-          description: 标签名重复
+          description: Tag name already exists
   /tags/{id}:
     patch:
-      summary: 更新标签
+      summary: 鏇存柊鏍囩
       tags: [Tags]
       security:
         - BearerAuth: []
@@ -1123,9 +1281,9 @@ paths:
                   type: string
       responses:
         '200':
-          description: 更新成功
+          description: 鏇存柊鎴愬姛
     delete:
-      summary: 删除标签
+      summary: 鍒犻櫎鏍囩
       tags: [Tags]
       security:
         - BearerAuth: []
@@ -1139,10 +1297,10 @@ paths:
             format: uuid
       responses:
         '200':
-          description: 删除成功
+          description: 鍒犻櫎鎴愬姛
   /stats/overview:
     get:
-      summary: 获取概览统计
+      summary: 鑾峰彇姒傝缁熻
       tags: [Stats]
       security:
         - BearerAuth: []
@@ -1151,7 +1309,7 @@ paths:
         - $ref: '#/components/parameters/LedgerIDParam'
       responses:
         '200':
-          description: 概览数据
+          description: 姒傝鏁版嵁
           content:
             application/json:
               schema:
@@ -1163,7 +1321,7 @@ paths:
                         $ref: '#/components/schemas/OverviewStats'
   /stats/trend:
     get:
-      summary: 获取收支趋势
+      summary: 鑾峰彇鏀舵敮瓒嬪娍
       tags: [Stats]
       security:
         - BearerAuth: []
@@ -1183,10 +1341,10 @@ paths:
             type: string
       responses:
         '200':
-          description: 趋势数据
+          description: 瓒嬪娍鏁版嵁
   /stats/category:
     get:
-      summary: 获取分类统计
+      summary: 鑾峰彇鍒嗙被缁熻
       tags: [Stats]
       security:
         - BearerAuth: []
@@ -1199,19 +1357,19 @@ paths:
           schema:
             type: string
             format: uuid
-          description: 仅导出指定账户相关交易
+          description: Filter by account
         - name: ledger_id
           in: query
           schema:
             type: string
             format: uuid
-          description: 仅导出指定账本交易
+          description: Filter by ledger
       responses:
         '200':
-          description: 分类统计数据
+          description: 鍒嗙被缁熻鏁版嵁
   /stats/keywords:
     get:
-      summary: 获取支出关键词统计
+      summary: List spending keywords
       tags: [Stats]
       security:
         - BearerAuth: []
@@ -1228,10 +1386,10 @@ paths:
             default: 30
       responses:
         '200':
-          description: 从支出交易备注和分类中聚合的关键词统计
+          description: Keyword statistics from expense memo and category data
   /import/csv:
     post:
-      summary: 预览 CSV 导入
+      summary: 棰勮 CSV 瀵煎叆
       tags: [Import]
       security:
         - BearerAuth: []
@@ -1249,10 +1407,10 @@ paths:
                   format: binary
       responses:
         '200':
-          description: 预览结果
+          description: 棰勮缁撴灉
   /import/csv/confirm:
     post:
-      summary: 确认 CSV 导入
+      summary: 纭 CSV 瀵煎叆
       tags: [Import]
       security:
         - BearerAuth: []
@@ -1263,6 +1421,11 @@ paths:
           required: true
           schema:
             type: string
+        - name: async
+          in: query
+          required: false
+          schema:
+            type: boolean
       requestBody:
         required: true
         content:
@@ -1278,12 +1441,50 @@ paths:
                   format: uuid
       responses:
         '200':
-          description: 导入结果
+          description: 瀵煎叆缁撴灉
         '409':
-          description: 重复请求
+          description: 閲嶅璇锋眰
+        '202':
+          description: Import job accepted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ImportJobStatusResult'
+  /import/csv/jobs/{job_id}:
+    get:
+      summary: Get CSV import job status
+      tags: [Import]
+      security:
+        - BearerAuth: []
+        - PATAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Import job status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ImportJobStatusResult'
+        '404':
+          description: Import job not found
   /export:
     get:
-      summary: 导出数据
+      summary: 瀵煎嚭鏁版嵁
       tags: [Export]
       security:
         - BearerAuth: []
@@ -1299,7 +1500,7 @@ paths:
         - $ref: '#/components/parameters/ToParam'
       responses:
         '200':
-          description: 导出文件
+          description: 瀵煎嚭鏂囦欢
           content:
             text/csv:
               schema:
@@ -1314,8 +1515,8 @@ paths:
                       $ref: '#/components/schemas/Transaction'
   /shortcuts/generate:
     post:
-      summary: 生成快捷指令
-      description: 创建一个 PAT 并返回用于快捷指令的 URL 和 Token
+      summary: 鐢熸垚蹇嵎鎸囦护
+      description: 鍒涘缓涓€涓?PAT 骞惰繑鍥炵敤浜庡揩鎹锋寚浠ょ殑 URL 鍜?Token
       tags: [Shortcuts]
       security:
         - BearerAuth: []
@@ -1324,18 +1525,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  default: 快捷记账
-                  description: PAT 名称
-                expires_in:
-                  type: integer
-                  description: 有效期（天），不提供则使用默认值
+              $ref: '#/components/schemas/GenerateShortcutRequest'
       responses:
         '200':
-          description: 生成成功
+          description: 鐢熸垚鎴愬姛
           content:
             application/json:
               schema:
@@ -1347,8 +1540,8 @@ paths:
                         $ref: '#/components/schemas/GenerateShortcutResponse'
   /shortcuts/quick-add:
     post:
-      summary: 快捷记账
-      description: 通过 PAT 创建交易（用于快捷指令回调）
+      summary: 蹇嵎璁拌处
+      description: 閫氳繃 PAT 鍒涘缓浜ゆ槗锛堢敤浜庡揩鎹锋寚浠ゅ洖璋冿級
       tags: [Shortcuts]
       security:
         - PATAuth: []
@@ -1360,7 +1553,7 @@ paths:
               $ref: '#/components/schemas/QuickAddV2Request'
       responses:
         '201':
-          description: 创建成功
+          description: 鍒涘缓鎴愬姛
           content:
             application/json:
               schema:
@@ -1371,16 +1564,16 @@ paths:
                       data:
                         $ref: '#/components/schemas/QuickAddV2Response'
         '400':
-          description: 参数不合法
+          description: Invalid request
   /shortcuts/categories:
     get:
-      summary: 获取快捷指令可用的分类列表
+      summary: List shortcut categories
       tags: [Shortcuts]
       security:
         - PATAuth: []
       responses:
         '200':
-          description: 分类名称列表（已去除 emoji 前缀）
+          description: Category names without emoji prefixes
           content:
             application/json:
               schema:
@@ -1390,10 +1583,60 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/QuickAddCategoriesResponse'
+  /quick-add/preview:
+    post:
+      summary: Preview OCR quick add
+      description: Parse locally produced OCR text and return amount, time, memo, category, ledger, and account suggestions for the PAT user.
+      tags: [QuickAdd]
+      security:
+        - PATAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuickAddPreviewRequest'
+      responses:
+        '200':
+          description: Preview generated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuickAddPreviewResponse'
+  /quick-add/confirm:
+    post:
+      summary: Confirm OCR quick add
+      description: Create a transaction from the reviewed OCR preview in the PAT user's selected ledger and optional account.
+      tags: [QuickAdd]
+      security:
+        - PATAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuickAddConfirmRequest'
+      responses:
+        '201':
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QuickAddConfirmResponse'
   /quick-add:
     post:
-      summary: 快速记账
-      description: 通过 Bearer Token 快速创建交易
+      summary: Quick add transaction
+      description: Create a transaction through Bearer token or PAT.
       tags: [QuickAdd]
       security:
         - BearerAuth: []
@@ -1418,17 +1661,17 @@ paths:
                 category:
                   type: string
                   description: Category name
-                  example: 餐饮
+                  example: 椁愰ギ
                 memo:
                   type: string
-                  example: 午餐
+                  example: 鍗堥
                 timestamp:
                   type: string
                   format: date-time
-                  description: 交易时间，不提供则使用当前时间
+                  description: Transaction time. Defaults to current time when omitted.
       responses:
         '201':
-          description: 创建成功
+          description: 鍒涘缓鎴愬姛
           content:
             application/json:
               schema:
@@ -1459,14 +1702,14 @@ paths:
                             format: date-time
   /quick-add/categories:
     get:
-      summary: 获取快速记账可用的分类列表
+      summary: 鑾峰彇蹇€熻璐﹀彲鐢ㄧ殑鍒嗙被鍒楄〃
       tags: [QuickAdd]
       security:
         - BearerAuth: []
         - PATAuth: []
       responses:
         '200':
-          description: 分类名称列表（已去除 emoji 前缀）
+          description: Category names without emoji prefixes
           content:
             application/json:
               schema:
@@ -1478,24 +1721,24 @@ paths:
                         $ref: '#/components/schemas/QuickAddCategoriesResponse'
   /personal-access-tokens:
     get:
-      summary: 获取 PAT 列表
+      summary: 鑾峰彇 PAT 鍒楄〃
       tags: [PAT]
       security:
         - BearerAuth: []
       responses:
         '200':
-          description: PAT 列表
+          description: PAT 鍒楄〃
     post:
-      summary: 创建 PAT
+      summary: 鍒涘缓 PAT
       tags: [PAT]
       security:
         - BearerAuth: []
       responses:
         '200':
-          description: 创建成功（返回明文 token）
+          description: Created, returns plaintext token
   /personal-access-tokens/{id}:
     delete:
-      summary: 撤销 PAT
+      summary: 鎾ら攢 PAT
       tags: [PAT]
       security:
         - BearerAuth: []
@@ -1507,29 +1750,29 @@ paths:
             type: string
       responses:
         '200':
-          description: 撤销成功
+          description: 鎾ら攢鎴愬姛
 tags:
   - name: Auth
-    description: 认证相关
+    description: 璁よ瘉鐩稿叧
   - name: Ledgers
-    description: 账本管理
+    description: 璐︽湰绠＄悊
   - name: Accounts
-    description: 账户管理
+    description: 璐︽埛绠＄悊
   - name: Transactions
-    description: 交易管理
+    description: 浜ゆ槗绠＄悊
   - name: Categories
-    description: 分类管理
+    description: 鍒嗙被绠＄悊
   - name: Tags
-    description: 标签管理
+    description: 鏍囩绠＄悊
   - name: Stats
-    description: 统计报表
+    description: 缁熻鎶ヨ〃
   - name: Import
-    description: 数据导入
+    description: 鏁版嵁瀵煎叆
   - name: Export
-    description: 数据导出
+    description: 鏁版嵁瀵煎嚭
   - name: PAT
-    description: Personal Access Token 管理
+    description: Personal Access Token 绠＄悊
   - name: Shortcuts
-    description: 快捷指令 (PAT 授权)
+    description: 蹇嵎鎸囦护 (PAT 鎺堟潈)
   - name: QuickAdd
-    description: 快速记账
+    description: 蹇€熻璐?

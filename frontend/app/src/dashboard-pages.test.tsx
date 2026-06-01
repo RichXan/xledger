@@ -209,6 +209,126 @@ describe('dashboard and analytics pages', () => {
     })
   })
 
+  it('keeps dashboard trend details stable while a hovered month loads', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-05-03T10:15:00'))
+    let resolveAprilTransactions: ((response: Response) => void) | undefined
+    const aprilFrom = new Date(2026, 3, 1, 0, 0, 0, 0).toISOString()
+    const mayFrom = new Date(2026, 4, 1, 0, 0, 0, 0).toISOString()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { email: 'demo@example.com' } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/overview')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { total_assets: 100, income: 20, expense: 5, net: 15 },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/trend?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              points: [
+                { bucket_start: '2026-04-01T00:00:00Z', income: 4000, expense: 900 },
+                { bucket_start: '2026-05-01T00:00:00Z', income: 80, expense: 20 },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/transactions?')) {
+        const parsed = new URL(url, 'http://localhost')
+        const dateFrom = parsed.searchParams.get('date_from')
+        if (dateFrom === aprilFrom) {
+          return new Promise<Response>((resolve) => {
+            resolveAprilTransactions = resolve
+          })
+        }
+        if (dateFrom === mayFrom) {
+          return new Response(
+            JSON.stringify({
+              code: 'OK',
+              message: 'Success',
+              data: {
+                items: [
+                  {
+                    id: 'txn-may',
+                    ledger_id: 'ledger-1',
+                    account_id: 'acct-1',
+                    type: 'expense',
+                    amount: 20,
+                    category_name: 'Food',
+                    occurred_at: '2026-05-02T12:10:00Z',
+                    memo: 'May coffee',
+                  },
+                ],
+                pagination: { page: 1, page_size: 6, total: 1, total_pages: 1 },
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderProtectedApp(['/dashboard'])
+
+    expect(await screen.findByText('May coffee')).toBeInTheDocument()
+    const aprilBar = await screen.findByRole('button', { name: /apr.*activity/i })
+    fireEvent.mouseEnter(aprilBar)
+
+    await waitFor(() => {
+      expect(resolveAprilTransactions).toBeDefined()
+    })
+    expect(screen.getByText('May coffee')).toBeInTheDocument()
+    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument()
+
+    resolveAprilTransactions?.(
+      new Response(
+        JSON.stringify({
+          code: 'OK',
+          message: 'Success',
+          data: {
+            items: [
+              {
+                id: 'txn-april',
+                ledger_id: 'ledger-1',
+                account_id: 'acct-1',
+                type: 'income',
+                amount: 4000,
+                category_name: 'Salary',
+                occurred_at: '2026-04-03T09:30:00Z',
+                memo: 'April payroll',
+              },
+            ],
+            pagination: { page: 1, page_size: 6, total: 1, total_pages: 1 },
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    expect(await screen.findByText('April payroll')).toBeInTheDocument()
+  })
+
   it('shows selected dashboard month transactions and opens the same range in transactions', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(new Date('2026-05-06T10:15:00'))
@@ -494,6 +614,137 @@ describe('dashboard and analytics pages', () => {
     expect(screen.getByText('May payroll')).toBeInTheDocument()
     expect(screen.getAllByText('Food').length).toBeGreaterThan(0)
     expect(screen.getByText('Lunch')).toBeInTheDocument()
+  })
+
+  it('keeps cashflow rhythm details stable while a hovered day loads', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-05-03T10:15:00'))
+    let resolveDayThree: ((response: Response) => void) | undefined
+    const dayOneFrom = new Date(2026, 4, 1, 0, 0, 0, 0).toISOString()
+    const dayThreeFrom = new Date(2026, 4, 3, 0, 0, 0, 0).toISOString()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.endsWith('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({ code: 'OK', message: 'Success', data: { email: 'demo@example.com' } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/trend?')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: {
+              points: [
+                { bucket_start: '2026-05-01T00:00:00Z', income: 0, expense: 25 },
+                { bucket_start: '2026-05-03T00:00:00Z', income: 800, expense: 45 },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/category')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { items: [{ category_id: 'food', category_name: 'Food', amount: 45 }] },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/stats/keywords')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: 'Success',
+            data: { items: [{ text: 'Coffee', amount: 45, count: 1 }] },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (url.includes('/api/transactions?')) {
+        const parsed = new URL(url, 'http://localhost')
+        const dateFrom = parsed.searchParams.get('date_from')
+        if (dateFrom === dayThreeFrom) {
+          return new Promise<Response>((resolve) => {
+            resolveDayThree = resolve
+          })
+        }
+        if (dateFrom === dayOneFrom) {
+          return new Response(
+            JSON.stringify({
+              code: 'OK',
+              message: 'Success',
+              data: {
+                items: [
+                  {
+                    id: 'txn-day-one',
+                    ledger_id: 'ledger-1',
+                    account_id: 'acct-1',
+                    type: 'expense',
+                    amount: 25,
+                    category_name: 'Food',
+                    occurred_at: '2026-05-01T12:10:00Z',
+                    memo: 'Day 1 lunch',
+                  },
+                ],
+                pagination: { page: 1, page_size: 8, total: 1, total_pages: 1 },
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+      }
+
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderProtectedApp(['/analytics'])
+
+    expect(await screen.findByText('Day 1 lunch')).toBeInTheDocument()
+    const dayThreeBar = await screen.findByRole('button', { name: /3.*revenue.*800\.00.*burn.*45\.00/i })
+    fireEvent.mouseEnter(dayThreeBar)
+
+    await waitFor(() => {
+      expect(resolveDayThree).toBeDefined()
+    })
+    expect(screen.getByText('Day 1 lunch')).toBeInTheDocument()
+    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument()
+
+    resolveDayThree?.(
+      new Response(
+        JSON.stringify({
+          code: 'OK',
+          message: 'Success',
+          data: {
+            items: [
+              {
+                id: 'txn-day-three',
+                ledger_id: 'ledger-1',
+                account_id: 'acct-1',
+                type: 'income',
+                amount: 800,
+                category_name: 'Salary',
+                occurred_at: '2026-05-03T09:30:00Z',
+                memo: 'Day 3 payroll',
+              },
+            ],
+            pagination: { page: 1, page_size: 8, total: 1, total_pages: 1 },
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    expect(await screen.findByText('Day 3 payroll')).toBeInTheDocument()
   })
 
   it('selects the first cashflow rhythm bucket with activity by default', async () => {

@@ -1,5 +1,4 @@
 import { QRCodeSVG } from 'qrcode.react'
-import { Smartphone } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
@@ -28,19 +27,9 @@ export function MobileDeviceDialog({ onClose }: MobileDeviceDialogProps) {
       onClose={onClose}
       className="max-w-md"
       footer={
-        <>
-          <Button
-            onClick={() => {
-              window.location.assign(mobileUrl)
-            }}
-          >
-            <Smartphone className="mr-1 h-4 w-4" />
-            {t('layout.mobileDevice.switchToMobile')}
-          </Button>
-          <Button variant="secondary" onClick={onClose}>
-            {t('common.close')}
-          </Button>
-        </>
+        <Button variant="secondary" onClick={onClose}>
+          {t('common.close')}
+        </Button>
       }
     >
       <div className="flex flex-col items-center gap-4">

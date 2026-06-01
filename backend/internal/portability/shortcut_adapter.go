@@ -31,6 +31,7 @@ func NewShortcutAdapter(
 func (a *ShortcutAdapter) CreateTransaction(ctx context.Context, userID string, input ShortcutTransactionInput) (ShortcutTransactionResult, error) {
 	createInput := accounting.TransactionCreateInput{
 		LedgerID:   input.LedgerID,
+		AccountID:  input.AccountID,
 		CategoryID: input.CategoryID,
 		Type:       input.Type,
 		Amount:     input.Amount,

@@ -1,4 +1,5 @@
 import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Download, FileDown, Search, Trash2, Undo2, Upload } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -8,10 +9,12 @@ import { SelectField } from '@/components/ui/select-field'
 import { TextField } from '@/components/ui/text-field'
 import type { ImportConfirmRequest, ImportConfirmResponse, ImportRowInput, TransactionRecord } from '@/features/transactions/transactions-api'
 import {
+  invalidateImportAffectedQueries,
   useCreateTransaction,
   useDeleteTransaction,
   useExportTransactions,
   useImportConfirm,
+  useImportJobStatus,
   useImportPreview,
   useTransactionFormOptions,
   useTransactionReviewItems,
@@ -171,7 +174,8 @@ async function readFileBuffer(file: File): Promise<ArrayBuffer> {
   }
 
   if (typeof readableFile.arrayBuffer === 'function') {
-    return readableFile.arrayBuffer()
+    const buffer = await readableFile.arrayBuffer()
+    return buffer.slice(0)
   }
   if (typeof readableFile.text === 'function') {
     const bytes = new TextEncoder().encode(await readableFile.text())
@@ -204,12 +208,12 @@ async function readFileText(file: File): Promise<string> {
 
 export async function buildImportIdempotencyKey(file: File) {
   const buffer = await readFileBuffer(file)
+  const bytes = new Uint8Array(buffer)
   if (globalThis.crypto?.subtle) {
-    const digest = await globalThis.crypto.subtle.digest('SHA-256', buffer)
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes)
     return `ui-file-${bytesToHex(new Uint8Array(digest))}`
   }
 
-  const bytes = new Uint8Array(buffer)
   let hash = 0
   bytes.forEach((byte) => {
     hash = (hash * 31 + byte) % 4294967295
@@ -430,6 +434,7 @@ export function TransactionsPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const queryClient = useQueryClient()
   const searchParamQ = (searchParams.get('q') ?? '').trim()
   const dateParam = searchParams.get('date')
   const fromParam = searchParams.get('from')
@@ -451,7 +456,7 @@ export function TransactionsPage() {
   const [importMapping, setImportMapping] = useState<ImportMapping>(() => buildDefaultImportMapping([]))
   const [importDefaultAccountId, setImportDefaultAccountId] = useState(() => readImportDefaults().accountId)
   const [importDefaultLedgerId, setImportDefaultLedgerId] = useState(() => readImportDefaults().ledgerId)
-  const [dateRangePreset, setDateRangePreset] = useState<'7' | '30' | '120' | '365'>('120')
+  const [dateRangePreset, setDateRangePreset] = useState<'' | '7' | '30' | '120' | '365'>('')
   const [listSearchQuery, setListSearchQuery] = useState(searchParamQ)
   const [selectedAccountFilter, setSelectedAccountFilter] = useState('')
   const [selectedLedgerFilter, setSelectedLedgerFilter] = useState('')
@@ -470,6 +475,9 @@ export function TransactionsPage() {
   const [bulkCategoryId, setBulkCategoryId] = useState('')
   const [bulkMessage, setBulkMessage] = useState('')
   const [transactionMessage, setTransactionMessage] = useState('')
+  const [importPendingRowCount, setImportPendingRowCount] = useState(0)
+  const [importProgressPercent, setImportProgressPercent] = useState(0)
+  const [activeImportJobId, setActiveImportJobId] = useState<string | null>(null)
 
   useEffect(() => {
     setListSearchQuery(searchParamQ)
@@ -517,6 +525,9 @@ export function TransactionsPage() {
         from: toSafeISOString(fromParam, new Date(0)),
         to: toSafeISOString(toParam, now),
       }
+    }
+    if (dateRangePreset === '') {
+      return {}
     }
     const now = new Date()
     const start = new Date(now)
@@ -572,9 +583,71 @@ export function TransactionsPage() {
   const createTransactionMutation = useCreateTransaction()
   const importPreviewMutation = useImportPreview()
   const importConfirmMutation = useImportConfirm()
+  const importJobStatusQuery = useImportJobStatus(activeImportJobId)
   const exportTransactionsMutation = useExportTransactions()
   const deleteTransactionMutation = useDeleteTransaction()
   const updateTransactionMutation = useUpdateTransaction()
+  const activeImportJob = importJobStatusQuery.data
+  const isImportWorking = importConfirmMutation.isPending || activeImportJob?.status === 'running'
+  const importStatusError = importConfirmMutation.isError
+    ? importConfirmMutation.error
+    : importJobStatusQuery.isError
+      ? importJobStatusQuery.error
+      : null
+  const displayedImportProgressPercent = activeImportJob?.total_rows
+    ? Math.max(importProgressPercent, Math.round((activeImportJob.processed_rows / activeImportJob.total_rows) * 100))
+    : importProgressPercent
+  const showImportStatusPanel = isImportWorking || Boolean(importResult) || Boolean(importStatusError)
+  const importStatusTitle = importStatusError
+    ? t('transactionsPage.importDialog.statusFailedTitle')
+    : isImportWorking
+      ? t('transactionsPage.importDialog.statusRunningTitle')
+      : importResult?.fail_count
+        ? t('transactionsPage.importDialog.statusFinishedWithIssuesTitle')
+        : t('transactionsPage.importDialog.statusFinishedTitle')
+  const importStatusDescription = importStatusError
+    ? t('transactionsPage.importDialog.importFailed', { message: getFriendlyApiErrorMessage(importStatusError, t) })
+    : isImportWorking
+      ? t('transactionsPage.importDialog.statusRunningDescription')
+      : t('transactionsPage.importDialog.statusFinishedDescription')
+  const importStatusSummary = importResult
+    ? t('transactionsPage.importDialog.statusResultSummary', {
+        imported: importResult.success_count,
+        skipped: importResult.skip_count,
+        failed: importResult.fail_count,
+      })
+    : activeImportJob?.total_rows
+      ? t('transactionsPage.importDialog.statusProgressRows', {
+          processed: activeImportJob.processed_rows,
+          total: activeImportJob.total_rows,
+        })
+      : t('transactionsPage.importDialog.progressRows', { count: importPendingRowCount })
+
+  useEffect(() => {
+    if (!isImportWorking) {
+      setImportProgressPercent(0)
+      return undefined
+    }
+
+    setImportProgressPercent(18)
+    const interval = window.setInterval(() => {
+      setImportProgressPercent((current) => Math.min(92, current + 7))
+    }, 900)
+    return () => window.clearInterval(interval)
+  }, [isImportWorking])
+
+  useEffect(() => {
+    if (!activeImportJobId || !activeImportJob || activeImportJob.status === 'running') return
+    setImportResult({
+      success_count: activeImportJob.success_count,
+      skip_count: activeImportJob.skip_count,
+      fail_count: activeImportJob.fail_count,
+      rows: activeImportJob.rows ?? [],
+    })
+    setActiveImportJobId(null)
+    setListRangeClock(Date.now())
+    void invalidateImportAffectedQueries(queryClient)
+  }, [activeImportJob, activeImportJobId, queryClient])
 
   const calendarTransactions = calendarTransactionsQuery.data?.items ?? []
   const listTransactions = listTransactionsQuery.data?.items ?? []
@@ -623,14 +696,21 @@ export function TransactionsPage() {
   }, [importPreviewMutation.data?.columns])
 
   useEffect(() => {
-    if (!importDefaultAccountId && accounts[0]?.id) {
-      setImportDefaultAccountId(accounts[0].id)
+    if (!options.accountsQuery.isSuccess) return
+    const accountExists = importDefaultAccountId && accounts.some((account) => account.id === importDefaultAccountId)
+    if (!accountExists) {
+      setImportDefaultAccountId(accounts[0]?.id ?? '')
     }
+  }, [accounts, importDefaultAccountId, options.accountsQuery.isSuccess])
+
+  useEffect(() => {
+    if (!options.ledgersQuery.isSuccess) return
     const defaultLedger = ledgers.find((ledger) => ledger.is_default) ?? ledgers[0]
-    if (!importDefaultLedgerId && defaultLedger?.id) {
-      setImportDefaultLedgerId(defaultLedger.id)
+    const ledgerExists = importDefaultLedgerId && ledgers.some((ledger) => ledger.id === importDefaultLedgerId)
+    if (!ledgerExists) {
+      setImportDefaultLedgerId(defaultLedger?.id ?? '')
     }
-  }, [accounts, importDefaultAccountId, importDefaultLedgerId, ledgers])
+  }, [importDefaultLedgerId, ledgers, options.ledgersQuery.isSuccess])
 
   useEffect(() => {
     if (!accountId && accounts.length === 1) {
@@ -706,7 +786,7 @@ export function TransactionsPage() {
       selectedLedgerFilter ||
       amountMinFilter.trim() ||
       amountMaxFilter.trim() ||
-      dateRangePreset !== '120' ||
+      dateRangePreset !== '' ||
       quickFilter !== 'all' ||
       dateParam ||
       fromParam ||
@@ -798,15 +878,21 @@ export function TransactionsPage() {
     if (!importFile || !importMappingReady) return
     const idempotencyKey = await buildImportIdempotencyKey(importFile)
     const payload = await buildImportConfirmPayload(importFile, importMapping, importDefaultAccountId, importDefaultLedgerId)
+    setImportPendingRowCount(payload.rows.length)
     writeImportDefaults(importDefaultAccountId, importDefaultLedgerId)
-    const result = await importConfirmMutation.mutateAsync({ payload, idempotencyKey })
-    setImportResult(result)
-    setListRangeClock(Date.now())
+    try {
+      const job = await importConfirmMutation.mutateAsync({ payload, idempotencyKey })
+      setActiveImportJobId(job.job_id)
+      setImportPendingRowCount(job.total_rows || payload.rows.length)
+    } catch {
+      // Mutation state renders the localized error message next to the import action.
+    }
   }
 
   function handleImportFileChange(file: File | null) {
     setImportFile(file)
     setImportResult(null)
+    setActiveImportJobId(null)
     importPreviewMutation.reset()
     importConfirmMutation.reset()
   }
@@ -864,10 +950,11 @@ export function TransactionsPage() {
     const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
-    const fromDate = exportRange.from.slice(0, 10)
-    const toDate = exportRange.to.slice(0, 10)
+    const rangeLabel = exportRange.from && exportRange.to
+      ? `${exportRange.from.slice(0, 10)}-to-${exportRange.to.slice(0, 10)}`
+      : 'all-time'
     anchor.href = url
-    anchor.download = `xledger-transactions-${fromDate}-to-${toDate}.csv`
+    anchor.download = `xledger-transactions-${rangeLabel}.csv`
     document.body.appendChild(anchor)
     anchor.click()
     anchor.remove()
@@ -971,7 +1058,7 @@ export function TransactionsPage() {
     setSelectedLedgerFilter('')
     setAmountMinFilter('')
     setAmountMaxFilter('')
-    setDateRangePreset('120')
+    setDateRangePreset('')
     setQuickFilter('all')
     setReviewReasonFilter('all')
     setListRangeClock(Date.now())
@@ -1206,8 +1293,9 @@ export function TransactionsPage() {
                   <select
                     className="h-11 w-full rounded-xl border border-outline/20 bg-white px-3 text-sm"
                     value={dateRangePreset}
-                    onChange={(event) => setDateRangePreset(event.target.value as '7' | '30' | '120' | '365')}
+                    onChange={(event) => setDateRangePreset(event.target.value as '' | '7' | '30' | '120' | '365')}
                   >
+                    <option value="">{t('transactionsPage.filters.allTime')}</option>
                     <option value="7">{t('transactionsPage.filters.last7Days')}</option>
                     <option value="30">{t('transactionsPage.filters.last30Days')}</option>
                     <option value="120">{t('transactionsPage.filters.last120Days')}</option>
@@ -1682,6 +1770,52 @@ export function TransactionsPage() {
           }
         >
           <form id="import-preview-form" className="space-y-5" onSubmit={(event) => void handlePreviewImport(event)}>
+            {showImportStatusPanel ? (
+              <div
+                role="status"
+                aria-live="polite"
+                data-testid="import-status-panel"
+                className={`sticky top-0 z-20 rounded-xl border p-3 shadow-sm backdrop-blur ${
+                  importStatusError
+                    ? 'border-error/30 bg-error-container/95 text-on-error-container'
+                    : importResult?.fail_count
+                      ? 'border-amber-200 bg-amber-50/95 text-amber-900'
+                      : importResult
+                        ? 'border-emerald-200 bg-emerald-50/95 text-emerald-900'
+                        : 'border-primary/20 bg-primary-fixed/95 text-primary'
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-extrabold">{importStatusTitle}</p>
+                    <p className="mt-1 text-xs font-medium text-on-surface-variant">{importStatusDescription}</p>
+                  </div>
+                  {importResult ? (
+                    <p className="text-sm font-bold">
+                      {importStatusSummary}
+                    </p>
+                  ) : null}
+                </div>
+                {isImportWorking ? (
+                  <>
+                    <div
+                      role="progressbar"
+                      aria-label={t('transactionsPage.importDialog.progressLabel')}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={displayedImportProgressPercent}
+                      className="mt-3 h-2 overflow-hidden rounded-full bg-white"
+                    >
+                      <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${displayedImportProgressPercent}%` }} />
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-on-surface">
+                      <span>{importStatusSummary}</span>
+                      <span>{displayedImportProgressPercent}%</span>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
             <label
               htmlFor="csv-file"
               className="flex min-h-60 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-outline-variant bg-surface-container-low p-8 text-center"
@@ -1863,17 +1997,20 @@ export function TransactionsPage() {
                   )}
                 </section>
                 <div className="mt-4 flex items-center gap-3">
-                  <Button onClick={() => void handleConfirmImport()} disabled={importConfirmMutation.isPending || !importMappingReady}>
-                    {importConfirmMutation.isPending ? t('transactionsPage.importDialog.importing') : t('transactionsPage.importDialog.confirm')}
+                  <Button onClick={() => void handleConfirmImport()} disabled={isImportWorking || !importMappingReady}>
+                    {isImportWorking ? t('transactionsPage.importDialog.importing') : t('transactionsPage.importDialog.confirm')}
                   </Button>
-                  {importConfirmMutation.isError ? (
+                  {importStatusError ? (
                     <span className="text-sm text-error">
                       {t('transactionsPage.importDialog.importFailed', {
-                        message: getFriendlyApiErrorMessage(importConfirmMutation.error, t),
+                        message: getFriendlyApiErrorMessage(importStatusError, t),
                       })}
                     </span>
                   ) : null}
-                  {importConfirmMutation.isSuccess ? (
+                  {activeImportJob?.status === 'running' ? (
+                    <span className="text-sm text-primary">{t('transactionsPage.importDialog.backgroundRunning')}</span>
+                  ) : null}
+                  {importResult ? (
                     <span className="text-sm text-emerald-600">{t('transactionsPage.importDialog.importSuccessful')}</span>
                   ) : null}
                 </div>

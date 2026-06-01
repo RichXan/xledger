@@ -6,15 +6,18 @@ import {
   createCategory,
   createLedger,
   createPAT,
+  confirmQuickAdd,
   deleteCategory,
   deleteLedger,
   exportCsv,
+  generateOCRShortcut,
   generateShortcut,
   getAccounts,
   getCategories,
   getLedgers,
   getPATs,
   getTags,
+  previewQuickAdd,
   revokePAT,
   updateCategory,
   updateLedger,
@@ -229,5 +232,49 @@ export function useGenerateShortcut() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['management', 'pats'] })
     },
+  })
+}
+
+export function useGenerateOCRShortcut() {
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (params: { name?: string; expiresIn?: number; defaultLedgerId: string; defaultAccountId?: string }) =>
+      generateOCRShortcut(session!.accessToken, params),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['management', 'pats'] })
+    },
+  })
+}
+
+export function usePreviewQuickAdd() {
+  return useMutation({
+    mutationFn: (params: {
+      patToken: string
+      shortcutId?: string
+      rawText: string
+      source?: string
+      idempotencyKey: string
+      defaultLedgerId?: string
+      defaultAccountId?: string
+    }) => previewQuickAdd(params.patToken, params),
+  })
+}
+
+export function useConfirmQuickAdd() {
+  return useMutation({
+    mutationFn: (params: {
+      patToken: string
+      shortcutId?: string
+      idempotencyKey: string
+      ledgerId: string
+      accountId?: string
+      categoryId?: string
+      type: 'expense' | 'income'
+      amount: number
+      memo?: string
+      occurredAt?: string
+    }) => confirmQuickAdd(params.patToken, params),
   })
 }

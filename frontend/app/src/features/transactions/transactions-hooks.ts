@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/auth-context'
 import {
   confirmImport,
@@ -7,6 +7,7 @@ import {
   exportTransactions,
   getAccounts,
   getCategories,
+  getImportJobStatus,
   getLedgers,
   getTags,
   getTransactionReviewItems,
@@ -35,6 +36,7 @@ export function useTransactionsWithOptions(options?: {
   amountMin?: string
   amountMax?: string
   enabled?: boolean
+  preservePreviousData?: boolean
 }) {
   const { session } = useAuth()
 
@@ -42,6 +44,7 @@ export function useTransactionsWithOptions(options?: {
     queryKey: ['transactions', 'list', options?.page ?? 1, options?.pageSize ?? 20, options?.q ?? '', options?.dateFrom ?? '', options?.dateTo ?? '', options?.accountId ?? '', options?.ledgerId ?? '', options?.amountMin ?? '', options?.amountMax ?? ''],
     queryFn: () => getTransactions(session!.accessToken, options),
     enabled: Boolean(session?.accessToken) && options?.enabled !== false,
+    placeholderData: options?.preservePreviousData ? keepPreviousData : undefined,
   })
 }
 
@@ -219,19 +222,30 @@ export function useImportPreview() {
 
 export function useImportConfirm() {
   const { session } = useAuth()
-  const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: ({ payload, idempotencyKey }: { payload: File | ImportConfirmRequest; idempotencyKey: string }) =>
       confirmImport(session!.accessToken, payload, idempotencyKey),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['transactions', 'list'] })
-      await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-summary'] })
-      await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-items'] })
-      await queryClient.invalidateQueries({ queryKey: ['reporting', 'overview'] })
-      await queryClient.invalidateQueries({ queryKey: ['reporting', 'trend'] })
-      await queryClient.invalidateQueries({ queryKey: ['reporting', 'category'] })
-      await queryClient.invalidateQueries({ queryKey: ['budget', 'list'] })
-    },
   })
+}
+
+export function useImportJobStatus(jobId: string | null) {
+  const { session } = useAuth()
+
+  return useQuery({
+    queryKey: ['import', 'job', jobId],
+    queryFn: () => getImportJobStatus(session!.accessToken, jobId!),
+    enabled: Boolean(session?.accessToken && jobId),
+    refetchInterval: (query) => (query.state.data?.status === 'running' ? 1000 : false),
+  })
+}
+
+export async function invalidateImportAffectedQueries(queryClient: QueryClient) {
+  await queryClient.invalidateQueries({ queryKey: ['transactions', 'list'] })
+  await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-summary'] })
+  await queryClient.invalidateQueries({ queryKey: ['transactions', 'review-items'] })
+  await queryClient.invalidateQueries({ queryKey: ['reporting', 'overview'] })
+  await queryClient.invalidateQueries({ queryKey: ['reporting', 'trend'] })
+  await queryClient.invalidateQueries({ queryKey: ['reporting', 'category'] })
+  await queryClient.invalidateQueries({ queryKey: ['budget', 'list'] })
 }

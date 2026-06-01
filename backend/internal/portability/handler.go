@@ -105,12 +105,44 @@ func (h *Handler) ImportConfirm(c *gin.Context) {
 		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
 		return
 	}
+	if strings.EqualFold(strings.TrimSpace(c.Query("async")), "true") {
+		job, err := h.confirm.StartBackgroundConfirm(userID, idempotencyKey, req)
+		if err != nil {
+			h.writeConfirmError(c, err, ImportConfirmResponse{})
+			return
+		}
+		httpx.JSON(c, http.StatusAccepted, "OK", "成功", job)
+		return
+	}
 	result, err := h.confirm.ConfirmContext(c.Request.Context(), userID, idempotencyKey, req)
 	if err != nil {
 		h.writeConfirmError(c, err, result)
 		return
 	}
 	httpx.JSON(c, http.StatusOK, "OK", "成功", result)
+}
+
+func (h *Handler) ImportConfirmJobStatus(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		httpx.JSON(c, http.StatusUnauthorized, "AUTH_REQUIRED", "未认证或凭证无效", nil)
+		return
+	}
+	if h.confirm == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "服务内部错误", nil)
+		return
+	}
+	jobID := strings.TrimSpace(c.Param("job_id"))
+	if jobID == "" {
+		httpx.JSON(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数不合法", nil)
+		return
+	}
+	status, found := h.confirm.GetJobStatus(userID, jobID)
+	if !found {
+		httpx.JSON(c, http.StatusNotFound, "RESOURCE_NOT_FOUND", "资源不存在", nil)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, "OK", "成功", status)
 }
 
 func (h *Handler) Export(c *gin.Context) {
@@ -277,6 +309,22 @@ func (h *Handler) QuickAdd(c *gin.Context) {
 		return
 	}
 	h.shortcut.QuickAdd(c)
+}
+
+func (h *Handler) QuickAddPreview(c *gin.Context) {
+	if h.shortcut == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "shortcut service is not configured", nil)
+		return
+	}
+	h.shortcut.PreviewQuickAdd(c)
+}
+
+func (h *Handler) QuickAddConfirm(c *gin.Context) {
+	if h.shortcut == nil {
+		httpx.JSON(c, http.StatusInternalServerError, "INTERNAL_ERROR", "shortcut service is not configured", nil)
+		return
+	}
+	h.shortcut.ConfirmQuickAdd(c)
 }
 
 func (h *Handler) ListCategories(c *gin.Context) {

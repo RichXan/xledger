@@ -163,14 +163,22 @@ export async function exportCsv(accessToken: string) {
 }
 
 export interface GenerateShortcutResponse {
+  shortcut_id?: string
   pat_token: string
   api_endpoint: string
   shortcut_url?: string
+  install_url?: string
+  qr_url?: string
+  default_ledger_id?: string
+  default_account_id?: string
   expires_at?: string
 }
 
 export function generateShortcut(accessToken: string, name: string = '快捷记账', expiresIn?: number) {
-  const body: { name: string; expires_in?: number } = { name }
+  const body: {
+    name: string
+    expires_in?: number
+  } = { name }
   if (expiresIn) {
     body.expires_in = expiresIn
   }
@@ -178,6 +186,109 @@ export function generateShortcut(accessToken: string, name: string = '快捷记�
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify(body),
+  })
+}
+
+export interface GenerateOCRShortcutInput {
+  name?: string
+  expiresIn?: number
+  defaultLedgerId: string
+  defaultAccountId?: string
+}
+
+export function generateOCRShortcut(accessToken: string, input: GenerateOCRShortcutInput) {
+  const body: {
+    name: string
+    expires_in?: number
+    default_ledger_id: string
+    default_account_id?: string
+    mode: string
+  } = {
+    name: input.name ?? 'Xledger OCR 记账',
+    default_ledger_id: input.defaultLedgerId,
+    mode: 'ocr_confirm',
+  }
+  if (input.expiresIn) body.expires_in = input.expiresIn
+  if (input.defaultAccountId) body.default_account_id = input.defaultAccountId
+  return requestEnvelope<GenerateShortcutResponse>('/shortcuts/generate', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(body),
+  })
+}
+
+export interface QuickAddSuggestion {
+  id: string
+  name: string
+  reason: string
+  confidence?: number
+}
+
+export interface QuickAddPreviewResponse {
+  shortcut_id?: string
+  amount: number
+  type: 'expense' | 'income'
+  occurred_at: string
+  memo: string
+  category_suggestion?: QuickAddSuggestion
+  ledger_suggestions: QuickAddSuggestion[]
+  account_suggestions: QuickAddSuggestion[]
+  needs_review: boolean
+}
+
+export function previewQuickAdd(
+  patToken: string,
+  input: {
+    shortcutId?: string
+    rawText: string
+    source?: string
+    idempotencyKey: string
+    defaultLedgerId?: string
+    defaultAccountId?: string
+  },
+) {
+  return requestEnvelope<QuickAddPreviewResponse>('/quick-add/preview', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${patToken}` },
+    body: JSON.stringify({
+      shortcut_id: input.shortcutId,
+      raw_text: input.rawText,
+      source: input.source,
+      idempotency_key: input.idempotencyKey,
+      default_ledger_id: input.defaultLedgerId,
+      default_account_id: input.defaultAccountId,
+    }),
+  })
+}
+
+export function confirmQuickAdd(
+  patToken: string,
+  input: {
+    shortcutId?: string
+    idempotencyKey: string
+    ledgerId: string
+    accountId?: string
+    categoryId?: string
+    type: 'expense' | 'income'
+    amount: number
+    memo?: string
+    occurredAt?: string
+  },
+) {
+  return requestEnvelope<{ id: string; success: boolean }>('/quick-add/confirm', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${patToken}` },
+    body: JSON.stringify({
+      shortcut_id: input.shortcutId,
+      idempotency_key: input.idempotencyKey,
+      ledger_id: input.ledgerId,
+      account_id: input.accountId,
+      category_id: input.categoryId,
+      type: input.type,
+      amount: input.amount,
+      memo: input.memo,
+      occurred_at: input.occurredAt,
+    }),
   })
 }
 

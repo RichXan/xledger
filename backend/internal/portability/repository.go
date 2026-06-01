@@ -24,6 +24,9 @@ type importJob struct {
 	CreatedAt      time.Time
 	Response       ImportConfirmResponse
 	ErrorCode      string
+	Status         string
+	TotalRows      int
+	ProcessedRows  int
 }
 
 type storedImportRow struct {

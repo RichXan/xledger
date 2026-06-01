@@ -96,6 +96,14 @@ export interface ImportConfirmResponse {
   rows: ImportConfirmResultRow[]
 }
 
+export interface ImportJobStatusResponse extends ImportConfirmResponse {
+  job_id: string
+  status: 'running' | 'succeeded' | 'failed'
+  total_rows: number
+  processed_rows: number
+  error_code?: string
+}
+
 export interface ImportRowInput {
   date: string
   amount: number
@@ -367,7 +375,7 @@ export function confirmImport(accessToken: string, payload: File | ImportConfirm
     const formData = new FormData()
     formData.append('file', payload)
 
-    return requestEnvelope<ImportConfirmResponse>('/import/csv/confirm', {
+    return requestEnvelope<ImportJobStatusResponse>('/import/csv/confirm?async=true', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -377,13 +385,22 @@ export function confirmImport(accessToken: string, payload: File | ImportConfirm
     })
   }
 
-  return requestEnvelope<ImportConfirmResponse>('/import/csv/confirm', {
+  return requestEnvelope<ImportJobStatusResponse>('/import/csv/confirm?async=true', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'X-Idempotency-Key': idempotencyKey,
     },
     body: JSON.stringify(payload),
+  })
+}
+
+export function getImportJobStatus(accessToken: string, jobId: string) {
+  return requestEnvelope<ImportJobStatusResponse>(`/import/csv/jobs/${encodeURIComponent(jobId)}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
   })
 }
 

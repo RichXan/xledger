@@ -250,6 +250,7 @@ export function DashboardPage() {
     dateFrom: activeBarRange?.from,
     dateTo: activeBarRange?.to,
     enabled: Boolean(activeBarRange),
+    preservePreviousData: true,
   })
   const activeBarTransactions = activeBarTransactionsQuery.data?.items ?? []
   const syncedMinutesAgo = totalOverviewQuery.dataUpdatedAt
@@ -455,7 +456,7 @@ export function DashboardPage() {
           </div>
 
           {activeBar ? (
-            <div className="mt-4 rounded-xl border border-outline/15 bg-surface-container-low p-4 text-sm text-on-surface">
+            <div className="mt-4 min-h-[154px] rounded-xl border border-outline/15 bg-surface-container-low p-4 text-sm text-on-surface">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold">{activeBar.label}</p>

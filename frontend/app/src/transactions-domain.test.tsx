@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
@@ -292,12 +292,36 @@ function createTransactionsFetchMock() {
       )
     }
 
-    if (url.endsWith('/api/import/csv/confirm') && init?.method === 'POST') {
+    if (url.endsWith('/api/import/csv/confirm?async=true') && init?.method === 'POST') {
       return new Response(
         JSON.stringify({
           code: 'OK',
           message: '成功',
           data: {
+            job_id: 'import-job-1',
+            status: 'running',
+            total_rows: 3,
+            processed_rows: 0,
+            success_count: 0,
+            skip_count: 0,
+            fail_count: 0,
+            rows: [],
+          },
+        }),
+        { status: 202, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    if (url.endsWith('/api/import/csv/jobs/import-job-1')) {
+      return new Response(
+        JSON.stringify({
+          code: 'OK',
+          message: '成功',
+          data: {
+            job_id: 'import-job-1',
+            status: 'succeeded',
+            total_rows: 3,
+            processed_rows: 3,
             success_count: 1,
             skip_count: 1,
             fail_count: 1,
@@ -365,6 +389,38 @@ describe('transactions domain', () => {
     await waitFor(() => {
       expect(screen.getByText(/daily summary/i)).toBeInTheDocument()
       expect(screen.getByText(/month summary/i)).toBeInTheDocument()
+    })
+  })
+
+  it('loads the transaction list without a default date range filter', async () => {
+    const fetchMock = createTransactionsFetchMock()
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+
+    await screen.findByText('Food')
+
+    await waitFor(() => {
+      const listCalls = fetchMock.mock.calls.filter(([input]) => {
+        const url = new URL(String(input), 'http://localhost')
+        return url.pathname === '/api/transactions' && url.searchParams.get('page_size') === '200'
+      })
+      expect(listCalls.length).toBeGreaterThan(0)
+      listCalls.forEach(([input]) => {
+        const url = new URL(String(input), 'http://localhost')
+        expect(url.searchParams.has('date_from')).toBe(false)
+        expect(url.searchParams.has('date_to')).toBe(false)
+      })
+    })
+
+    const reviewSummaryCalls = fetchMock.mock.calls.filter(([input]) => (
+      new URL(String(input), 'http://localhost').pathname === '/api/transactions/review-summary'
+    ))
+    expect(reviewSummaryCalls.length).toBeGreaterThan(0)
+    reviewSummaryCalls.forEach(([input]) => {
+      const url = new URL(String(input), 'http://localhost')
+      expect(url.searchParams.has('date_from')).toBe(false)
+      expect(url.searchParams.has('date_to')).toBe(false)
     })
   })
 
@@ -631,7 +687,7 @@ describe('transactions domain', () => {
 
     await waitFor(() => {
       const confirmCall = fetchMock.mock.calls.find(([url, init]) => (
-        String(url).endsWith('/api/import/csv/confirm') && init?.method === 'POST'
+        String(url).includes('/api/import/csv/confirm') && init?.method === 'POST'
       ))
       expect(confirmCall).toBeTruthy()
       expect(confirmCall?.[1]?.body).toEqual(expect.stringContaining('"date":"2026-03-01 12:30:45"'))
@@ -640,6 +696,49 @@ describe('transactions domain', () => {
       expect(confirmCall?.[1]?.body).toEqual(expect.stringContaining('"default_ledger_id":"ledger-1"'))
     })
     expect(window.localStorage.getItem('xledger.import.defaults')).toContain('acc-1')
+  })
+
+  it('drops stale import defaults that are no longer in account or ledger options', async () => {
+    window.localStorage.setItem('xledger.import.defaults', JSON.stringify({
+      accountId: 'missing-account',
+      ledgerId: 'missing-ledger',
+    }))
+    const fetchMock = createTransactionsFetchMock()
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /import/i }))
+    const file = new File(
+      ['posted_at,value,details\n2026-03-01 12:30:45,25,Lunch'],
+      'custom-ledger.csv',
+      { type: 'text/csv' },
+    )
+    await user.upload(screen.getByLabelText(/csv file/i), file)
+    await user.click(screen.getByRole('button', { name: /preview import/i }))
+
+    await screen.findByRole('heading', { name: /field mapping/i })
+    await user.selectOptions(screen.getByLabelText(/date column/i), 'posted_at')
+    await user.selectOptions(screen.getByLabelText(/amount column/i), 'value')
+    await user.selectOptions(screen.getByLabelText(/memo column/i), 'details')
+    await waitFor(() => {
+      expect(screen.getByLabelText(/default account/i)).toHaveValue('acc-1')
+      expect(screen.getByLabelText(/default ledger/i)).toHaveValue('ledger-1')
+    })
+
+    await user.click(screen.getByRole('button', { name: /confirm import/i }))
+
+    await waitFor(() => {
+      const confirmCall = fetchMock.mock.calls.find(([url, init]) => (
+        String(url).includes('/api/import/csv/confirm') && init?.method === 'POST'
+      ))
+      expect(confirmCall).toBeTruthy()
+      expect(confirmCall?.[1]?.body).not.toEqual(expect.stringContaining('missing-account'))
+      expect(confirmCall?.[1]?.body).not.toEqual(expect.stringContaining('missing-ledger'))
+      expect(confirmCall?.[1]?.body).toEqual(expect.stringContaining('"default_account_id":"acc-1"'))
+      expect(confirmCall?.[1]?.body).toEqual(expect.stringContaining('"default_ledger_id":"ledger-1"'))
+    })
   })
 
   it('confirms imports when preview-normalized headers hide a CSV BOM marker', async () => {
@@ -681,7 +780,7 @@ describe('transactions domain', () => {
 
     await waitFor(() => {
       const confirmCall = fetchMock.mock.calls.find(([url, init]) => (
-        String(url).endsWith('/api/import/csv/confirm') && init?.method === 'POST'
+        String(url).includes('/api/import/csv/confirm') && init?.method === 'POST'
       ))
       expect(confirmCall).toBeTruthy()
       const body = JSON.parse(String(confirmCall?.[1]?.body))
@@ -797,9 +896,9 @@ describe('transactions domain', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /import results/i })).toBeInTheDocument()
-      expect(screen.getByText(/1 imported/i)).toBeInTheDocument()
-      expect(screen.getByText(/1 skipped/i)).toBeInTheDocument()
-      expect(screen.getByText(/1 failed/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/1 imported/i).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/1 skipped/i).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/1 failed/i).length).toBeGreaterThan(0)
       expect(screen.getAllByText(/duplicate transaction/i).length).toBeGreaterThan(0)
       expect(screen.getByText(/invalid row/i)).toBeInTheDocument()
     })
@@ -808,6 +907,131 @@ describe('transactions domain', () => {
 
     expect(createObjectURL).toHaveBeenCalled()
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:import-problems')
+  })
+
+  it('shows import progress while confirmation is saving rows', async () => {
+    let resolveConfirm: ((response: Response) => void) | undefined
+    const baseFetchMock = createTransactionsFetchMock()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/import/csv/confirm?async=true') && init?.method === 'POST') {
+        return new Promise<Response>((resolve) => {
+          resolveConfirm = resolve
+        })
+      }
+      if (url.endsWith('/api/import/csv/jobs/progress-job')) {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: '成功',
+            data: { job_id: 'progress-job', status: 'succeeded', total_rows: 3, processed_rows: 3, success_count: 3, skip_count: 0, fail_count: 0, rows: [] },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      return baseFetchMock(input, init)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /import/i }))
+    const file = new File(
+      ['date,amount,description\n2026-03-01,25,Lunch\n2026-03-02,30,Dinner\n2026-03-03,10,Coffee'],
+      'transactions.csv',
+      { type: 'text/csv' },
+    )
+    await user.upload(screen.getByLabelText(/csv file/i), file)
+    await user.click(screen.getByRole('button', { name: /preview import/i }))
+    await screen.findByText(/detected columns/i)
+    await user.click(screen.getByRole('button', { name: /confirm import/i }))
+
+    expect(await screen.findByRole('progressbar', { name: /import progress/i })).toBeInTheDocument()
+    expect(screen.getByText(/saving 3 rows/i)).toBeInTheDocument()
+
+    resolveConfirm?.(new Response(
+      JSON.stringify({
+        code: 'OK',
+        message: '成功',
+        data: { job_id: 'progress-job', status: 'running', total_rows: 3, processed_rows: 0, success_count: 0, skip_count: 0, fail_count: 0, rows: [] },
+      }),
+      { status: 202, headers: { 'Content-Type': 'application/json' } },
+    ))
+    await waitFor(() => {
+      expect(screen.getAllByText(/3 imported/i).length).toBeGreaterThan(0)
+    }, { timeout: 3000 })
+  })
+
+  it('submits import confirmation as a background job and renders polled results', async () => {
+    let statusPollCount = 0
+    const baseFetchMock = createTransactionsFetchMock()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/import/csv/confirm?async=true') && init?.method === 'POST') {
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: '成功',
+            data: { job_id: 'background-import-1', status: 'running', total_rows: 3, processed_rows: 0 },
+          }),
+          { status: 202, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      if (url.endsWith('/api/import/csv/jobs/background-import-1')) {
+        statusPollCount += 1
+        return new Response(
+          JSON.stringify({
+            code: 'OK',
+            message: '成功',
+            data: statusPollCount === 1
+              ? { job_id: 'background-import-1', status: 'running', total_rows: 3, processed_rows: 1 }
+              : {
+                  job_id: 'background-import-1',
+                  status: 'succeeded',
+                  total_rows: 3,
+                  processed_rows: 3,
+                  success_count: 3,
+                  skip_count: 0,
+                  fail_count: 0,
+                  rows: [
+                    { row_index: 0, status: 'success' },
+                    { row_index: 1, status: 'success' },
+                    { row_index: 2, status: 'success' },
+                  ],
+                },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      return baseFetchMock(input, init)
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    renderTransactionsApp(['/transactions'])
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /import/i }))
+    const file = new File(
+      ['date,amount,description\n2026-03-01,25,Lunch\n2026-03-02,30,Dinner\n2026-03-03,10,Coffee'],
+      'transactions.csv',
+      { type: 'text/csv' },
+    )
+    await user.upload(screen.getByLabelText(/csv file/i), file)
+    await user.click(screen.getByRole('button', { name: /preview import/i }))
+    await screen.findByText(/detected columns/i)
+    await user.click(screen.getByRole('button', { name: /confirm import/i }))
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith('/api/import/csv/confirm?async=true'))).toBe(true)
+    })
+    const statusPanel = await screen.findByTestId('import-status-panel')
+    expect(within(statusPanel).getByText(/import task is running in the background/i)).toBeInTheDocument()
+    expect(within(statusPanel).getByRole('progressbar', { name: /import progress/i })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getAllByText(/3 imported/i).length).toBeGreaterThan(0)
+      expect(within(screen.getByTestId('import-status-panel')).getByText(/3 imported, 0 skipped, 0 failed/i)).toBeInTheDocument()
+    }, { timeout: 3000 })
   })
 
   it('exports the current filtered transaction range as a CSV file', async () => {
@@ -854,8 +1078,8 @@ describe('transactions domain', () => {
     expect(exportUrl).toContain('account_id=acc-1')
     expect(exportUrl).toContain('ledger_id=ledger-1')
     expect(exportUrl).toContain('q=Coffee')
-    expect(exportUrl).toContain('from=')
-    expect(exportUrl).toContain('to=')
+    expect(exportUrl).not.toContain('from=')
+    expect(exportUrl).not.toContain('to=')
     expect(createObjectURL).toHaveBeenCalled()
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:transactions-export')
   })

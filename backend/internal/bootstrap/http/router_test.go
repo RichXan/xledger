@@ -418,6 +418,58 @@ func TestPATEndpoints_AccessOnly_GETPOSTDELETE_On_api_settings_tokens(t *testing
 	performJSON(t, r, http.MethodGet, "/api/personal-access-tokens", ``, "pat:pat-admin@example.com", http.StatusUnauthorized)
 }
 
+func TestQuickAddPreviewAndConfirm_AcceptsPATBoundUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	deps := newDefaultBusinessDeps()
+	userID := "quick-add-user"
+	ledger, err := deps.ledgerRepo.Create(userID, accounting.LedgerCreateInput{Name: "Daily", IsDefault: true})
+	if err != nil {
+		t.Fatalf("seed ledger: %v", err)
+	}
+	patToken := issuePATToken(t, deps.patService, userID)
+	now := func() time.Time { return time.Date(2026, 6, 1, 8, 0, 0, 0, time.UTC) }
+	authRepo := auth.NewInMemoryRepository(now)
+	authHandler := auth.NewHandler(auth.NewCodeService(authRepo, &countingSender{}, nil, now, func() string { return "123456" }))
+	accountingHandler := newDefaultAccountingHandler(deps)
+	portabilityHandler := newDefaultPortabilityHandler(deps)
+	router, err := NewRouterWithDependencies([]string{"127.0.0.1", "::1"}, Dependencies{
+		AuthHandler:        authHandler,
+		AccountingHandler:  accountingHandler,
+		PortabilityHandler: portabilityHandler,
+		PATService:         deps.patService,
+	})
+	if err != nil {
+		t.Fatalf("router: %v", err)
+	}
+
+	generateReq := httptest.NewRequest(http.MethodPost, "/api/shortcuts/generate", strings.NewReader(`{"default_ledger_id":"`+ledger.ID+`","mode":"ocr_confirm"}`))
+	generateReq.Header.Set("Content-Type", "application/json")
+	generateReq.Header.Set("Authorization", "Bearer "+patToken)
+	generateRec := httptest.NewRecorder()
+	router.ServeHTTP(generateRec, generateReq)
+	if generateRec.Code != http.StatusOK {
+		t.Fatalf("generate status=%d body=%s", generateRec.Code, generateRec.Body.String())
+	}
+
+	previewReq := httptest.NewRequest(http.MethodPost, "/api/quick-add/preview", strings.NewReader(`{"raw_text":"微信支付\n收款方：瑞幸咖啡\n支付金额 ￥35.00","source":"ios_shortcuts_ocr","idempotency_key":"qe-router"}`))
+	previewReq.Header.Set("Content-Type", "application/json")
+	previewReq.Header.Set("Authorization", "Bearer "+patToken)
+	previewRec := httptest.NewRecorder()
+	router.ServeHTTP(previewRec, previewReq)
+	if previewRec.Code != http.StatusOK {
+		t.Fatalf("preview status=%d body=%s", previewRec.Code, previewRec.Body.String())
+	}
+
+	confirmReq := httptest.NewRequest(http.MethodPost, "/api/quick-add/confirm", strings.NewReader(`{"idempotency_key":"qe-router","ledger_id":"`+ledger.ID+`","type":"expense","amount":35,"memo":"瑞幸咖啡 · 微信支付"}`))
+	confirmReq.Header.Set("Content-Type", "application/json")
+	confirmReq.Header.Set("Authorization", "Bearer "+patToken)
+	confirmRec := httptest.NewRecorder()
+	router.ServeHTTP(confirmRec, confirmReq)
+	if confirmRec.Code != http.StatusCreated {
+		t.Fatalf("confirm status=%d body=%s", confirmRec.Code, confirmRec.Body.String())
+	}
+}
+
 func performJSON(t *testing.T, handler http.Handler, method string, path string, body string, accessToken string, wantStatus int) map[string]any {
 	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))

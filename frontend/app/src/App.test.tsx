@@ -145,7 +145,7 @@ describe('App shell', () => {
 
     expect(screen.getByRole('heading', { name: /use on mobile device/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/mobile entry qr code/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /switch to mobile version/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /switch to mobile version/i })).not.toBeInTheDocument()
   })
 
   it('renders the mobile install guide as a protected app page', async () => {

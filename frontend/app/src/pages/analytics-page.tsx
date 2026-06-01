@@ -293,6 +293,7 @@ export function AnalyticsPage() {
     pageSize: 8,
     dateFrom: activeBar?.from,
     dateTo: activeBar?.to,
+    preservePreviousData: true,
   })
   const activeTransactions = activeTransactionsQuery.data?.items ?? []
 
@@ -686,7 +687,7 @@ export function AnalyticsPage() {
           )}
 
           {activeBar ? (
-            <div className="mt-5 rounded-2xl border border-outline/10 bg-surface-container-low p-4">
+            <div className="mt-5 min-h-[212px] rounded-2xl border border-outline/10 bg-surface-container-low p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h4 className="text-sm font-bold text-on-surface">{t('analyticsPage.selectedTransactions')}</h4>
@@ -711,7 +712,7 @@ export function AnalyticsPage() {
                 </div>
               </div>
 
-              {activeTransactionsQuery.isLoading ? (
+              {activeTransactionsQuery.isLoading && activeTransactions.length === 0 ? (
                 <p className="mt-4 text-sm text-on-surface-variant">{t('common.loading')}</p>
               ) : activeTransactions.length > 0 ? (
                 <div className="mt-4 grid gap-2 md:grid-cols-2">
