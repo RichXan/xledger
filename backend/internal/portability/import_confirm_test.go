@@ -91,6 +91,31 @@ func TestImportConfirm_SkipsExistingRowsAcrossRequestKeys(t *testing.T) {
 	}
 }
 
+func TestImportConfirm_AllowsSameRowsForDifferentUsers(t *testing.T) {
+	repo := NewRepository(func() time.Time { return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC) })
+	service := NewImportConfirmService(repo)
+	req := ImportConfirmRequest{Rows: []ImportRow{{Date: "2026-03-01", Amount: 10, Description: "same csv row"}}}
+
+	first, err := service.Confirm("user-1", "same-csv", req)
+	if err != nil {
+		t.Fatalf("unexpected first user confirm error: %v", err)
+	}
+	second, err := service.Confirm("user-2", "same-csv", req)
+	if err != nil {
+		t.Fatalf("unexpected second user confirm error: %v", err)
+	}
+
+	if first.SuccessCount != 1 || first.SkipCount != 0 {
+		t.Fatalf("expected first user import to succeed, got %#v", first)
+	}
+	if second.SuccessCount != 1 || second.SkipCount != 0 {
+		t.Fatalf("expected second user import to succeed independently, got %#v", second)
+	}
+	if repo.StoredRowCount("user-1") != 1 || repo.StoredRowCount("user-2") != 1 {
+		t.Fatalf("expected each user to have one stored import row, user-1=%d user-2=%d", repo.StoredRowCount("user-1"), repo.StoredRowCount("user-2"))
+	}
+}
+
 func TestImportConfirm_DeduplicatesAgainstExistingTransactions(t *testing.T) {
 	repo := NewRepository(func() time.Time { return time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC) })
 	if err := repo.SaveImportedTransaction("user-1", ImportRow{Date: "2026-03-01", Amount: 10, Description: "ok"}); err != nil {
